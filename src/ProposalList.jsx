@@ -22,12 +22,33 @@ const ACTIVITY_TYPES = [
   '📝 Contract Negotiation'
 ]
 
+// 4 Institutional Governance Gates
+const GOVERNANCE_GATES = [
+  { id: 'tor_aligned', label: 'TOR & Scope Methodology Aligned' },
+  { id: 'cvs_attached', label: 'Institutional Credentials & Expert CVs Packaged' },
+  { id: 'finance_audited', label: 'Financial Quotation & Tax/Fee Audited' },
+  { id: 'director_signoff', label: 'SBU Head & Managing Director Sign-Off' },
+]
+
 function formatMoney(amount) {
   if (!amount || isNaN(amount)) return 'ETB 0.00'
   return `ETB ${new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount)}`
+}
+
+function parseGates(notes) {
+  if (!notes) return []
+  const match = notes.match(/\[GATES:([^\]]*)\]/)
+  if (!match) return []
+  return match[1].split(',').map((s) => s.trim()).filter(Boolean)
+}
+
+function stringifyGatesWithNotes(gates, existingNotes) {
+  const gateTag = `[GATES: ${gates.join(', ')}]`
+  const cleanNotes = (existingNotes || '').replace(/\[GATES:[^\]]*\]\n?/, '').trim()
+  return cleanNotes ? `${gateTag}\n\n${cleanNotes}` : gateTag
 }
 
 function getDealHealth(deal) {
@@ -110,7 +131,26 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
+  // Go / No-Go Compliance Gate Validation
+  function validateGovernanceGate(deal, newStatus) {
+    if (['Submitted', 'Won'].includes(newStatus)) {
+      const clearedGates = parseGates(deal.notes)
+      if (clearedGates.length < GOVERNANCE_GATES.length) {
+        const missingCount = GOVERNANCE_GATES.length - clearedGates.length
+        return window.confirm(
+          `⚠️ Tender Governance Gate Alert:\n\nThis proposal has cleared ${clearedGates.length} of ${GOVERNANCE_GATES.length} mandatory compliance gates (${missingCount} pending).\n\nInstitutional compliance requires complete TOR, CV, and financial verification.\n\nDo you want to proceed advancing to "${newStatus}" anyway?`
+        )
+      }
+    }
+    return true
+  }
+
   async function handleQuickStatusChange(id, newStatus) {
+    const deal = proposals.find((p) => p.id === id)
+    if (deal && !validateGovernanceGate(deal, newStatus)) {
+      return
+    }
+
     try {
       const { error: updateErr } = await supabase
         .from('proposals')
@@ -162,7 +202,38 @@ export default function ProposalList({ proposalVersion }) {
     if (!dealId) return
     const deal = proposals.find((p) => p.id === dealId)
     if (deal && deal.status !== targetStage) {
+      if (!validateGovernanceGate(deal, targetStage)) {
+        return
+      }
       await handleQuickStatusChange(dealId, targetStage)
+    }
+  }
+
+  // Toggle individual gate inside the deal drawer
+  async function handleToggleGate(gateId) {
+    if (!selectedDeal) return
+    const currentGates = parseGates(selectedDeal.notes)
+    const exists = currentGates.includes(gateId)
+    const nextGates = exists
+      ? currentGates.filter((g) => g !== gateId)
+      : [...currentGates, gateId]
+
+    const updatedNotes = stringifyGatesWithNotes(nextGates, selectedDeal.notes)
+    const updatedDeal = { ...selectedDeal, notes: updatedNotes }
+
+    setSelectedDeal(updatedDeal)
+    setProposals((prev) =>
+      prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
+    )
+
+    // Save silently to Supabase
+    try {
+      await supabase
+        .from('proposals')
+        .update({ notes: updatedNotes })
+        .eq('id', selectedDeal.id)
+    } catch (err) {
+      console.error('Failed to sync checklist gate:', err)
     }
   }
 
@@ -178,7 +249,7 @@ export default function ProposalList({ proposalVersion }) {
           status: selectedDeal.status,
           submission_deadline: selectedDeal.submission_deadline || null,
           document_url: selectedDeal.document_url || null,
-          notes: selectedDeal.notes || null
+          notes: selectedDeal.notes || null,
         })
         .eq('id', selectedDeal.id)
 
@@ -213,13 +284,15 @@ export default function ProposalList({ proposalVersion }) {
         logEntry += ` (Due: ${nextActionDate})`
       }
 
-      const updatedNotes = selectedDeal.notes
-        ? `${logEntry}\n\n${selectedDeal.notes}`
-        : logEntry
+      // Preserve gate tag if present
+      const currentGates = parseGates(selectedDeal.notes)
+      const cleanExistingNotes = (selectedDeal.notes || '').replace(/\[GATES:[^\]]*\]\n?/, '').trim()
+      const combinedNotes = cleanExistingNotes ? `${logEntry}\n\n${cleanExistingNotes}` : logEntry
+      const finalNotes = stringifyGatesWithNotes(currentGates, combinedNotes)
 
       const { error: propErr } = await supabase
         .from('proposals')
-        .update({ notes: updatedNotes })
+        .update({ notes: finalNotes })
         .eq('id', selectedDeal.id)
 
       if (propErr) throw propErr
@@ -231,14 +304,14 @@ export default function ProposalList({ proposalVersion }) {
             activity_type: activityType,
             remarks: activityNote,
             next_action: nextActionCommitment || null,
-            next_action_date: nextActionDate || null
-          }
+            next_action_date: nextActionDate || null,
+          },
         ])
-      } catch (logTableErr) {
+      } catch {
         // Fallback silently if table schema differs
       }
 
-      const updatedDeal = { ...selectedDeal, notes: updatedNotes }
+      const updatedDeal = { ...selectedDeal, notes: finalNotes }
       setSelectedDeal(updatedDeal)
       setProposals((prev) =>
         prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
@@ -379,7 +452,7 @@ export default function ProposalList({ proposalVersion }) {
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       {loading && <p style={{ color: '#64748b' }}>Loading pipeline data…</p>}
 
-      {/* 1. KANBAN BOARD WITH NATIVE DRAG AND DROP */}
+      {/* 1. KANBAN BOARD */}
       {!loading && viewMode === 'board' && (
         <div
           style={{
@@ -458,6 +531,8 @@ export default function ProposalList({ proposalVersion }) {
                     const sbuName = deal.opportunities?.sbus?.name || 'SBU'
                     const health = getDealHealth(deal)
                     const isBeingDragged = draggedDealId === deal.id
+                    const gates = parseGates(deal.notes)
+                    const isGatesComplete = gates.length === GOVERNANCE_GATES.length
 
                     return (
                       <div
@@ -519,7 +594,7 @@ export default function ProposalList({ proposalVersion }) {
                           style={{
                             fontSize: 12,
                             color: '#475569',
-                            margin: '0 0 10px 0',
+                            margin: '0 0 8px 0',
                             display: '-webkit-box',
                             WebkitLineClamp: 2,
                             WebkitBoxOrient: 'vertical',
@@ -528,6 +603,23 @@ export default function ProposalList({ proposalVersion }) {
                         >
                           {deal.title}
                         </p>
+
+                        {/* Governance Gate Badge on Card */}
+                        <div style={{ marginBottom: 8 }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              borderRadius: 4,
+                              background: isGatesComplete ? '#dcfce7' : gates.length > 0 ? '#fef3c7' : '#f1f5f9',
+                              color: isGatesComplete ? '#166534' : gates.length > 0 ? '#92400e' : '#64748b',
+                              border: `1px solid ${isGatesComplete ? '#bbf7d0' : gates.length > 0 ? '#fde68a' : '#e2e8f0'}`,
+                            }}
+                          >
+                            {isGatesComplete ? '🛡️ 4/4 Gates Cleared' : gates.length > 0 ? `⚠️ ${gates.length}/4 Gates` : '⚪ 0/4 Gates'}
+                          </span>
+                        </div>
 
                         <div
                           style={{
@@ -601,15 +693,18 @@ export default function ProposalList({ proposalVersion }) {
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Client</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Scope / Title</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>SBU</th>
+                <th style={{ padding: '10px 14px', color: '#475569' }}>Governance Gate</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Deal Health</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Status</th>
-                <th style={{ padding: '10px 14px', color: '#475569' }}>Deadline</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Value (ETB)</th>
               </tr>
             </thead>
             <tbody>
               {filteredProposals.map((deal) => {
                 const health = getDealHealth(deal)
+                const gates = parseGates(deal.notes)
+                const isGatesComplete = gates.length === GOVERNANCE_GATES.length
+
                 return (
                   <tr
                     key={deal.id}
@@ -634,6 +729,21 @@ export default function ProposalList({ proposalVersion }) {
                         }}
                       >
                         {deal.opportunities?.sbus?.name || '—'}
+                      </span>
+                    </td>
+                    {/* Compliance Gate Column */}
+                    <td style={{ padding: '10px 14px' }}>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: 12,
+                          background: isGatesComplete ? '#dcfce7' : gates.length > 0 ? '#fef3c7' : '#f1f5f9',
+                          color: isGatesComplete ? '#166534' : gates.length > 0 ? '#92400e' : '#64748b',
+                        }}
+                      >
+                        {isGatesComplete ? '🛡️ 4/4 Cleared' : gates.length > 0 ? `⚠️ ${gates.length}/4 Gates` : '⚪ 0/4'}
                       </span>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
@@ -669,9 +779,6 @@ export default function ProposalList({ proposalVersion }) {
                           </option>
                         ))}
                       </select>
-                    </td>
-                    <td style={{ padding: '10px 14px', color: '#64748b' }}>
-                      {deal.submission_deadline || '—'}
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a' }}>
                       {formatMoney(deal.deal_value_etb)}
@@ -758,6 +865,95 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
+            {/* --- GOVERNANCE & SUBMISSION CHECKLIST (GO / NO-GO GATE) --- */}
+            <div
+              style={{
+                marginTop: 18,
+                padding: 16,
+                background: '#f8fafc',
+                borderRadius: 8,
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <h4 style={{ margin: 0, fontSize: 13, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🛡️ Tender & Bid Governance Gate
+                </h4>
+                {(() => {
+                  const gates = parseGates(selectedDeal.notes)
+                  const count = gates.length
+                  return (
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: 12,
+                        backgroundColor: count === 4 ? '#dcfce7' : count > 0 ? '#fef3c7' : '#fee2e2',
+                        color: count === 4 ? '#166534' : count > 0 ? '#92400e' : '#b91c1c',
+                      }}
+                    >
+                      {count} of 4 Gates Passed
+                    </span>
+                  )
+                })()}
+              </div>
+              <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#64748b' }}>
+                Mandatory compliance milestones required before client submission:
+              </p>
+
+              {/* Progress Bar */}
+              {(() => {
+                const gates = parseGates(selectedDeal.notes)
+                const pct = Math.round((gates.length / GOVERNANCE_GATES.length) * 100)
+                return (
+                  <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
+                    <div
+                      style={{
+                        height: '100%',
+                        width: `${pct}%`,
+                        background: pct === 100 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#3b82f6',
+                        transition: 'width 0.3s ease',
+                      }}
+                    />
+                  </div>
+                )
+              })()}
+
+              {/* Interactive Gate Toggles */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {GOVERNANCE_GATES.map((gate) => {
+                  const isChecked = parseGates(selectedDeal.notes).includes(gate.id)
+                  return (
+                    <label
+                      key={gate.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        fontSize: 12,
+                        fontWeight: isChecked ? 600 : 500,
+                        color: isChecked ? '#0f172a' : '#64748b',
+                        cursor: 'pointer',
+                        padding: '4px 6px',
+                        borderRadius: 4,
+                        backgroundColor: isChecked ? '#ecfdf5' : 'transparent',
+                        transition: 'background-color 0.15s ease',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => handleToggleGate(gate.id)}
+                        style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                      />
+                      <span>{gate.label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+
             {/* Quick Activity & Follow-Up Logger Box */}
             <div
               style={{
@@ -793,7 +989,7 @@ export default function ProposalList({ proposalVersion }) {
 
                 <textarea
                   rows={2}
-                  placeholder="Conversation notes (e.g. Discussed proposal with Board Chair, requested revised budget)..."
+                  placeholder="Conversation notes (e.g. Reviewed RFP requirements with CEO, requested revised dates)..."
                   value={activityNote}
                   onChange={(e) => setActivityNote(e.target.value)}
                   style={{
@@ -808,7 +1004,7 @@ export default function ProposalList({ proposalVersion }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <input
                     type="text"
-                    placeholder="Next commitment (e.g. Send revised budget)"
+                    placeholder="Next commitment (e.g. Submit bid document)"
                     value={nextActionCommitment}
                     onChange={(e) => setNextActionCommitment(e.target.value)}
                     style={{
@@ -886,7 +1082,12 @@ export default function ProposalList({ proposalVersion }) {
                   </label>
                   <select
                     value={selectedDeal.status}
-                    onChange={(e) => setSelectedDeal({ ...selectedDeal, status: e.target.value })}
+                    onChange={(e) => {
+                      const newStatus = e.target.value
+                      if (validateGovernanceGate(selectedDeal, newStatus)) {
+                        setSelectedDeal({ ...selectedDeal, status: newStatus })
+                      }
+                    }}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
                   >
                     {STAGES.map((s) => (
@@ -912,7 +1113,7 @@ export default function ProposalList({ proposalVersion }) {
 
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                  Google Drive Proposal / Folder Link
+                  Google Drive / Document Vault Link
                 </label>
                 <input
                   type="url"
@@ -928,7 +1129,7 @@ export default function ProposalList({ proposalVersion }) {
                   Touchpoint History & Audit Log
                 </label>
                 <textarea
-                  rows={6}
+                  rows={5}
                   placeholder="Activity entries will appear here automatically..."
                   value={selectedDeal.notes || ''}
                   onChange={(e) => setSelectedDeal({ ...selectedDeal, notes: e.target.value })}
