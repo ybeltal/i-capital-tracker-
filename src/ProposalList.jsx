@@ -12,12 +12,39 @@ const STAGES = [
   'Lost'
 ]
 
+const ACTIVITY_TYPES = [
+  '📞 Phone Call',
+  '🤝 In-Person Meeting',
+  '💻 Virtual Presentation',
+  '📧 Email / Scope Sent',
+  '💬 WhatsApp / Message',
+  '🏛️ Board / Committee Feedback',
+  '📝 Contract Negotiation'
+]
+
 function formatMoney(amount) {
   if (!amount || isNaN(amount)) return 'ETB 0.00'
   return `ETB ${new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount)}`
+}
+
+function getDealHealth(deal) {
+  if (['Won', 'Lost', 'Cancelled'].includes(deal.status)) {
+    return { label: '⚪ Closed', color: '#64748b', bg: '#f1f5f9', border: '#cbd5e1', status: 'closed', days: 0 }
+  }
+
+  const createdTime = deal.created_at ? new Date(deal.created_at).getTime() : Date.now()
+  const days = Math.max(0, Math.floor((Date.now() - createdTime) / (1000 * 60 * 60 * 24)))
+
+  if (days <= 14) {
+    return { label: `🟢 Active (${days}d)`, color: '#047857', bg: '#ecfdf5', border: '#a7f3d0', status: 'active', days }
+  } else if (days <= 30) {
+    return { label: `🟡 Follow-Up (${days}d)`, color: '#b45309', bg: '#fffbeb', border: '#fde68a', status: 'attention', days }
+  } else {
+    return { label: `🔴 Stale (${days}d)`, color: '#b91c1c', bg: '#fef2f2', border: '#fecaca', status: 'stale', days }
+  }
 }
 
 export default function ProposalList({ proposalVersion }) {
@@ -27,10 +54,18 @@ export default function ProposalList({ proposalVersion }) {
   const [viewMode, setViewMode] = useState('board')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterSBU, setFilterSBU] = useState('ALL')
+  const [filterHealth, setFilterHealth] = useState('ALL')
 
-  // HubSpot Deal Drawer State
+  // Slide-over Drawer State
   const [selectedDeal, setSelectedDeal] = useState(null)
   const [saving, setSaving] = useState(false)
+
+  // Quick Activity Log State
+  const [activityType, setActivityType] = useState(ACTIVITY_TYPES[0])
+  const [activityNote, setActivityNote] = useState('')
+  const [nextActionCommitment, setNextActionCommitment] = useState('')
+  const [nextActionDate, setNextActionDate] = useState('')
+  const [loggingActivity, setLoggingActivity] = useState(false)
 
   useEffect(() => {
     loadProposals()
@@ -116,11 +151,76 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
+  async function handleLogActivity(e) {
+    e.preventDefault()
+    if (!activityNote.trim() && !nextActionCommitment.trim()) {
+      alert('Please enter a note or next action commitment.')
+      return
+    }
+
+    setLoggingActivity(true)
+    try {
+      const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 16)
+      let logEntry = `[${timestamp}] ${activityType}: ${activityNote.trim()}`
+      if (nextActionCommitment.trim()) {
+        logEntry += ` | Next: ${nextActionCommitment.trim()}`
+      }
+      if (nextActionDate) {
+        logEntry += ` (Due: ${nextActionDate})`
+      }
+
+      const updatedNotes = selectedDeal.notes
+        ? `${logEntry}\n\n${selectedDeal.notes}`
+        : logEntry
+
+      // 1. Update the proposal notes
+      const { error: propErr } = await supabase
+        .from('proposals')
+        .update({ notes: updatedNotes })
+        .eq('id', selectedDeal.id)
+
+      if (propErr) throw propErr
+
+      // 2. Also record in follow_up_logs if available
+      try {
+        await supabase.from('follow_up_logs').insert([
+          {
+            proposal_id: selectedDeal.id,
+            activity_type: activityType,
+            remarks: activityNote,
+            next_action: nextActionCommitment || null,
+            next_action_date: nextActionDate || null
+          }
+        ])
+      } catch (logTableErr) {
+        // Fallback silently if table schema differs
+      }
+
+      // Update local state
+      const updatedDeal = { ...selectedDeal, notes: updatedNotes }
+      setSelectedDeal(updatedDeal)
+      setProposals((prev) =>
+        prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
+      )
+
+      // Reset form
+      setActivityNote('')
+      setNextActionCommitment('')
+      setNextActionDate('')
+      alert('Activity logged successfully!')
+    } catch (err) {
+      alert('Could not log activity: ' + err.message)
+    } finally {
+      setLoggingActivity(false)
+    }
+  }
+
   const filteredProposals = proposals.filter((p) => {
     const clientName = p.opportunities?.clients?.name?.toLowerCase() || ''
     const title = p.title?.toLowerCase() || ''
     const code = p.proposal_code?.toLowerCase() || ''
     const sbu = p.opportunities?.sbus?.name || ''
+    const health = getDealHealth(p)
 
     const matchesSearch =
       clientName.includes(searchQuery.toLowerCase()) ||
@@ -128,7 +228,9 @@ export default function ProposalList({ proposalVersion }) {
       code.includes(searchQuery.toLowerCase())
 
     const matchesSBU = filterSBU === 'ALL' || sbu === filterSBU
-    return matchesSearch && matchesSBU
+    const matchesHealth = filterHealth === 'ALL' || health.status === filterHealth
+
+    return matchesSearch && matchesSBU && matchesHealth
   })
 
   return (
@@ -144,7 +246,7 @@ export default function ProposalList({ proposalVersion }) {
           marginBottom: 20,
         }}
       >
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <input
             type="text"
             placeholder="Search by client, title, or code..."
@@ -154,7 +256,7 @@ export default function ProposalList({ proposalVersion }) {
               padding: '8px 14px',
               borderRadius: 6,
               border: '1px solid #cbd5e1',
-              width: '280px',
+              width: '240px',
               fontSize: 13,
             }}
           />
@@ -175,6 +277,24 @@ export default function ProposalList({ proposalVersion }) {
             <option value="CBS">CBS</option>
             <option value="DAS">DAS</option>
             <option value="IIP">IIP</option>
+          </select>
+
+          <select
+            value={filterHealth}
+            onChange={(e) => setFilterHealth(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              fontSize: 13,
+              backgroundColor: '#fff',
+            }}
+          >
+            <option value="ALL">All Deal Health</option>
+            <option value="active">🟢 Active (&lt; 14d)</option>
+            <option value="attention">🟡 Follow-Up (14–30d)</option>
+            <option value="stale">🔴 Stale (&gt; 30d)</option>
+            <option value="closed">⚪ Closed</option>
           </select>
         </div>
 
@@ -238,8 +358,8 @@ export default function ProposalList({ proposalVersion }) {
               <div
                 key={stage}
                 style={{
-                  width: 280,
-                  minWidth: 280,
+                  width: 285,
+                  minWidth: 285,
                   background: '#f8fafc',
                   borderRadius: 8,
                   border: '1px solid #e2e8f0',
@@ -290,6 +410,7 @@ export default function ProposalList({ proposalVersion }) {
                   {stageDeals.map((deal) => {
                     const clientName = deal.opportunities?.clients?.name || 'Unassigned Client'
                     const sbuName = deal.opportunities?.sbus?.name || 'SBU'
+                    const health = getDealHealth(deal)
 
                     return (
                       <div
@@ -305,19 +426,35 @@ export default function ProposalList({ proposalVersion }) {
                           transition: 'transform 0.1s ease',
                         }}
                       >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                          <span
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              background: '#e0f2fe',
-                              color: '#0369a1',
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                            }}
-                          >
-                            {sbuName}
-                          </span>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                background: '#e0f2fe',
+                                color: '#0369a1',
+                                padding: '2px 6px',
+                                borderRadius: 4,
+                              }}
+                            >
+                              {sbuName}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 600,
+                                background: health.bg,
+                                color: health.color,
+                                border: `1px solid ${health.border}`,
+                                padding: '1px 6px',
+                                borderRadius: 4,
+                              }}
+                            >
+                              {health.label}
+                            </span>
+                          </div>
+
                           <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
                             {deal.proposal_code || 'PROPOSAL'}
                           </span>
@@ -410,65 +547,84 @@ export default function ProposalList({ proposalVersion }) {
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Client</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Scope / Title</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>SBU</th>
+                <th style={{ padding: '10px 14px', color: '#475569' }}>Deal Health</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Status</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Deadline</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Value (ETB)</th>
               </tr>
             </thead>
             <tbody>
-              {filteredProposals.map((deal) => (
-                <tr
-                  key={deal.id}
-                  onClick={() => setSelectedDeal({ ...deal })}
-                  style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
-                >
-                  <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0369a1' }}>
-                    {deal.proposal_code || '—'}
-                  </td>
-                  <td style={{ padding: '10px 14px', fontWeight: 600 }}>
-                    {deal.opportunities?.clients?.name || '—'}
-                  </td>
-                  <td style={{ padding: '10px 14px', color: '#334155' }}>{deal.title}</td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        background: '#f1f5f9',
-                        padding: '2px 6px',
-                        borderRadius: 4,
-                        fontWeight: 600,
-                      }}
-                    >
-                      {deal.opportunities?.sbus?.name || '—'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <select
-                      value={deal.status}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => handleQuickStatusChange(deal.id, e.target.value)}
-                      style={{
-                        fontSize: 12,
-                        padding: '3px 6px',
-                        borderRadius: 4,
-                        border: '1px solid #cbd5e1',
-                      }}
-                    >
-                      {STAGES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={{ padding: '10px 14px', color: '#64748b' }}>
-                    {deal.submission_deadline || '—'}
-                  </td>
-                  <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a' }}>
-                    {formatMoney(deal.deal_value_etb)}
-                  </td>
-                </tr>
-              ))}
+              {filteredProposals.map((deal) => {
+                const health = getDealHealth(deal)
+                return (
+                  <tr
+                    key={deal.id}
+                    onClick={() => setSelectedDeal({ ...deal })}
+                    style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                  >
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0369a1' }}>
+                      {deal.proposal_code || '—'}
+                    </td>
+                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>
+                      {deal.opportunities?.clients?.name || '—'}
+                    </td>
+                    <td style={{ padding: '10px 14px', color: '#334155' }}>{deal.title}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          background: '#f1f5f9',
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {deal.opportunities?.sbus?.name || '—'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: health.bg,
+                          color: health.color,
+                          border: `1px solid ${health.border}`,
+                          padding: '2px 8px',
+                          borderRadius: 4,
+                        }}
+                      >
+                        {health.label}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <select
+                        value={deal.status}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => handleQuickStatusChange(deal.id, e.target.value)}
+                        style={{
+                          fontSize: 12,
+                          padding: '3px 6px',
+                          borderRadius: 4,
+                          border: '1px solid #cbd5e1',
+                        }}
+                      >
+                        {STAGES.map((s) => (
+                          <option key={s} value={s}>
+                            {s}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={{ padding: '10px 14px', color: '#64748b' }}>
+                      {deal.submission_deadline || '—'}
+                    </td>
+                    <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a' }}>
+                      {formatMoney(deal.deal_value_etb)}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -489,7 +645,7 @@ export default function ProposalList({ proposalVersion }) {
           <div
             style={{
               width: '100%',
-              maxWidth: '520px',
+              maxWidth: '560px',
               height: '100vh',
               backgroundColor: '#ffffff',
               boxShadow: '-4px 0 25px rgba(0,0,0,0.15)',
@@ -502,18 +658,38 @@ export default function ProposalList({ proposalVersion }) {
             {/* Drawer Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e2e8f0', paddingBottom: 16 }}>
               <div>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    background: '#e0f2fe',
-                    color: '#0369a1',
-                    padding: '2px 8px',
-                    borderRadius: 4,
-                  }}
-                >
-                  {selectedDeal.opportunities?.sbus?.name || 'SBU'}
-                </span>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      background: '#e0f2fe',
+                      color: '#0369a1',
+                      padding: '2px 8px',
+                      borderRadius: 4,
+                    }}
+                  >
+                    {selectedDeal.opportunities?.sbus?.name || 'SBU'}
+                  </span>
+                  {(() => {
+                    const health = getDealHealth(selectedDeal)
+                    return (
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 600,
+                          background: health.bg,
+                          color: health.color,
+                          border: `1px solid ${health.border}`,
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                        }}
+                      >
+                        {health.label}
+                      </span>
+                    )
+                  })()}
+                </div>
                 <h3 style={{ margin: '8px 0 2px 0', color: '#0f172a' }}>
                   {selectedDeal.opportunities?.clients?.name || 'Client Deal'}
                 </h3>
@@ -528,8 +704,101 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* Editable Form */}
-            <form onSubmit={handleSaveDealDossier} style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
+            {/* Quick Activity & Follow-Up Logger Box */}
+            <div
+              style={{
+                marginTop: 18,
+                padding: 14,
+                background: '#f8fafc',
+                borderRadius: 8,
+                border: '1px solid #e2e8f0',
+              }}
+            >
+              <h4 style={{ margin: '0 0 10px 0', fontSize: 13, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                ⚡ Log Touchpoint & Schedule Next Action
+              </h4>
+
+              <form onSubmit={handleLogActivity} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <select
+                  value={activityType}
+                  onChange={(e) => setActivityType(e.target.value)}
+                  style={{
+                    padding: '7px 10px',
+                    borderRadius: 6,
+                    border: '1px solid #cbd5e1',
+                    fontSize: 12,
+                    backgroundColor: '#fff',
+                  }}
+                >
+                  {ACTIVITY_TYPES.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+
+                <textarea
+                  rows={2}
+                  placeholder="Conversation notes (e.g. Discussed proposal with Board Chair, requested revised budget)..."
+                  value={activityNote}
+                  onChange={(e) => setActivityNote(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    border: '1px solid #cbd5e1',
+                    fontSize: 12,
+                  }}
+                />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Next commitment (e.g. Send revised budget)"
+                    value={nextActionCommitment}
+                    onChange={(e) => setNextActionCommitment(e.target.value)}
+                    style={{
+                      padding: '7px 10px',
+                      borderRadius: 6,
+                      border: '1px solid #cbd5e1',
+                      fontSize: 12,
+                    }}
+                  />
+                  <input
+                    type="date"
+                    value={nextActionDate}
+                    onChange={(e) => setNextActionDate(e.target.value)}
+                    style={{
+                      padding: '7px 10px',
+                      borderRadius: 6,
+                      border: '1px solid #cbd5e1',
+                      fontSize: 12,
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loggingActivity}
+                  style={{
+                    padding: '7px 12px',
+                    background: '#0284c7',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 6,
+                    fontWeight: 600,
+                    fontSize: 12,
+                    cursor: loggingActivity ? 'not-allowed' : 'pointer',
+                    alignSelf: 'flex-start',
+                  }}
+                >
+                  {loggingActivity ? 'Recording…' : 'Save Touchpoint'}
+                </button>
+              </form>
+            </div>
+
+            {/* Editable Deal Dossier Form */}
+            <form onSubmit={handleSaveDealDossier} style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
                   Proposal Scope / Title
@@ -602,19 +871,28 @@ export default function ProposalList({ proposalVersion }) {
 
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                  Internal Notes & Strategy
+                  Touchpoint History & Audit Log
                 </label>
                 <textarea
-                  rows={4}
-                  placeholder="Client conversation notes, next steps, board meetings..."
+                  rows={6}
+                  placeholder="Activity entries will appear here automatically..."
                   value={selectedDeal.notes || ''}
                   onChange={(e) => setSelectedDeal({ ...selectedDeal, notes: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+                  style={{
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    border: '1px solid #cbd5e1',
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    background: '#f8fafc',
+                    lineHeight: 1.5,
+                  }}
                 />
               </div>
 
               {/* Bottom Actions */}
-              <div style={{ marginTop: 'auto', display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
+              <div style={{ marginTop: 10, display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
                 <button
                   type="button"
                   onClick={() => setSelectedDeal(null)}
@@ -627,7 +905,7 @@ export default function ProposalList({ proposalVersion }) {
                   disabled={saving}
                   style={{ flex: 2, padding: '9px', borderRadius: 6, border: 'none', background: '#ff7a59', color: '#fff', cursor: 'pointer', fontWeight: 700 }}
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? 'Saving...' : 'Save Dossier Changes'}
                 </button>
               </div>
             </form>
