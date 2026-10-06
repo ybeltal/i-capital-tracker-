@@ -56,6 +56,10 @@ export default function ProposalList({ proposalVersion }) {
   const [filterSBU, setFilterSBU] = useState('ALL')
   const [filterHealth, setFilterHealth] = useState('ALL')
 
+  // Drag-and-Drop state
+  const [draggedDealId, setDraggedDealId] = useState(null)
+  const [dragOverStage, setDragOverStage] = useState(null)
+
   // Slide-over Drawer State
   const [selectedDeal, setSelectedDeal] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -122,6 +126,46 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
+  // Drag & Drop Handlers
+  function handleDragStart(e, id) {
+    setDraggedDealId(id)
+    e.dataTransfer.setData('text/plain', id)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  function handleDragEnd() {
+    setDraggedDealId(null)
+    setDragOverStage(null)
+  }
+
+  function handleDragOver(e, stage) {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverStage !== stage) {
+      setDragOverStage(stage)
+    }
+  }
+
+  function handleDragLeave(e, stage) {
+    if (e.currentTarget.contains(e.relatedTarget)) return
+    if (dragOverStage === stage) {
+      setDragOverStage(null)
+    }
+  }
+
+  async function handleDrop(e, targetStage) {
+    e.preventDefault()
+    const dealId = e.dataTransfer.getData('text/plain') || draggedDealId
+    setDragOverStage(null)
+    setDraggedDealId(null)
+
+    if (!dealId) return
+    const deal = proposals.find((p) => p.id === dealId)
+    if (deal && deal.status !== targetStage) {
+      await handleQuickStatusChange(dealId, targetStage)
+    }
+  }
+
   async function handleSaveDealDossier(e) {
     e.preventDefault()
     setSaving(true)
@@ -173,7 +217,6 @@ export default function ProposalList({ proposalVersion }) {
         ? `${logEntry}\n\n${selectedDeal.notes}`
         : logEntry
 
-      // 1. Update the proposal notes
       const { error: propErr } = await supabase
         .from('proposals')
         .update({ notes: updatedNotes })
@@ -181,7 +224,6 @@ export default function ProposalList({ proposalVersion }) {
 
       if (propErr) throw propErr
 
-      // 2. Also record in follow_up_logs if available
       try {
         await supabase.from('follow_up_logs').insert([
           {
@@ -196,14 +238,12 @@ export default function ProposalList({ proposalVersion }) {
         // Fallback silently if table schema differs
       }
 
-      // Update local state
       const updatedDeal = { ...selectedDeal, notes: updatedNotes }
       setSelectedDeal(updatedDeal)
       setProposals((prev) =>
         prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
       )
 
-      // Reset form
       setActivityNote('')
       setNextActionCommitment('')
       setNextActionDate('')
@@ -339,7 +379,7 @@ export default function ProposalList({ proposalVersion }) {
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       {loading && <p style={{ color: '#64748b' }}>Loading pipeline data…</p>}
 
-      {/* 1. KANBAN BOARD */}
+      {/* 1. KANBAN BOARD WITH NATIVE DRAG AND DROP */}
       {!loading && viewMode === 'board' && (
         <div
           style={{
@@ -353,35 +393,41 @@ export default function ProposalList({ proposalVersion }) {
           {STAGES.map((stage) => {
             const stageDeals = filteredProposals.filter((p) => p.status === stage)
             const stageValue = stageDeals.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+            const isTargeted = dragOverStage === stage
 
             return (
               <div
                 key={stage}
+                onDragOver={(e) => handleDragOver(e, stage)}
+                onDragLeave={(e) => handleDragLeave(e, stage)}
+                onDrop={(e) => handleDrop(e, stage)}
                 style={{
                   width: 285,
                   minWidth: 285,
-                  background: '#f8fafc',
+                  background: isTargeted ? '#f0f9ff' : '#f8fafc',
                   borderRadius: 8,
-                  border: '1px solid #e2e8f0',
+                  border: isTargeted ? '2px dashed #0284c7' : '1px solid #e2e8f0',
                   display: 'flex',
                   flexDirection: 'column',
                   maxHeight: '75vh',
+                  transition: 'background-color 0.15s ease, border-color 0.15s ease',
                 }}
               >
                 <div
                   style={{
                     padding: '12px 14px',
                     borderBottom: '1px solid #e2e8f0',
-                    background: '#ffffff',
+                    background: isTargeted ? '#e0f2fe' : '#ffffff',
                     borderTopLeftRadius: 8,
                     borderTopRightRadius: 8,
+                    transition: 'background-color 0.15s ease',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 700, fontSize: 13, color: '#1e293b' }}>{stage}</span>
                     <span
                       style={{
-                        background: '#f1f5f9',
+                        background: isTargeted ? '#bae6fd' : '#f1f5f9',
                         padding: '2px 8px',
                         borderRadius: 12,
                         fontSize: 11,
@@ -411,10 +457,14 @@ export default function ProposalList({ proposalVersion }) {
                     const clientName = deal.opportunities?.clients?.name || 'Unassigned Client'
                     const sbuName = deal.opportunities?.sbus?.name || 'SBU'
                     const health = getDealHealth(deal)
+                    const isBeingDragged = draggedDealId === deal.id
 
                     return (
                       <div
                         key={deal.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, deal.id)}
+                        onDragEnd={handleDragEnd}
                         onClick={() => setSelectedDeal({ ...deal })}
                         style={{
                           background: '#ffffff',
@@ -422,8 +472,9 @@ export default function ProposalList({ proposalVersion }) {
                           borderRadius: 6,
                           border: '1px solid #cbd5e1',
                           boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-                          cursor: 'pointer',
-                          transition: 'transform 0.1s ease',
+                          cursor: 'grab',
+                          opacity: isBeingDragged ? 0.45 : 1,
+                          transition: 'opacity 0.15s ease, transform 0.1s ease',
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -503,6 +554,7 @@ export default function ProposalList({ proposalVersion }) {
                               border: '1px solid #cbd5e1',
                               color: '#334155',
                               backgroundColor: '#f8fafc',
+                              cursor: 'pointer',
                             }}
                           >
                             {STAGES.map((s) => (
@@ -521,13 +573,15 @@ export default function ProposalList({ proposalVersion }) {
                       style={{
                         padding: '24px 10px',
                         textAlign: 'center',
-                        color: '#94a3b8',
+                        color: isTargeted ? '#0284c7' : '#94a3b8',
                         fontSize: 12,
-                        border: '1px dashed #cbd5e1',
+                        border: isTargeted ? '1px dashed #0284c7' : '1px dashed #cbd5e1',
                         borderRadius: 6,
+                        backgroundColor: isTargeted ? '#e0f2fe' : 'transparent',
+                        fontWeight: isTargeted ? 600 : 400,
                       }}
                     >
-                      No deals in this stage
+                      {isTargeted ? 'Drop deal here' : 'No deals in this stage'}
                     </div>
                   )}
                 </div>
