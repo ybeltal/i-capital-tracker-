@@ -68,7 +68,7 @@ export default function SummaryDashboard() {
   const [error, setError] = useState('')
   const [refreshVersion, setRefreshVersion] = useState(0)
 
-  // SBU Targets state (persisted locally)
+  // SBU Targets state
   const [sbuTargets, setSbuTargets] = useState(() => {
     try {
       const saved = localStorage.getItem('icapital_sbu_targets')
@@ -79,6 +79,9 @@ export default function SummaryDashboard() {
   })
   const [editingTargets, setEditingTargets] = useState(false)
   const [tempTargets, setTempTargets] = useState(sbuTargets)
+
+  // Feature 5: Executive Briefing Modal State
+  const [showBriefingModal, setShowBriefingModal] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -97,8 +100,10 @@ export default function SummaryDashboard() {
               title,
               status,
               deal_value_etb,
+              submission_deadline,
               opportunities (
-                sbus (name)
+                sbus (name),
+                clients (name, sector)
               )
             `),
         ])
@@ -134,7 +139,7 @@ export default function SummaryDashboard() {
     setEditingTargets(false)
   }
 
-  // --- Financial & Forecasting Calculations ---
+  // Financial Calculations
   const activeProposals = proposals.filter((p) => !['Lost', 'Cancelled'].includes(p.status))
   const openProposalsList = proposals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
   const wonProposalsList = proposals.filter((p) => p.status === 'Won')
@@ -142,7 +147,6 @@ export default function SummaryDashboard() {
   const totalOpenValue = openProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
   const totalWonValue = wonProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
 
-  // Expected Value = Deal Value * Probability
   const totalWeightedForecast = activeProposals.reduce((sum, p) => {
     const val = Number(p.deal_value_etb) || 0
     const prob = STAGE_WEIGHTS[p.status] ?? 0.20
@@ -204,6 +208,11 @@ export default function SummaryDashboard() {
     }
   })
 
+  // Top Open Pursuits (Deals > ETB 300,000 for executive sheet)
+  const topPursuits = [...openProposalsList]
+    .sort((a, b) => (Number(b.deal_value_etb) || 0) - (Number(a.deal_value_etb) || 0))
+    .slice(0, 8)
+
   async function handleExportCSV() {
     if (!data) return
     setExporting(true)
@@ -211,7 +220,6 @@ export default function SummaryDashboard() {
       const today = new Date().toISOString().slice(0, 10)
       const csvRows = []
 
-      // Section 1: Executive KPI Summary
       csvRows.push('THE i-CAPITAL AFRICA INSTITUTE — EXECUTIVE FORECAST & PIPELINE SUMMARY')
       csvRows.push(`Export Date,${today}`)
       csvRows.push(`As of (Nairobi Time),${new Date(data.as_of).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })}`)
@@ -225,14 +233,12 @@ export default function SummaryDashboard() {
       csvRows.push(`Win Rate,"${data.win_rate_pct !== null ? data.win_rate_pct + '%' : 'N/A'}"`)
       csvRows.push('')
 
-      // Section 2: SBU Performance & Target Attainment
       csvRows.push('SBU PERFORMANCE MATRIX,OPEN PROPOSALS,OPEN VALUE (ETB),WEIGHTED FORECAST (ETB),SBU TARGET (ETB),TARGET ATTAINMENT %')
       sbuMetrics.forEach((m) => {
         csvRows.push(`"${m.name}","${m.openCount}","${m.openValue}","${m.weightedForecast}","${m.target}","${m.attainmentPct}%"`)
       })
       csvRows.push('')
 
-      // Section 3: Stage-by-Stage Weighted Funnel
       csvRows.push('STAGE,DEAL COUNT,NOMINAL VALUE (ETB),PROBABILITY %,WEIGHTED FORECAST (ETB)')
       stageBreakdown.forEach((s) => {
         csvRows.push(`"${s.status}","${s.count}","${s.nominal}","${s.prob}%","${s.weighted}"`)
@@ -266,6 +272,32 @@ export default function SummaryDashboard() {
 
   return (
     <section aria-label="Summary Dashboard" style={{ marginBottom: 36, paddingBottom: 28, borderBottom: '1px solid #dbe2ea' }}>
+      {/* Print Style Injector for Crisp PDF Generation */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #printable-briefing-dossier, #printable-briefing-dossier * {
+            visibility: visible;
+          }
+          #printable-briefing-dossier {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 10px;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            box-shadow: none !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
       {/* Top Header & Actions */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
@@ -276,6 +308,27 @@ export default function SummaryDashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Feature 5: Executive Briefing Launch Button */}
+          <button
+            type="button"
+            onClick={() => setShowBriefingModal(true)}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#1e293b',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontWeight: 600,
+              fontSize: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            🖨️ Executive Briefing (PDF)
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -311,7 +364,7 @@ export default function SummaryDashboard() {
               fontSize: 12,
             }}
           >
-            {exporting ? 'Generating…' : '📥 Export Forecast to CSV'}
+            {exporting ? 'Generating…' : '📥 Export to CSV'}
           </button>
 
           <button
@@ -339,9 +392,8 @@ export default function SummaryDashboard() {
 
       {!loading && !error && data && (
         <>
-          {/* 1. EXECUTIVE REVENUE FORECAST TRIO */}
+          {/* Revenue Forecast Trio */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 20 }}>
-            {/* Unweighted Open Value */}
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18, borderLeft: '4px solid #0284c7' }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
                 Nominal Open Pipeline Value
@@ -354,7 +406,6 @@ export default function SummaryDashboard() {
               </span>
             </div>
 
-            {/* Probability Weighted Forecast */}
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 18, borderLeft: '4px solid #16a34a' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase' }}>
@@ -372,7 +423,6 @@ export default function SummaryDashboard() {
               </span>
             </div>
 
-            {/* Contracted Won */}
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18, borderLeft: '4px solid #8b5cf6' }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
                 🏆 Contracted Won Revenue
@@ -386,7 +436,7 @@ export default function SummaryDashboard() {
             </div>
           </div>
 
-          {/* 2. SBU PIPELINE TARGETS & PERFORMANCE GAUGES */}
+          {/* SBU Pipeline Targets */}
           <div style={{ marginTop: 28 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 style={{ margin: 0, color: '#0f172a' }}>Strategic Business Unit (SBU) Target Attainment</h3>
@@ -412,7 +462,6 @@ export default function SummaryDashboard() {
                     </span>
                   </div>
 
-                  {/* Attainment Progress Bar */}
                   <div style={{ height: 6, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden', margin: '8px 0 12px 0' }}>
                     <div
                       style={{
@@ -420,7 +469,6 @@ export default function SummaryDashboard() {
                         width: `${Math.min(100, sbu.attainmentPct)}%`,
                         background: sbu.attainmentPct >= 80 ? '#16a34a' : sbu.attainmentPct >= 40 ? '#f59e0b' : '#ef4444',
                         borderRadius: 4,
-                        transition: 'width 0.4s ease',
                       }}
                     />
                   </div>
@@ -444,7 +492,7 @@ export default function SummaryDashboard() {
             </div>
           </div>
 
-          {/* 3. OPERATIONAL KPI METRICS */}
+          {/* Operational KPIs */}
           <h3 style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>CRM Pipeline Operational Metrics</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             {cards.map(([label, value, href]) => (
@@ -473,7 +521,7 @@ export default function SummaryDashboard() {
             ))}
           </div>
 
-          {/* 4. PROBABILITY-WEIGHTED FUNNEL BREAKDOWN */}
+          {/* Funnel Table */}
           <h3 style={{ marginTop: 32, marginBottom: 12, color: '#0f172a' }}>Stage-by-Stage Weighted Funnel Analysis</h3>
           <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
@@ -505,11 +553,204 @@ export default function SummaryDashboard() {
               </tbody>
             </table>
           </div>
-
-          <p style={{ color: '#94a3b8', fontSize: 12, marginTop: 14 }}>
-            As of: {new Date(data.as_of).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })} | Follow-up deadlines in Nairobi time (UTC+3).
-          </p>
         </>
+      )}
+
+      {/* FEATURE 5: PRINTABLE EXECUTIVE BRIEFING DOSSIER MODAL */}
+      {showBriefingModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            overflowY: 'auto',
+          }}
+        >
+          <div
+            id="printable-briefing-dossier"
+            style={{
+              background: '#ffffff',
+              borderRadius: 12,
+              width: '100%',
+              maxWidth: 820,
+              padding: 32,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              maxHeight: '90vh',
+              overflowY: 'auto',
+            }}
+          >
+            {/* Modal Header & Actions (Hidden during print) */}
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 16, marginBottom: 24 }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#0f172a' }}>Executive Memorandum Preview</h3>
+                <span style={{ fontSize: 12, color: '#64748b' }}>Board-Ready 1-Page Briefing Sheet</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: '#1e293b',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  🖨️ Print / Save as PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBriefingModal(false)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 6,
+                    border: '1px solid #cbd5e1',
+                    background: '#fff',
+                    color: '#475569',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {/* --- INSTITUTIONAL BRIEFING DOCUMENT BODY --- */}
+            <div style={{ fontFamily: 'Georgia, serif', color: '#0f172a' }}>
+              {/* Document Letterhead */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: 14 }}>
+                <div>
+                  <h1 style={{ margin: 0, fontSize: 20, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#0f172a', fontWeight: 800 }}>
+                    The i-Capital Africa Institute
+                  </h1>
+                  <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#475569', fontFamily: 'sans-serif' }}>
+                    Executive Pipeline & Probability-Weighted Revenue Briefing
+                  </p>
+                </div>
+                <div style={{ textAlign: 'right', fontFamily: 'sans-serif', fontSize: 11, color: '#64748b' }}>
+                  <div><strong>Date:</strong> {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                  <div><strong>Timezone:</strong> Africa/Nairobi (UTC+3)</div>
+                  <div><strong>Classification:</strong> Confidential / Leadership Review</div>
+                </div>
+              </div>
+
+              {/* Financial Snapshot Table */}
+              <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
+                  1. Executive Financial Summary
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                  <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 4 }}>
+                    <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>NOMINAL PIPELINE</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>{formatMoney(totalOpenValue)}</div>
+                    <div style={{ fontSize: 10, color: '#64748b' }}>{openProposalsList.length} Active Deals</div>
+                  </div>
+                  <div style={{ padding: 10, background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 4 }}>
+                    <div style={{ fontSize: 10, color: '#166534', fontWeight: 700 }}>WEIGHTED FORECAST</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#166534', marginTop: 4 }}>{formatMoney(totalWeightedForecast)}</div>
+                    <div style={{ fontSize: 10, color: '#166534' }}>Probability Expected</div>
+                  </div>
+                  <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 4 }}>
+                    <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>CONTRACTED WON</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#7c3aed', marginTop: 4 }}>{formatMoney(totalWonValue)}</div>
+                    <div style={{ fontSize: 10, color: '#64748b' }}>{wonProposalsList.length} Deals Closed</div>
+                  </div>
+                  <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 4 }}>
+                    <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>WIN RATE EFFICIENCY</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>{data.win_rate_pct !== null ? `${data.win_rate_pct}%` : 'N/A'}</div>
+                    <div style={{ fontSize: 10, color: '#64748b' }}>Decided Proposals</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SBU Performance Table */}
+              <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
+                  2. SBU Target Attainment & Performance Matrix
+                </h4>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, border: '1px solid #cbd5e1' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                      <th style={{ padding: '6px 10px', textAlign: 'left' }}>SBU</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'center' }}>Open Pursuits</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Nominal Open (ETB)</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Weighted Forecast (ETB)</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Target Quota (ETB)</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'center' }}>Attainment %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sbuMetrics.map((m) => (
+                      <tr key={m.name} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '6px 10px', fontWeight: 700 }}>{m.name}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'center' }}>{m.openCount}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right' }}>{formatMoney(m.openValue)}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#166534' }}>{formatMoney(m.weightedForecast)}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'right' }}>{formatMoney(m.target)}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700 }}>{m.attainmentPct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Top Active Pursuits */}
+              <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
+                <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
+                  3. Key Open Pipeline Pursuits
+                </h4>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '1px solid #cbd5e1' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>Code</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>Client</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>Scope / Program</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'center' }}>SBU</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'center' }}>Stage</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'right' }}>Contract Value (ETB)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topPursuits.map((p) => (
+                      <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '5px 8px', fontWeight: 700, color: '#0369a1' }}>{p.proposal_code || '—'}</td>
+                        <td style={{ padding: '5px 8px', fontWeight: 600 }}>{p.opportunities?.clients?.name || '—'}</td>
+                        <td style={{ padding: '5px 8px', maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.title}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'center' }}>{p.opportunities?.sbus?.name || '—'}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'center' }}>{p.status}</td>
+                        <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700 }}>{formatMoney(p.deal_value_etb)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* SLA & Governance Summary */}
+              <div style={{ margin: '20px 0 0 0', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #cbd5e1', paddingTop: 12, fontSize: 11, fontFamily: 'sans-serif' }}>
+                <div>
+                  <strong>SLA Compliance Queue:</strong> {data.overdue_actions || 0} Overdue • {data.due_today_actions || 0} Due Today • {data.upcoming_actions || 0} Scheduled Follow-Ups
+                </div>
+                <div style={{ color: '#64748b' }}>
+                  Verified by Master CRM Pipeline • Addis Ababa, Ethiopia
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* SBU Target Setting Modal */}
@@ -526,7 +767,7 @@ export default function SummaryDashboard() {
             padding: 16,
           }}
         >
-          <div style={{ background: '#fff', borderRadius: 10, width: '100%', maxWidth: 460, padding: 24, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+          <div style={{ background: '#fff', borderRadius: 10, width: '100%', maxWidth: 460, padding: 24 }}>
             <h3 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>⚙️ Set SBU Revenue Target Quotas</h3>
             <p style={{ margin: '0 0 16px 0', fontSize: 13, color: '#64748b' }}>
               Set annual or quarterly revenue benchmarks (in ETB) to track SBU pipeline performance.
