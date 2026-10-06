@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+
 export default function LeadForm({ userId, onSaved, clientVersion }) {
   const [clients, setClients] = useState([])
   const [sbus, setSbus] = useState([])
   const [clientId, setClientId] = useState('')
   const [sbuId, setSbuId] = useState('')
   const [title, setTitle] = useState('')
+  const [autoLeadCode, setAutoLeadCode] = useState('Generating…')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -14,20 +16,36 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
   useEffect(() => {
     let cancelled = false
 
-    async function loadOptions() {
+    async function loadOptionsAndGenerateId() {
       try {
-        // Load the choices for both dropdowns.
-        const [clientResult, sbuResult] = await Promise.all([
+        const [clientResult, sbuResult, oppsResult] = await Promise.all([
           supabase.from('clients').select('id, name').order('name'),
           supabase.from('sbus').select('id, code, name').order('code'),
+          supabase.from('opportunities').select('lead_code'),
         ])
 
         if (clientResult.error) throw clientResult.error
         if (sbuResult.error) throw sbuResult.error
 
+        // Calculate next sequential Lead ID (e.g., LD-0001 -> LD-0002)
+        let maxNum = 0
+        if (oppsResult.data) {
+          oppsResult.data.forEach((row) => {
+            if (row.lead_code) {
+              const match = row.lead_code.match(/\d+/)
+              if (match) {
+                const num = parseInt(match[0], 10)
+                if (num > maxNum) maxNum = num
+              }
+            }
+          })
+        }
+        const nextCode = `LD-${String(maxNum + 1).padStart(4, '0')}`
+
         if (!cancelled) {
           setClients(clientResult.data || [])
           setSbus(sbuResult.data || [])
+          setAutoLeadCode(nextCode)
         }
       } catch (error) {
         if (!cancelled) {
@@ -38,7 +56,7 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
       }
     }
 
-    loadOptions()
+    loadOptionsAndGenerateId()
     return () => {
       cancelled = true
     }
@@ -56,10 +74,10 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
     setMessage('')
 
     try {
-      // Link the lead to its client, SBU, and signed-in owner.
       const { error } = await supabase
         .from('opportunities')
         .insert({
+          lead_code: autoLeadCode,
           client_id: clientId,
           sbu_id: sbuId,
           title: title.trim(),
@@ -73,7 +91,7 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
       if (error) throw error
 
       setTitle('')
-      setMessage('Lead saved successfully.')
+      setMessage(`Lead ${autoLeadCode} saved successfully.`)
       onSaved?.()
     } catch (error) {
       setMessage(error.message || 'Unable to save the lead.')
@@ -87,7 +105,22 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
 
   return (
     <section>
-      <h2>Add Lead</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <h2 style={{ margin: 0 }}>Add Lead</h2>
+        <span
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            background: '#e0f2fe',
+            color: '#0369a1',
+            padding: '4px 10px',
+            borderRadius: 6,
+            border: '1px solid #bae6fd',
+          }}
+        >
+          Auto ID: {autoLeadCode}
+        </span>
+      </div>
 
       <form onSubmit={handleSave}>
         <label htmlFor="lead-client">Client</label>
@@ -132,7 +165,7 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
         />
 
         <button type="submit" disabled={busy || clients.length === 0}>
-          {busy ? 'Saving…' : 'Save lead'}
+          {busy ? 'Saving…' : `Save Lead (${autoLeadCode})`}
         </button>
 
         {message && <p role="status">{message}</p>}
