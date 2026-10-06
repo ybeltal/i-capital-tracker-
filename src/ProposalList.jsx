@@ -30,6 +30,72 @@ const GOVERNANCE_GATES = [
   { id: 'director_signoff', label: 'SBU Head & Managing Director Sign-Off' },
 ]
 
+// 4 Pre-Formatted Outreach Templates
+const OUTREACH_TEMPLATES = {
+  status_check: {
+    label: '📋 Review & Status Check',
+    subject: (client, title, code) => `Follow-up: Proposal for ${title} (${code}) - The i-Capital Africa Institute`,
+    body: (client, title, code) =>
+`Dear ${client} Team,
+
+Greetings from The i-Capital Africa Institute.
+
+I am following up regarding our submitted proposal for "${title}" (Ref: ${code}).
+
+We wanted to check in to see if your evaluation committee has had the opportunity to review the document, and whether any technical clarifications or supplementary materials are needed from our side.
+
+Looking forward to your guidance.
+
+Warm regards,
+The i-Capital Africa Institute`,
+  },
+  board_decision: {
+    label: '🏛️ Executive / Board Decision Check',
+    subject: (client, title, code) => `Executive Status: ${title} (${code}) - The i-Capital Africa Institute`,
+    body: (client, title, code) =>
+`Dear ${client} Leadership Team,
+
+I hope you are doing well.
+
+Following up from The i-Capital Africa Institute regarding our institutional proposal for "${title}" (Ref: ${code}). We understand this engagement is scheduled for executive / management review.
+
+Please let us know if an executive summary briefing deck or an in-person presentation would be helpful to facilitate the committee's decision.
+
+Kind regards,
+The i-Capital Africa Institute`,
+  },
+  meeting_request: {
+    label: '🤝 Clarification Sync Request',
+    subject: (client, title, code) => `Brief Sync Request: ${title} (${code}) - The i-Capital Africa Institute`,
+    body: (client, title, code) =>
+`Dear ${client} Team,
+
+Greetings from The i-Capital Africa Institute.
+
+Regarding our submitted proposal for "${title}" (Ref: ${code}), our technical team would welcome a brief 15-minute call or sync to address any preliminary questions and align on execution timelines.
+
+Please let us know what day this week works best for your schedule.
+
+Best regards,
+The i-Capital Africa Institute`,
+  },
+  scope_budget: {
+    label: '💼 Scope & Budget Alignment',
+    subject: (client, title, code) => `Proposal Follow-up: ${title} (${code}) - The i-Capital Africa Institute`,
+    body: (client, title, code) =>
+`Dear ${client} Team,
+
+Following up on behalf of The i-Capital Africa Institute regarding "${title}" (Ref: ${code}).
+
+We are available to discuss any adjustments to the delivery methodology, implementation schedule, or fee structure to ensure full alignment with your institution's priorities for this fiscal quarter.
+
+Looking forward to continuing the conversation.
+
+Warm regards,
+The i-Capital Africa Institute`,
+  },
+}
+
 function formatMoney(amount) {
   if (!amount || isNaN(amount)) return 'ETB 0.00'
   return `ETB ${new Intl.NumberFormat('en-US', {
@@ -92,6 +158,14 @@ export default function ProposalList({ proposalVersion }) {
   const [nextActionDate, setNextActionDate] = useState('')
   const [loggingActivity, setLoggingActivity] = useState(false)
 
+  // One-Click Outreach Generator State
+  const [outreachDeal, setOutreachDeal] = useState(null)
+  const [outreachTemplateKey, setOutreachTemplateKey] = useState('status_check')
+  const [outreachSubject, setOutreachSubject] = useState('')
+  const [outreachBody, setOutreachBody] = useState('')
+  const [autoLogOutreach, setAutoLogOutreach] = useState(true)
+  const [copiedToast, setCopiedToast] = useState(false)
+
   useEffect(() => {
     loadProposals()
   }, [proposalVersion])
@@ -129,6 +203,78 @@ export default function ProposalList({ proposalVersion }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Open the Outreach Generator Modal
+  function handleOpenOutreach(deal, e) {
+    if (e) e.stopPropagation()
+    const clientName = deal.opportunities?.clients?.name || 'Client'
+    const title = deal.title || 'Proposal'
+    const code = deal.proposal_code || 'PROPOSAL'
+
+    const tpl = OUTREACH_TEMPLATES[outreachTemplateKey] || OUTREACH_TEMPLATES.status_check
+    setOutreachDeal(deal)
+    setOutreachSubject(tpl.subject(clientName, title, code))
+    setOutreachBody(tpl.body(clientName, title, code))
+    setCopiedToast(false)
+  }
+
+  function handleSelectTemplate(key) {
+    setOutreachTemplateKey(key)
+    if (!outreachDeal) return
+    const clientName = outreachDeal.opportunities?.clients?.name || 'Client'
+    const title = outreachDeal.title || 'Proposal'
+    const code = outreachDeal.proposal_code || 'PROPOSAL'
+    const tpl = OUTREACH_TEMPLATES[key]
+
+    setOutreachSubject(tpl.subject(clientName, title, code))
+    setOutreachBody(tpl.body(clientName, title, code))
+  }
+
+  async function logOutreachTouchpoint(channelLabel) {
+    if (!autoLogOutreach || !outreachDeal) return
+    const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 16)
+    const tplLabel = OUTREACH_TEMPLATES[outreachTemplateKey]?.label || 'Follow-Up'
+    const entry = `[${timestamp}] 💬 ${channelLabel} Outreach Sent: ${tplLabel}`
+
+    const currentGates = parseGates(outreachDeal.notes)
+    const cleanExisting = (outreachDeal.notes || '').replace(/\[GATES:[^\]]*\]\n?/, '').trim()
+    const combinedNotes = cleanExisting ? `${entry}\n\n${cleanExisting}` : entry
+    const finalNotes = stringifyGatesWithNotes(currentGates, combinedNotes)
+
+    try {
+      await supabase
+        .from('proposals')
+        .update({ notes: finalNotes })
+        .eq('id', outreachDeal.id)
+
+      const updated = { ...outreachDeal, notes: finalNotes }
+      setProposals((prev) => prev.map((p) => (p.id === outreachDeal.id ? updated : p)))
+      if (selectedDeal?.id === outreachDeal.id) {
+        setSelectedDeal(updated)
+      }
+    } catch (err) {
+      console.error('Failed to log outreach entry:', err)
+    }
+  }
+
+  function handleSendWhatsApp() {
+    logOutreachTouchpoint('WhatsApp')
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(outreachBody)}`
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  function handleSendEmail() {
+    logOutreachTouchpoint('Email')
+    const mailto = `mailto:?subject=${encodeURIComponent(outreachSubject)}&body=${encodeURIComponent(outreachBody)}`
+    window.location.href = mailto
+  }
+
+  function handleCopyText() {
+    navigator.clipboard.writeText(outreachBody)
+    setCopiedToast(true)
+    logOutreachTouchpoint('Clipboard Copied')
+    setTimeout(() => setCopiedToast(false), 2500)
   }
 
   // Go / No-Go Compliance Gate Validation
@@ -209,7 +355,6 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  // Toggle individual gate inside the deal drawer
   async function handleToggleGate(gateId) {
     if (!selectedDeal) return
     const currentGates = parseGates(selectedDeal.notes)
@@ -226,7 +371,6 @@ export default function ProposalList({ proposalVersion }) {
       prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
     )
 
-    // Save silently to Supabase
     try {
       await supabase
         .from('proposals')
@@ -284,7 +428,6 @@ export default function ProposalList({ proposalVersion }) {
         logEntry += ` (Due: ${nextActionDate})`
       }
 
-      // Preserve gate tag if present
       const currentGates = parseGates(selectedDeal.notes)
       const cleanExistingNotes = (selectedDeal.notes || '').replace(/\[GATES:[^\]]*\]\n?/, '').trim()
       const combinedNotes = cleanExistingNotes ? `${logEntry}\n\n${cleanExistingNotes}` : logEntry
@@ -475,8 +618,8 @@ export default function ProposalList({ proposalVersion }) {
                 onDragLeave={(e) => handleDragLeave(e, stage)}
                 onDrop={(e) => handleDrop(e, stage)}
                 style={{
-                  width: 285,
-                  minWidth: 285,
+                  width: 290,
+                  minWidth: 290,
                   background: isTargeted ? '#f0f9ff' : '#f8fafc',
                   borderRadius: 8,
                   border: isTargeted ? '2px dashed #0284c7' : '1px solid #e2e8f0',
@@ -604,8 +747,8 @@ export default function ProposalList({ proposalVersion }) {
                           {deal.title}
                         </p>
 
-                        {/* Governance Gate Badge on Card */}
-                        <div style={{ marginBottom: 8 }}>
+                        {/* Badges & Outreach Button */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <span
                             style={{
                               fontSize: 10,
@@ -617,8 +760,28 @@ export default function ProposalList({ proposalVersion }) {
                               border: `1px solid ${isGatesComplete ? '#bbf7d0' : gates.length > 0 ? '#fde68a' : '#e2e8f0'}`,
                             }}
                           >
-                            {isGatesComplete ? '🛡️ 4/4 Gates Cleared' : gates.length > 0 ? `⚠️ ${gates.length}/4 Gates` : '⚪ 0/4 Gates'}
+                            {isGatesComplete ? '🛡️ 4/4 Gates' : gates.length > 0 ? `⚠️ ${gates.length}/4` : '⚪ 0/4'}
                           </span>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenOutreach(deal, e)}
+                            style={{
+                              padding: '3px 8px',
+                              borderRadius: 4,
+                              border: '1px solid #10b981',
+                              background: '#ecfdf5',
+                              color: '#047857',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            💬 Outreach
+                          </button>
                         </div>
 
                         <div
@@ -697,6 +860,7 @@ export default function ProposalList({ proposalVersion }) {
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Deal Health</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Status</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Value (ETB)</th>
+                <th style={{ padding: '10px 14px', textAlign: 'right', color: '#475569' }}>Outreach</th>
               </tr>
             </thead>
             <tbody>
@@ -731,7 +895,6 @@ export default function ProposalList({ proposalVersion }) {
                         {deal.opportunities?.sbus?.name || '—'}
                       </span>
                     </td>
-                    {/* Compliance Gate Column */}
                     <td style={{ padding: '10px 14px' }}>
                       <span
                         style={{
@@ -743,7 +906,7 @@ export default function ProposalList({ proposalVersion }) {
                           color: isGatesComplete ? '#166534' : gates.length > 0 ? '#92400e' : '#64748b',
                         }}
                       >
-                        {isGatesComplete ? '🛡️ 4/4 Cleared' : gates.length > 0 ? `⚠️ ${gates.length}/4 Gates` : '⚪ 0/4'}
+                        {isGatesComplete ? '🛡️ 4/4 Cleared' : gates.length > 0 ? `⚠️ ${gates.length}/4` : '⚪ 0/4'}
                       </span>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
@@ -783,6 +946,25 @@ export default function ProposalList({ proposalVersion }) {
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a' }}>
                       {formatMoney(deal.deal_value_etb)}
                     </td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        onClick={(e) => handleOpenOutreach(deal, e)}
+                        style={{
+                          padding: '4px 10px',
+                          borderRadius: 4,
+                          border: '1px solid #10b981',
+                          background: '#ecfdf5',
+                          color: '#047857',
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        💬 Outreach
+                      </button>
+                    </td>
                   </tr>
                 )
               })}
@@ -791,7 +973,206 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 3. HUBSPOT DEAL DOSSIER (SLIDE-OVER DRAWER) */}
+      {/* 3. ONE-CLICK WHATSAPP & EMAIL OUTREACH GENERATOR MODAL */}
+      {outreachDeal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.55)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 12,
+              width: '100%',
+              maxWidth: 580,
+              padding: 24,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    background: '#e0f2fe',
+                    color: '#0369a1',
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                  }}
+                >
+                  {outreachDeal.proposal_code}
+                </span>
+                <h3 style={{ margin: '6px 0 2px 0', color: '#0f172a' }}>
+                  💬 1-Click Outreach Generator
+                </h3>
+                <span style={{ fontSize: 13, color: '#64748b' }}>
+                  {outreachDeal.opportunities?.clients?.name} — {outreachDeal.title}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOutreachDeal(null)}
+                style={{ border: 'none', background: 'transparent', fontSize: 20, cursor: 'pointer', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Template Selector Tabs */}
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
+                Select Institutional Template:
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                {Object.entries(OUTREACH_TEMPLATES).map(([k, tpl]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => handleSelectTemplate(k)}
+                    style={{
+                      padding: '7px 10px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      border: outreachTemplateKey === k ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                      background: outreachTemplateKey === k ? '#f0f9ff' : '#fff',
+                      color: outreachTemplateKey === k ? '#0369a1' : '#475569',
+                    }}
+                  >
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Email Subject */}
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+                Subject (for Email):
+              </label>
+              <input
+                type="text"
+                value={outreachSubject}
+                onChange={(e) => setOutreachSubject(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
+              />
+            </div>
+
+            {/* Message Body */}
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
+                Message Body (WhatsApp & Email):
+              </label>
+              <textarea
+                rows={9}
+                value={outreachBody}
+                onChange={(e) => setOutreachBody(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  borderRadius: 6,
+                  border: '1px solid #cbd5e1',
+                  fontSize: 12,
+                  lineHeight: 1.5,
+                  fontFamily: 'inherit',
+                  background: '#f8fafc',
+                }}
+              />
+            </div>
+
+            {/* Auto-Log Checkbox */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#475569', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={autoLogOutreach}
+                onChange={(e) => setAutoLogOutreach(e.target.checked)}
+                style={{ accentColor: '#0284c7', width: 15, height: 15 }}
+              />
+              <span>Automatically log this outreach touchpoint to deal history & audit trail</span>
+            </label>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+              <button
+                type="button"
+                onClick={handleSendWhatsApp}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: '#25D366',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                💬 Open in WhatsApp
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSendEmail}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: '#0284c7',
+                  color: '#fff',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                ✉️ Open in Email
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCopyText}
+                style={{
+                  padding: '10px 14px',
+                  borderRadius: 6,
+                  border: '1px solid #cbd5e1',
+                  background: copiedToast ? '#dcfce7' : '#fff',
+                  color: copiedToast ? '#166534' : '#475569',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                {copiedToast ? 'Copied! ✓' : '📋 Copy'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. HUBSPOT DEAL DOSSIER (SLIDE-OVER DRAWER) */}
       {selectedDeal && (
         <div
           style={{
@@ -865,10 +1246,35 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* --- GOVERNANCE & SUBMISSION CHECKLIST (GO / NO-GO GATE) --- */}
+            {/* Quick Outreach Launcher Trigger inside Drawer */}
+            <div style={{ marginTop: 14 }}>
+              <button
+                type="button"
+                onClick={() => handleOpenOutreach(selectedDeal)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: 6,
+                  border: '1px solid #10b981',
+                  background: '#ecfdf5',
+                  color: '#047857',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                }}
+              >
+                💬 Open WhatsApp / Email Outreach Generator
+              </button>
+            </div>
+
+            {/* Governance Checklist */}
             <div
               style={{
-                marginTop: 18,
+                marginTop: 16,
                 padding: 16,
                 background: '#f8fafc',
                 borderRadius: 8,
@@ -898,11 +1304,7 @@ export default function ProposalList({ proposalVersion }) {
                   )
                 })()}
               </div>
-              <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#64748b' }}>
-                Mandatory compliance milestones required before client submission:
-              </p>
 
-              {/* Progress Bar */}
               {(() => {
                 const gates = parseGates(selectedDeal.notes)
                 const pct = Math.round((gates.length / GOVERNANCE_GATES.length) * 100)
@@ -920,7 +1322,6 @@ export default function ProposalList({ proposalVersion }) {
                 )
               })()}
 
-              {/* Interactive Gate Toggles */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {GOVERNANCE_GATES.map((gate) => {
                   const isChecked = parseGates(selectedDeal.notes).includes(gate.id)
@@ -938,7 +1339,6 @@ export default function ProposalList({ proposalVersion }) {
                         padding: '4px 6px',
                         borderRadius: 4,
                         backgroundColor: isChecked ? '#ecfdf5' : 'transparent',
-                        transition: 'background-color 0.15s ease',
                       }}
                     >
                       <input
@@ -954,10 +1354,10 @@ export default function ProposalList({ proposalVersion }) {
               </div>
             </div>
 
-            {/* Quick Activity & Follow-Up Logger Box */}
+            {/* Quick Touchpoint Logger */}
             <div
               style={{
-                marginTop: 18,
+                marginTop: 16,
                 padding: 14,
                 background: '#f8fafc',
                 borderRadius: 8,
@@ -989,7 +1389,7 @@ export default function ProposalList({ proposalVersion }) {
 
                 <textarea
                   rows={2}
-                  placeholder="Conversation notes (e.g. Reviewed RFP requirements with CEO, requested revised dates)..."
+                  placeholder="Conversation notes (e.g. Discussed timeline with HR Director)..."
                   value={activityNote}
                   onChange={(e) => setActivityNote(e.target.value)}
                   style={{
@@ -1004,7 +1404,7 @@ export default function ProposalList({ proposalVersion }) {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                   <input
                     type="text"
-                    placeholder="Next commitment (e.g. Submit bid document)"
+                    placeholder="Next commitment"
                     value={nextActionCommitment}
                     onChange={(e) => setNextActionCommitment(e.target.value)}
                     style={{
@@ -1047,8 +1447,8 @@ export default function ProposalList({ proposalVersion }) {
               </form>
             </div>
 
-            {/* Editable Deal Dossier Form */}
-            <form onSubmit={handleSaveDealDossier} style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Editable Form */}
+            <form onSubmit={handleSaveDealDossier} style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
                   Proposal Scope / Title
@@ -1130,7 +1530,6 @@ export default function ProposalList({ proposalVersion }) {
                 </label>
                 <textarea
                   rows={5}
-                  placeholder="Activity entries will appear here automatically..."
                   value={selectedDeal.notes || ''}
                   onChange={(e) => setSelectedDeal({ ...selectedDeal, notes: e.target.value })}
                   style={{
@@ -1146,7 +1545,6 @@ export default function ProposalList({ proposalVersion }) {
                 />
               </div>
 
-              {/* Bottom Actions */}
               <div style={{ marginTop: 10, display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
                 <button
                   type="button"
