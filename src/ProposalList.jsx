@@ -30,6 +30,27 @@ const GOVERNANCE_GATES = [
   { id: 'director_signoff', label: 'SBU Head & Managing Director Sign-Off' },
 ]
 
+// Loss Reasons (matching i-Capital Master Framework)
+const LOSS_REASONS = [
+  'Financial (Too Expensive)',
+  'Competitor Won',
+  'Technical / Scope Mismatch',
+  'Client Postponed / Project Shelved',
+  'Capacity Constraint / Timing',
+  'Procurement Window Cancelled / Expired',
+  'Other / Undisclosed'
+]
+
+// Win Factors
+const WIN_FACTORS = [
+  'Technical Methodology & Quality',
+  'Institutional Track Record & Trust',
+  'Competitive Pricing / Best Value',
+  'Executive / C-Suite Relationship',
+  'Speed & Custom Proposal Design',
+  'Strategic SBU Partner Alignment'
+]
+
 // 4 Pre-Formatted Outreach Templates
 const OUTREACH_TEMPLATES = {
   status_check: {
@@ -117,6 +138,41 @@ function stringifyGatesWithNotes(gates, existingNotes) {
   return cleanNotes ? `${gateTag}\n\n${cleanNotes}` : gateTag
 }
 
+function parseOutcome(notes) {
+  if (!notes) return null
+  const match = notes.match(/\[OUTCOME:\s*([^\]]+)\]/)
+  if (!match) return null
+  const parts = match[1].split('|')
+  const outcome = {}
+  parts.forEach((p) => {
+    if (p.includes(':')) {
+      const [k, v] = p.split(':', 2)
+      outcome[k.trim().toLowerCase()] = v.trim()
+    } else {
+      outcome.status = p.trim()
+    }
+  })
+  return outcome
+}
+
+function stringifyOutcomeWithNotes(outcomeData, existingNotes) {
+  const status = outcomeData.status || 'Decided'
+  const reason = outcomeData.reason || ''
+  const competitor = outcomeData.competitor || ''
+  const lessons = outcomeData.lessons || ''
+  const factor = outcomeData.factor || ''
+
+  const parts = [`OUTCOME: ${status}`]
+  if (reason) parts.push(`Reason: ${reason}`)
+  if (competitor) parts.push(`Competitor: ${competitor}`)
+  if (factor) parts.push(`Factor: ${factor}`)
+  if (lessons) parts.push(`Lessons: ${lessons}`)
+
+  const tag = `[${parts.join(' | ')}]`
+  const cleanNotes = (existingNotes || '').replace(/\[OUTCOME:[^\]]*\]\n?/, '').trim()
+  return cleanNotes ? `${tag}\n\n${cleanNotes}` : tag
+}
+
 function getDealHealth(deal) {
   if (['Won', 'Lost', 'Cancelled'].includes(deal.status)) {
     return { label: '⚪ Closed', color: '#64748b', bg: '#f1f5f9', border: '#cbd5e1', status: 'closed', days: 0 }
@@ -165,6 +221,17 @@ export default function ProposalList({ proposalVersion }) {
   const [outreachBody, setOutreachBody] = useState('')
   const [autoLogOutreach, setAutoLogOutreach] = useState(true)
   const [copiedToast, setCopiedToast] = useState(false)
+
+  // --- Feature 4: Win/Loss Post-Mortem Modal State ---
+  const [postMortemDeal, setPostMortemDeal] = useState(null)
+  const [postMortemTargetStatus, setPostMortemTargetStatus] = useState(null) // 'Lost' | 'Won'
+  const [lossReason, setLossReason] = useState(LOSS_REASONS[0])
+  const [winningCompetitor, setWinningCompetitor] = useState('')
+  const [postMortemLessons, setPostMortemLessons] = useState('')
+  const [winFactor, setWinFactor] = useState(WIN_FACTORS[0])
+  const [wonAmount, setWonAmount] = useState('')
+  const [savingPostMortem, setSavingPostMortem] = useState(false)
+  const [showIntelPanel, setShowIntelPanel] = useState(false)
 
   useEffect(() => {
     loadProposals()
@@ -291,25 +358,99 @@ export default function ProposalList({ proposalVersion }) {
     return true
   }
 
-  async function handleQuickStatusChange(id, newStatus) {
-    const deal = proposals.find((p) => p.id === id)
-    if (deal && !validateGovernanceGate(deal, newStatus)) {
+  // --- Feature 4: Trigger Win/Loss Modal on Stage Transition ---
+  async function handleInitiateStatusChange(deal, newStatus) {
+    if (!validateGovernanceGate(deal, newStatus)) {
       return
     }
 
+    // Intercept Lost or Won to capture intelligence
+    if (newStatus === 'Lost') {
+      const existing = parseOutcome(deal.notes)
+      setLossReason(existing?.reason || LOSS_REASONS[0])
+      setWinningCompetitor(existing?.competitor || '')
+      setPostMortemLessons(existing?.lessons || '')
+      setPostMortemDeal(deal)
+      setPostMortemTargetStatus('Lost')
+      return
+    }
+
+    if (newStatus === 'Won') {
+      const existing = parseOutcome(deal.notes)
+      setWinFactor(existing?.factor || WIN_FACTORS[0])
+      setWonAmount(deal.deal_value_etb || '')
+      setPostMortemLessons(existing?.lessons || '')
+      setPostMortemDeal(deal)
+      setPostMortemTargetStatus('Won')
+      return
+    }
+
+    // Normal direct status update for all intermediate stages
+    await executeStatusChange(deal.id, newStatus)
+  }
+
+  async function executeStatusChange(id, newStatus, updatedNotes, updatedValue) {
     try {
+      const updatePayload = { status: newStatus }
+      if (updatedNotes !== undefined) updatePayload.notes = updatedNotes
+      if (updatedValue !== undefined) updatePayload.deal_value_etb = updatedValue
+
       const { error: updateErr } = await supabase
         .from('proposals')
-        .update({ status: newStatus })
+        .update(updatePayload)
         .eq('id', id)
 
       if (updateErr) throw updateErr
       setProposals((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p))
+        prev.map((p) => (p.id === id ? { ...p, ...updatePayload } : p))
       )
+      if (selectedDeal?.id === id) {
+        setSelectedDeal((prev) => ({ ...prev, ...updatePayload }))
+      }
     } catch (err) {
       alert('Could not update status: ' + err.message)
     }
+  }
+
+  // Save the Post-Mortem Intelligence
+  async function handleSavePostMortem(e) {
+    e.preventDefault()
+    if (!postMortemDeal) return
+
+    setSavingPostMortem(true)
+    const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 16)
+
+    let outcomePayload = {}
+    let logSummary = ''
+
+    if (postMortemTargetStatus === 'Lost') {
+      outcomePayload = {
+        status: 'Lost',
+        reason: lossReason,
+        competitor: winningCompetitor.trim(),
+        lessons: postMortemLessons.trim(),
+      }
+      logSummary = `[${timestamp}] 🏁 Outcome: Lost (Reason: ${lossReason}${winningCompetitor ? `, Competitor: ${winningCompetitor}` : ''})`
+    } else {
+      outcomePayload = {
+        status: 'Won',
+        factor: winFactor,
+        lessons: postMortemLessons.trim(),
+      }
+      logSummary = `[${timestamp}] 🏆 Outcome: Won (Factor: ${winFactor})`
+    }
+
+    // Embed outcome tag into notes
+    const withOutcome = stringifyOutcomeWithNotes(outcomePayload, postMortemDeal.notes)
+    const finalNotes = `${logSummary}\n\n${withOutcome}`
+
+    const finalVal = postMortemTargetStatus === 'Won' && wonAmount !== ''
+      ? parseFloat(wonAmount) || postMortemDeal.deal_value_etb
+      : postMortemDeal.deal_value_etb
+
+    await executeStatusChange(postMortemDeal.id, postMortemTargetStatus, finalNotes, finalVal)
+    setSavingPostMortem(false)
+    setPostMortemDeal(null)
   }
 
   // Drag & Drop Handlers
@@ -348,10 +489,7 @@ export default function ProposalList({ proposalVersion }) {
     if (!dealId) return
     const deal = proposals.find((p) => p.id === dealId)
     if (deal && deal.status !== targetStage) {
-      if (!validateGovernanceGate(deal, targetStage)) {
-        return
-      }
-      await handleQuickStatusChange(dealId, targetStage)
+      await handleInitiateStatusChange(deal, targetStage)
     }
   }
 
@@ -471,6 +609,24 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
+  // --- Feature 4: Competitor Intelligence & Loss Reason Stats ---
+  const wonDealsList = proposals.filter((p) => p.status === 'Won')
+  const lostDealsList = proposals.filter((p) => p.status === 'Lost')
+  const decidedTotal = wonDealsList.length + lostDealsList.length
+  const winRatePercent = decidedTotal > 0 ? Math.round((wonDealsList.length / decidedTotal) * 100) : 0
+
+  const lossReasonCounts = {}
+  const competitorCounts = {}
+
+  lostDealsList.forEach((d) => {
+    const out = parseOutcome(d.notes)
+    const r = out?.reason || 'Financial (Too Expensive)'
+    lossReasonCounts[r] = (lossReasonCounts[r] || 0) + 1
+    if (out?.competitor) {
+      competitorCounts[out.competitor] = (competitorCounts[out.competitor] || 0) + 1
+    }
+  })
+
   const filteredProposals = proposals.filter((p) => {
     const clientName = p.opportunities?.clients?.name?.toLowerCase() || ''
     const title = p.title?.toLowerCase() || ''
@@ -491,7 +647,7 @@ export default function ProposalList({ proposalVersion }) {
 
   return (
     <div>
-      {/* Top Filter Bar */}
+      {/* Top Filter & Intelligence Bar */}
       <div
         style={{
           display: 'flex',
@@ -499,7 +655,7 @@ export default function ProposalList({ proposalVersion }) {
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 12,
-          marginBottom: 20,
+          marginBottom: 16,
         }}
       >
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -552,6 +708,27 @@ export default function ProposalList({ proposalVersion }) {
             <option value="stale">🔴 Stale (&gt; 30d)</option>
             <option value="closed">⚪ Closed</option>
           </select>
+
+          {/* Feature 4: Competitor Intelligence Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowIntelPanel((v) => !v)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              background: showIntelPanel ? '#f0fdf4' : '#fff',
+              color: showIntelPanel ? '#166534' : '#334155',
+              fontWeight: 600,
+              fontSize: 12,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            📊 Win/Loss & Competitor Intel {decidedTotal > 0 && `(${winRatePercent}%)`}
+          </button>
         </div>
 
         <div style={{ display: 'flex', background: '#f1f5f9', padding: 3, borderRadius: 6 }}>
@@ -591,6 +768,74 @@ export default function ProposalList({ proposalVersion }) {
           </button>
         </div>
       </div>
+
+      {/* Feature 4: Collapsible Win/Loss & Competitor Intelligence Drawer */}
+      {showIntelPanel && (
+        <div
+          style={{
+            marginBottom: 20,
+            padding: 16,
+            background: '#ffffff',
+            borderRadius: 8,
+            border: '1px solid #bbf7d0',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: 16,
+          }}
+        >
+          {/* Win Rate Snapshot */}
+          <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: 14 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
+              Institutional Conversion Rate
+            </span>
+            <div style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', margin: '4px 0' }}>
+              {winRatePercent}% Win Rate
+            </div>
+            <span style={{ fontSize: 12, color: '#64748b' }}>
+              {wonDealsList.length} Won vs {lostDealsList.length} Lost ({decidedTotal} decided)
+            </span>
+          </div>
+
+          {/* Loss Reason Breakdown */}
+          <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: 14 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c', textTransform: 'uppercase' }}>
+              Loss Reasons Breakdown
+            </span>
+            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {Object.entries(lossReasonCounts).length === 0 ? (
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>No lost deals recorded yet</span>
+              ) : (
+                Object.entries(lossReasonCounts).map(([r, c]) => (
+                  <div key={r} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#475569' }}>
+                    <span>• {r}</span>
+                    <strong style={{ color: '#0f172a' }}>{c} ({Math.round((c / lostDealsList.length) * 100)}%)</strong>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Competitor Intelligence */}
+          <div>
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>
+              Identified Competitor Wins
+            </span>
+            <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {Object.entries(competitorCounts).length === 0 ? (
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>No competitors logged in lost post-mortems</span>
+              ) : (
+                Object.entries(competitorCounts).map(([comp, count]) => (
+                  <div key={comp} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#475569' }}>
+                    <span>🏢 {comp}</span>
+                    <strong style={{ color: '#0f172a' }}>{count} loss(es)</strong>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       {loading && <p style={{ color: '#64748b' }}>Loading pipeline data…</p>}
@@ -676,6 +921,7 @@ export default function ProposalList({ proposalVersion }) {
                     const isBeingDragged = draggedDealId === deal.id
                     const gates = parseGates(deal.notes)
                     const isGatesComplete = gates.length === GOVERNANCE_GATES.length
+                    const outcome = parseOutcome(deal.notes)
 
                     return (
                       <div
@@ -747,7 +993,45 @@ export default function ProposalList({ proposalVersion }) {
                           {deal.title}
                         </p>
 
-                        {/* Badges & Outreach Button */}
+                        {/* Feature 4: Post-Mortem Reason Badge on Lost / Won Deals */}
+                        {deal.status === 'Lost' && (
+                          <div style={{ marginBottom: 6 }}>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                borderRadius: 4,
+                                background: '#fee2e2',
+                                color: '#b91c1c',
+                                border: '1px solid #fecaca',
+                              }}
+                            >
+                              ❌ {outcome?.reason || 'Financial (Too Expensive)'}
+                              {outcome?.competitor ? ` (${outcome.competitor})` : ''}
+                            </span>
+                          </div>
+                        )}
+
+                        {deal.status === 'Won' && (
+                          <div style={{ marginBottom: 6 }}>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                borderRadius: 4,
+                                background: '#dcfce7',
+                                color: '#166534',
+                                border: '1px solid #bbf7d0',
+                              }}
+                            >
+                              🏆 {outcome?.factor || 'Contracted Won'}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Governance Gates Badge & Outreach Button */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <span
                             style={{
@@ -801,7 +1085,7 @@ export default function ProposalList({ proposalVersion }) {
                           <select
                             value={deal.status}
                             onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => handleQuickStatusChange(deal.id, e.target.value)}
+                            onChange={(e) => handleInitiateStatusChange(deal, e.target.value)}
                             style={{
                               fontSize: 11,
                               padding: '2px 4px',
@@ -857,7 +1141,7 @@ export default function ProposalList({ proposalVersion }) {
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Scope / Title</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>SBU</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Governance Gate</th>
-                <th style={{ padding: '10px 14px', color: '#475569' }}>Deal Health</th>
+                <th style={{ padding: '10px 14px', color: '#475569' }}>Outcome Intelligence</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Status</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Value (ETB)</th>
                 <th style={{ padding: '10px 14px', textAlign: 'right', color: '#475569' }}>Outreach</th>
@@ -865,9 +1149,9 @@ export default function ProposalList({ proposalVersion }) {
             </thead>
             <tbody>
               {filteredProposals.map((deal) => {
-                const health = getDealHealth(deal)
                 const gates = parseGates(deal.notes)
                 const isGatesComplete = gates.length === GOVERNANCE_GATES.length
+                const outcome = parseOutcome(deal.notes)
 
                 return (
                   <tr
@@ -909,26 +1193,25 @@ export default function ProposalList({ proposalVersion }) {
                         {isGatesComplete ? '🛡️ 4/4 Cleared' : gates.length > 0 ? `⚠️ ${gates.length}/4` : '⚪ 0/4'}
                       </span>
                     </td>
+                    {/* Outcome Intelligence Column */}
                     <td style={{ padding: '10px 14px' }}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 600,
-                          background: health.bg,
-                          color: health.color,
-                          border: `1px solid ${health.border}`,
-                          padding: '2px 8px',
-                          borderRadius: 4,
-                        }}
-                      >
-                        {health.label}
-                      </span>
+                      {deal.status === 'Lost' ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c' }}>
+                          ❌ {outcome?.reason || 'Financial (Too Expensive)'}
+                        </span>
+                      ) : deal.status === 'Won' ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#166534' }}>
+                          🏆 {outcome?.factor || 'Closed Won'}
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>
+                      )}
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <select
                         value={deal.status}
                         onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => handleQuickStatusChange(deal.id, e.target.value)}
+                        onChange={(e) => handleInitiateStatusChange(deal, e.target.value)}
                         style={{
                           fontSize: 12,
                           padding: '3px 6px',
@@ -973,7 +1256,184 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 3. ONE-CLICK WHATSAPP & EMAIL OUTREACH GENERATOR MODAL */}
+      {/* 3. FEATURE 4: WIN / LOSS POST-MORTEM CAPTURE MODAL */}
+      {postMortemDeal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            zIndex: 10001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 12,
+              width: '100%',
+              maxWidth: 500,
+              padding: 24,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 14,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: '2px 8px',
+                    borderRadius: 4,
+                    background: postMortemTargetStatus === 'Won' ? '#dcfce7' : '#fee2e2',
+                    color: postMortemTargetStatus === 'Won' ? '#166534' : '#b91c1c',
+                  }}
+                >
+                  {postMortemTargetStatus === 'Won' ? '🏆 DEAL WON POST-MORTEM' : '🏁 DEAL LOST POST-MORTEM'}
+                </span>
+                <h3 style={{ margin: '6px 0 2px 0', color: '#0f172a' }}>
+                  {postMortemTargetStatus === 'Won' ? 'Record Victory Intelligence' : 'Record Loss & Competitor Intelligence'}
+                </h3>
+                <span style={{ fontSize: 13, color: '#64748b' }}>
+                  {postMortemDeal.opportunities?.clients?.name} ({postMortemDeal.proposal_code})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPostMortemDeal(null)}
+                style={{ border: 'none', background: 'transparent', fontSize: 20, cursor: 'pointer', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePostMortem} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {postMortemTargetStatus === 'Lost' ? (
+                <>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                      Primary Loss Reason:
+                    </label>
+                    <select
+                      value={lossReason}
+                      onChange={(e) => setLossReason(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    >
+                      {LOSS_REASONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                      Winning Competitor Name (if known):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. PwC, Deloitte, EY, local firm, client internal"
+                      value={winningCompetitor}
+                      onChange={(e) => setWinningCompetitor(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                      Primary Winning Factor:
+                    </label>
+                    <select
+                      value={winFactor}
+                      onChange={(e) => setWinFactor(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    >
+                      {WIN_FACTORS.map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                      Final Contracted Value (ETB):
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 950000"
+                      value={wonAmount}
+                      onChange={(e) => setWonAmount(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+                  Post-Mortem Lessons & Institutional Feedback:
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Record fee variance, committee remarks, or delivery factors for future bidding rounds..."
+                  value={postMortemLessons}
+                  onChange={(e) => setPostMortemLessons(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
+                <button
+                  type="button"
+                  onClick={() => setPostMortemDeal(null)}
+                  style={{
+                    flex: 1,
+                    padding: '9px',
+                    borderRadius: 6,
+                    border: '1px solid #cbd5e1',
+                    background: '#fff',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    color: '#475569',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPostMortem}
+                  style={{
+                    flex: 2,
+                    padding: '9px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: postMortemTargetStatus === 'Won' ? '#16a34a' : '#b91c1c',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                  }}
+                >
+                  {savingPostMortem ? 'Saving…' : `Confirm & Move to ${postMortemTargetStatus}`}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 4. ONE-CLICK OUTREACH MODAL */}
       {outreachDeal && (
         <div
           style={{
@@ -1030,7 +1490,6 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* Template Selector Tabs */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 6 }}>
                 Select Institutional Template:
@@ -1059,7 +1518,6 @@ export default function ProposalList({ proposalVersion }) {
               </div>
             </div>
 
-            {/* Email Subject */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
                 Subject (for Email):
@@ -1072,7 +1530,6 @@ export default function ProposalList({ proposalVersion }) {
               />
             </div>
 
-            {/* Message Body */}
             <div>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
                 Message Body (WhatsApp & Email):
@@ -1094,7 +1551,6 @@ export default function ProposalList({ proposalVersion }) {
               />
             </div>
 
-            {/* Auto-Log Checkbox */}
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#475569', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -1105,7 +1561,6 @@ export default function ProposalList({ proposalVersion }) {
               <span>Automatically log this outreach touchpoint to deal history & audit trail</span>
             </label>
 
-            {/* Action Buttons */}
             <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
               <button
                 type="button"
@@ -1172,7 +1627,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 4. HUBSPOT DEAL DOSSIER (SLIDE-OVER DRAWER) */}
+      {/* 5. HUBSPOT DEAL DOSSIER (SLIDE-OVER DRAWER) */}
       {selectedDeal && (
         <div
           style={{
@@ -1246,7 +1701,7 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* Quick Outreach Launcher Trigger inside Drawer */}
+            {/* Quick Outreach Launcher Trigger */}
             <div style={{ marginTop: 14 }}>
               <button
                 type="button"
@@ -1484,9 +1939,7 @@ export default function ProposalList({ proposalVersion }) {
                     value={selectedDeal.status}
                     onChange={(e) => {
                       const newStatus = e.target.value
-                      if (validateGovernanceGate(selectedDeal, newStatus)) {
-                        setSelectedDeal({ ...selectedDeal, status: newStatus })
-                      }
+                      handleInitiateStatusChange(selectedDeal, newStatus)
                     }}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
                   >
