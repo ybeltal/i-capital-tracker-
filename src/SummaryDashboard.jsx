@@ -26,9 +26,23 @@ function formatMoney(value) {
   }).format(value ?? 0)}`
 }
 
+function downloadCSV(filename, csvRows) {
+  const csvContent = '\uFEFF' + csvRows.join('\r\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.setAttribute('href', url)
+  link.setAttribute('download', filename)
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 export default function SummaryDashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [refreshVersion, setRefreshVersion] = useState(0)
 
@@ -64,6 +78,74 @@ export default function SummaryDashboard() {
       cancelled = true
     }
   }, [refreshVersion])
+
+  async function handleExportCSV() {
+    if (!data) return
+    setExporting(true)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const csvRows = []
+
+      // Section 1: Executive KPI Summary
+      csvRows.push('THE i-CAPITAL AFRICA INSTITUTE — EXECUTIVE PIPELINE SUMMARY')
+      csvRows.push(`Export Date,${today}`)
+      csvRows.push(`As of (Nairobi Time),${new Date(data.as_of).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })}`)
+      csvRows.push('')
+
+      csvRows.push('EXECUTIVE METRIC,VALUE')
+      csvRows.push(`Clients,"${data.clients_total ?? 0}"`)
+      csvRows.push(`Leads,"${data.leads_total ?? 0}"`)
+      csvRows.push(`Total Proposals,"${data.proposals_total ?? 0}"`)
+      csvRows.push(`Open Proposals,"${data.proposals_open ?? 0}"`)
+      csvRows.push(`Won Proposals,"${data.proposals_won ?? 0}"`)
+      csvRows.push(`Lost Proposals,"${data.proposals_lost ?? 0}"`)
+      csvRows.push(`Open Proposal Value (ETB),"${data.open_value_etb ?? 0}"`)
+      csvRows.push(`Won Proposal Value (ETB),"${data.won_value_etb ?? 0}"`)
+      csvRows.push(`Win Rate,"${data.win_rate_pct !== null ? data.win_rate_pct + '%' : 'N/A'}"`)
+      csvRows.push(`Pending Actions,"${data.pending_actions ?? 0}"`)
+      csvRows.push(`Overdue Actions,"${data.overdue_actions ?? 0}"`)
+      csvRows.push(`Due Today,"${data.due_today_actions ?? 0}"`)
+      csvRows.push(`Upcoming Actions,"${data.upcoming_actions ?? 0}"`)
+      csvRows.push(`Actions Needing Date,"${data.undated_actions ?? 0}"`)
+      csvRows.push('')
+
+      // Section 2: Stage Distribution Breakdown
+      csvRows.push('PROPOSALS BY STATUS,NUMBER OF PROPOSALS')
+      proposalStatuses.forEach((status) => {
+        const row = data.proposal_statuses?.find((item) => item.status === status)
+        csvRows.push(`"${status}","${row?.count ?? 0}"`)
+      })
+      csvRows.push('')
+
+      // Section 3: Live Pipeline Proposals Detail
+      const { data: proposalsList } = await supabase
+        .from('proposals')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (proposalsList && proposalsList.length > 0) {
+        csvRows.push('DETAILED PIPELINE PROPOSALS')
+        const keys = Object.keys(proposalsList[0])
+        csvRows.push(keys.map((k) => `"${k}"`).join(','))
+
+        proposalsList.forEach((item) => {
+          const rowVals = keys.map((k) => {
+            const val = item[k]
+            if (val === null || val === undefined) return '""'
+            const str = typeof val === 'object' ? JSON.stringify(val) : String(val)
+            return `"${str.replace(/"/g, '""')}"`
+          })
+          csvRows.push(rowVals.join(','))
+        })
+      }
+
+      downloadCSV(`iCapital_Pipeline_Report_${today}.csv`, csvRows)
+    } catch (err) {
+      alert('Could not generate CSV export: ' + (err.message || err))
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const cards = data
     ? [
@@ -110,22 +192,44 @@ export default function SummaryDashboard() {
       >
         <h2 style={{ margin: 0, color: '#0f172a' }}>Summary Dashboard</h2>
 
-        <button
-          type="button"
-          disabled={loading}
-          onClick={() => setRefreshVersion((v) => v + 1)}
-          style={{
-            padding: '8px 14px',
-            backgroundColor: '#0284c7',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontWeight: 500,
-          }}
-        >
-          {loading ? 'Loading…' : 'Refresh dashboard'}
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <button
+            type="button"
+            disabled={loading || exporting}
+            onClick={handleExportCSV}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#10b981',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: loading || exporting ? 'not-allowed' : 'pointer',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            {exporting ? 'Generating…' : '📥 Export to Excel / CSV'}
+          </button>
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={() => setRefreshVersion((v) => v + 1)}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#0284c7',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontWeight: 500,
+            }}
+          >
+            {loading ? 'Loading…' : 'Refresh dashboard'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -161,7 +265,15 @@ export default function SummaryDashboard() {
                   boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
                 }}
               >
-                <div style={{ color: '#64748b', fontSize: 12, fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
+                <div
+                  style={{
+                    color: '#64748b',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    marginBottom: 8,
+                  }}
+                >
                   {label}
                 </div>
 
@@ -185,7 +297,16 @@ export default function SummaryDashboard() {
             ))}
           </div>
 
-          <div style={{ marginTop: 24, padding: 12, background: '#f1f5f9', borderRadius: 8, fontSize: 13, color: '#475569' }}>
+          <div
+            style={{
+              marginTop: 24,
+              padding: 12,
+              background: '#f1f5f9',
+              borderRadius: 8,
+              fontSize: 13,
+              color: '#475569',
+            }}
+          >
             Open proposals include On Hold and exclude Won, Lost and Cancelled. Win rate is Won ÷ (Won + Lost). Won proposal value represents contracted deal value.
           </div>
 
@@ -197,7 +318,14 @@ export default function SummaryDashboard() {
 
           <h3 style={{ marginTop: 28, marginBottom: 12 }}>Proposals by Status</h3>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 14 }}>
+            <table
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                textAlign: 'left',
+                fontSize: 14,
+              }}
+            >
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
                   <th style={{ padding: '10px 14px', color: '#475569' }}>Status</th>
@@ -210,7 +338,9 @@ export default function SummaryDashboard() {
                   return (
                     <tr key={status} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '10px 14px', fontWeight: 500 }}>{status}</td>
-                      <td style={{ padding: '10px 14px', color: '#334155' }}>{formatNumber(row?.count ?? 0)}</td>
+                      <td style={{ padding: '10px 14px', color: '#334155' }}>
+                        {formatNumber(row?.count ?? 0)}
+                      </td>
                     </tr>
                   )
                 })}
