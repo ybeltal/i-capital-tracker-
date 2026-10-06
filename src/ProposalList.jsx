@@ -22,6 +22,21 @@ const ACTIVITY_TYPES = [
   '📝 Contract Negotiation'
 ]
 
+// Team Commercial Owners (i-Capital Directory)
+const TEAM_OWNERS = [
+  'Ybeltal',
+  'Tsegaab',
+  'Seife',
+  'Yeabsira',
+  'Dr. Daniel',
+  'Dr. Abel',
+  'Raphael',
+  'Aida',
+  'Lemlem',
+  'Atalay',
+  'Unassigned'
+]
+
 // 4 Institutional Governance Gates
 const GOVERNANCE_GATES = [
   { id: 'tor_aligned', label: 'TOR & Scope Methodology Aligned' },
@@ -30,7 +45,7 @@ const GOVERNANCE_GATES = [
   { id: 'director_signoff', label: 'SBU Head & Managing Director Sign-Off' },
 ]
 
-// Loss Reasons (matching i-Capital Master Framework)
+// Loss Reasons
 const LOSS_REASONS = [
   'Financial (Too Expensive)',
   'Competitor Won',
@@ -51,7 +66,7 @@ const WIN_FACTORS = [
   'Strategic SBU Partner Alignment'
 ]
 
-// 4 Pre-Formatted Outreach Templates
+// Outreach Templates
 const OUTREACH_TEMPLATES = {
   status_check: {
     label: '📋 Review & Status Check',
@@ -138,6 +153,19 @@ function stringifyGatesWithNotes(gates, existingNotes) {
   return cleanNotes ? `${gateTag}\n\n${cleanNotes}` : gateTag
 }
 
+// Feature 6: Owner Parsing & Formatting
+function parseOwner(notes) {
+  if (!notes) return 'Unassigned'
+  const match = notes.match(/\[OWNER:\s*([^\]]+)\]/)
+  return match ? match[1].trim() : 'Unassigned'
+}
+
+function stringifyOwnerWithNotes(owner, existingNotes) {
+  const tag = `[OWNER: ${owner}]`
+  const clean = (existingNotes || '').replace(/\[OWNER:[^\]]*\]\n?/, '').trim()
+  return clean ? `${tag}\n\n${clean}` : tag
+}
+
 function parseOutcome(notes) {
   if (!notes) return null
   const match = notes.match(/\[OUTCOME:\s*([^\]]+)\]/)
@@ -147,7 +175,7 @@ function parseOutcome(notes) {
   parts.forEach((p) => {
     if (p.includes(':')) {
       const [k, v] = p.split(':', 2)
-      outcome[k.trim().toLowerCase()] = v.trim()
+      outcome[k.strip ? k.strip().toLowerCase() : k.trim().toLowerCase()] = v.trim()
     } else {
       outcome.status = p.trim()
     }
@@ -199,12 +227,17 @@ export default function ProposalList({ proposalVersion }) {
   const [filterSBU, setFilterSBU] = useState('ALL')
   const [filterHealth, setFilterHealth] = useState('ALL')
 
+  // Feature 6: Commercial Owner Filter State
+  const [filterOwner, setFilterOwner] = useState('ALL')
+  const [showWorkloadPanel, setShowWorkloadPanel] = useState(false)
+
   // Drag-and-Drop state
   const [draggedDealId, setDraggedDealId] = useState(null)
   const [dragOverStage, setDragOverStage] = useState(null)
 
   // Slide-over Drawer State
   const [selectedDeal, setSelectedDeal] = useState(null)
+  const [selectedDealOwner, setSelectedDealOwner] = useState('Unassigned')
   const [saving, setSaving] = useState(false)
 
   // Quick Activity Log State
@@ -222,9 +255,9 @@ export default function ProposalList({ proposalVersion }) {
   const [autoLogOutreach, setAutoLogOutreach] = useState(true)
   const [copiedToast, setCopiedToast] = useState(false)
 
-  // --- Feature 4: Win/Loss Post-Mortem Modal State ---
+  // Win/Loss Post-Mortem State
   const [postMortemDeal, setPostMortemDeal] = useState(null)
-  const [postMortemTargetStatus, setPostMortemTargetStatus] = useState(null) // 'Lost' | 'Won'
+  const [postMortemTargetStatus, setPostMortemTargetStatus] = useState(null)
   const [lossReason, setLossReason] = useState(LOSS_REASONS[0])
   const [winningCompetitor, setWinningCompetitor] = useState('')
   const [postMortemLessons, setPostMortemLessons] = useState('')
@@ -272,7 +305,11 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  // Open the Outreach Generator Modal
+  function handleOpenDealDrawer(deal) {
+    setSelectedDeal({ ...deal })
+    setSelectedDealOwner(parseOwner(deal.notes))
+  }
+
   function handleOpenOutreach(deal, e) {
     if (e) e.stopPropagation()
     const clientName = deal.opportunities?.clients?.name || 'Client'
@@ -305,9 +342,15 @@ export default function ProposalList({ proposalVersion }) {
     const entry = `[${timestamp}] 💬 ${channelLabel} Outreach Sent: ${tplLabel}`
 
     const currentGates = parseGates(outreachDeal.notes)
-    const cleanExisting = (outreachDeal.notes || '').replace(/\[GATES:[^\]]*\]\n?/, '').trim()
+    const currentOwner = parseOwner(outreachDeal.notes)
+    const cleanExisting = (outreachDeal.notes || '')
+      .replace(/\[GATES:[^\]]*\]\n?/, '')
+      .replace(/\[OWNER:[^\]]*\]\n?/, '')
+      .trim()
+
     const combinedNotes = cleanExisting ? `${entry}\n\n${cleanExisting}` : entry
-    const finalNotes = stringifyGatesWithNotes(currentGates, combinedNotes)
+    let finalNotes = stringifyGatesWithNotes(currentGates, combinedNotes)
+    finalNotes = stringifyOwnerWithNotes(currentOwner, finalNotes)
 
     try {
       await supabase
@@ -344,7 +387,6 @@ export default function ProposalList({ proposalVersion }) {
     setTimeout(() => setCopiedToast(false), 2500)
   }
 
-  // Go / No-Go Compliance Gate Validation
   function validateGovernanceGate(deal, newStatus) {
     if (['Submitted', 'Won'].includes(newStatus)) {
       const clearedGates = parseGates(deal.notes)
@@ -358,13 +400,11 @@ export default function ProposalList({ proposalVersion }) {
     return true
   }
 
-  // --- Feature 4: Trigger Win/Loss Modal on Stage Transition ---
   async function handleInitiateStatusChange(deal, newStatus) {
     if (!validateGovernanceGate(deal, newStatus)) {
       return
     }
 
-    // Intercept Lost or Won to capture intelligence
     if (newStatus === 'Lost') {
       const existing = parseOutcome(deal.notes)
       setLossReason(existing?.reason || LOSS_REASONS[0])
@@ -385,7 +425,6 @@ export default function ProposalList({ proposalVersion }) {
       return
     }
 
-    // Normal direct status update for all intermediate stages
     await executeStatusChange(deal.id, newStatus)
   }
 
@@ -412,7 +451,6 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  // Save the Post-Mortem Intelligence
   async function handleSavePostMortem(e) {
     e.preventDefault()
     if (!postMortemDeal) return
@@ -440,7 +478,6 @@ export default function ProposalList({ proposalVersion }) {
       logSummary = `[${timestamp}] 🏆 Outcome: Won (Factor: ${winFactor})`
     }
 
-    // Embed outcome tag into notes
     const withOutcome = stringifyOutcomeWithNotes(outcomePayload, postMortemDeal.notes)
     const finalNotes = `${logSummary}\n\n${withOutcome}`
 
@@ -453,7 +490,6 @@ export default function ProposalList({ proposalVersion }) {
     setPostMortemDeal(null)
   }
 
-  // Drag & Drop Handlers
   function handleDragStart(e, id) {
     setDraggedDealId(id)
     e.dataTransfer.setData('text/plain', id)
@@ -519,10 +555,14 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
+  // Feature 6: Save Deal Drawer with Commercial Owner
   async function handleSaveDealDossier(e) {
     e.preventDefault()
     setSaving(true)
     try {
+      // Inject owner into notes
+      const notesWithOwner = stringifyOwnerWithNotes(selectedDealOwner, selectedDeal.notes)
+
       const { error: updateErr } = await supabase
         .from('proposals')
         .update({
@@ -531,14 +571,15 @@ export default function ProposalList({ proposalVersion }) {
           status: selectedDeal.status,
           submission_deadline: selectedDeal.submission_deadline || null,
           document_url: selectedDeal.document_url || null,
-          notes: selectedDeal.notes || null,
+          notes: notesWithOwner,
         })
         .eq('id', selectedDeal.id)
 
       if (updateErr) throw updateErr
 
+      const updatedDeal = { ...selectedDeal, notes: notesWithOwner }
       setProposals((prev) =>
-        prev.map((p) => (p.id === selectedDeal.id ? { ...p, ...selectedDeal } : p))
+        prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
       )
       setSelectedDeal(null)
     } catch (err) {
@@ -567,9 +608,15 @@ export default function ProposalList({ proposalVersion }) {
       }
 
       const currentGates = parseGates(selectedDeal.notes)
-      const cleanExistingNotes = (selectedDeal.notes || '').replace(/\[GATES:[^\]]*\]\n?/, '').trim()
+      const currentOwner = parseOwner(selectedDeal.notes)
+      const cleanExistingNotes = (selectedDeal.notes || '')
+        .replace(/\[GATES:[^\]]*\]\n?/, '')
+        .replace(/\[OWNER:[^\]]*\]\n?/, '')
+        .trim()
+
       const combinedNotes = cleanExistingNotes ? `${logEntry}\n\n${cleanExistingNotes}` : logEntry
-      const finalNotes = stringifyGatesWithNotes(currentGates, combinedNotes)
+      let finalNotes = stringifyGatesWithNotes(currentGates, combinedNotes)
+      finalNotes = stringifyOwnerWithNotes(currentOwner, finalNotes)
 
       const { error: propErr } = await supabase
         .from('proposals')
@@ -609,7 +656,7 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  // --- Feature 4: Competitor Intelligence & Loss Reason Stats ---
+  // Feature 4: Competitor Intelligence & Loss Reason Stats
   const wonDealsList = proposals.filter((p) => p.status === 'Won')
   const lostDealsList = proposals.filter((p) => p.status === 'Lost')
   const decidedTotal = wonDealsList.length + lostDealsList.length
@@ -627,12 +674,32 @@ export default function ProposalList({ proposalVersion }) {
     }
   })
 
+  // Feature 6: Team Workload Metrics Calculation
+  const workloadMetrics = TEAM_OWNERS.map((ownerName) => {
+    const ownerDeals = proposals.filter((p) => parseOwner(p.notes) === ownerName)
+    const openDeals = ownerDeals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
+    const wonDeals = ownerDeals.filter((p) => p.status === 'Won')
+    const openVal = openDeals.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+    const wonVal = wonDeals.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+
+    return {
+      name: ownerName,
+      totalCount: ownerDeals.length,
+      openCount: openDeals.length,
+      wonCount: wonDeals.length,
+      openValue: openVal,
+      wonValue: wonVal,
+    }
+  }).filter((w) => w.totalCount > 0 || ['Ybeltal', 'Tsegaab', 'Seife', 'Yeabsira'].includes(w.name))
+
+  // Filter Pipeline Deals by SBU, Health, Search, and Commercial Owner
   const filteredProposals = proposals.filter((p) => {
     const clientName = p.opportunities?.clients?.name?.toLowerCase() || ''
     const title = p.title?.toLowerCase() || ''
     const code = p.proposal_code?.toLowerCase() || ''
     const sbu = p.opportunities?.sbus?.name || ''
     const health = getDealHealth(p)
+    const owner = parseOwner(p.notes)
 
     const matchesSearch =
       clientName.includes(searchQuery.toLowerCase()) ||
@@ -641,8 +708,9 @@ export default function ProposalList({ proposalVersion }) {
 
     const matchesSBU = filterSBU === 'ALL' || sbu === filterSBU
     const matchesHealth = filterHealth === 'ALL' || health.status === filterHealth
+    const matchesOwner = filterOwner === 'ALL' || owner === filterOwner
 
-    return matchesSearch && matchesSBU && matchesHealth
+    return matchesSearch && matchesSBU && matchesHealth && matchesOwner
   })
 
   return (
@@ -668,7 +736,7 @@ export default function ProposalList({ proposalVersion }) {
               padding: '8px 14px',
               borderRadius: 6,
               border: '1px solid #cbd5e1',
-              width: '240px',
+              width: '210px',
               fontSize: 13,
             }}
           />
@@ -691,6 +759,29 @@ export default function ProposalList({ proposalVersion }) {
             <option value="IIP">IIP</option>
           </select>
 
+          {/* Feature 6: Commercial Owner Filter Dropdown */}
+          <select
+            value={filterOwner}
+            onChange={(e) => setFilterOwner(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              fontSize: 13,
+              backgroundColor: '#fff',
+              fontWeight: 600,
+              color: '#0f172a',
+            }}
+          >
+            <option value="ALL">👤 All Owners</option>
+            <option value="Ybeltal">👤 My Deals (Ybeltal)</option>
+            {TEAM_OWNERS.filter((o) => o !== 'Ybeltal').map((owner) => (
+              <option key={owner} value={owner}>
+                👤 {owner}
+              </option>
+            ))}
+          </select>
+
           <select
             value={filterHealth}
             onChange={(e) => setFilterHealth(e.target.value)}
@@ -709,10 +800,34 @@ export default function ProposalList({ proposalVersion }) {
             <option value="closed">⚪ Closed</option>
           </select>
 
-          {/* Feature 4: Competitor Intelligence Toggle Button */}
+          {/* Feature 6: Team Workload Allocation Button */}
           <button
             type="button"
-            onClick={() => setShowIntelPanel((v) => !v)}
+            onClick={() => {
+              setShowWorkloadPanel((v) => !v)
+              setShowIntelPanel(false)
+            }}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              background: showWorkloadPanel ? '#eff6ff' : '#fff',
+              color: showWorkloadPanel ? '#1d4ed8' : '#334155',
+              fontWeight: 600,
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            👥 Team Workload
+          </button>
+
+          {/* Feature 4: Competitor Intelligence Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setShowIntelPanel((v) => !v)
+              setShowWorkloadPanel(false)
+            }}
             style={{
               padding: '8px 12px',
               borderRadius: 6,
@@ -722,12 +837,9 @@ export default function ProposalList({ proposalVersion }) {
               fontWeight: 600,
               fontSize: 12,
               cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
             }}
           >
-            📊 Win/Loss & Competitor Intel {decidedTotal > 0 && `(${winRatePercent}%)`}
+            📊 Win/Loss Intel {decidedTotal > 0 && `(${winRatePercent}%)`}
           </button>
         </div>
 
@@ -769,7 +881,59 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       </div>
 
-      {/* Feature 4: Collapsible Win/Loss & Competitor Intelligence Drawer */}
+      {/* Feature 6: Collapsible Team Workload Allocation Panel */}
+      {showWorkloadPanel && (
+        <div
+          style={{
+            marginBottom: 20,
+            padding: 16,
+            background: '#ffffff',
+            borderRadius: 8,
+            border: '1px solid #bfdbfe',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#1e40af', textTransform: 'uppercase' }}>
+              👥 Commercial Owner Workload & Portfolio Allocation
+            </span>
+            <span style={{ fontSize: 12, color: '#64748b' }}>
+              Active Proposals Assigned across Senior Relationship Officers
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+            {workloadMetrics.map((w) => (
+              <div
+                key={w.name}
+                onClick={() => setFilterOwner(filterOwner === w.name ? 'ALL' : w.name)}
+                style={{
+                  padding: 12,
+                  borderRadius: 6,
+                  border: filterOwner === w.name ? '2px solid #0284c7' : '1px solid #e2e8f0',
+                  background: filterOwner === w.name ? '#f0f9ff' : '#f8fafc',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <strong style={{ fontSize: 13, color: '#0f172a' }}>👤 {w.name}</strong>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', background: '#e0f2fe', padding: '1px 6px', borderRadius: 10 }}>
+                    {w.openCount} active
+                  </span>
+                </div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', margin: '4px 0 2px 0' }}>
+                  {formatMoney(w.openValue)}
+                </div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>
+                  {w.wonCount} won deals ({formatMoney(w.wonValue)})
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Feature 4: Collapsible Win/Loss & Competitor Intel Drawer */}
       {showIntelPanel && (
         <div
           style={{
@@ -784,7 +948,6 @@ export default function ProposalList({ proposalVersion }) {
             gap: 16,
           }}
         >
-          {/* Win Rate Snapshot */}
           <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: 14 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#166534', textTransform: 'uppercase' }}>
               Institutional Conversion Rate
@@ -797,7 +960,6 @@ export default function ProposalList({ proposalVersion }) {
             </span>
           </div>
 
-          {/* Loss Reason Breakdown */}
           <div style={{ borderRight: '1px solid #f1f5f9', paddingRight: 14 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c', textTransform: 'uppercase' }}>
               Loss Reasons Breakdown
@@ -816,14 +978,13 @@ export default function ProposalList({ proposalVersion }) {
             </div>
           </div>
 
-          {/* Competitor Intelligence */}
           <div>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>
               Identified Competitor Wins
             </span>
             <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
               {Object.entries(competitorCounts).length === 0 ? (
-                <span style={{ fontSize: 12, color: '#94a3b8' }}>No competitors logged in lost post-mortems</span>
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>No competitors logged</span>
               ) : (
                 Object.entries(competitorCounts).map(([comp, count]) => (
                   <div key={comp} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#475569' }}>
@@ -881,7 +1042,6 @@ export default function ProposalList({ proposalVersion }) {
                     background: isTargeted ? '#e0f2fe' : '#ffffff',
                     borderTopLeftRadius: 8,
                     borderTopRightRadius: 8,
-                    transition: 'background-color 0.15s ease',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -922,6 +1082,7 @@ export default function ProposalList({ proposalVersion }) {
                     const gates = parseGates(deal.notes)
                     const isGatesComplete = gates.length === GOVERNANCE_GATES.length
                     const outcome = parseOutcome(deal.notes)
+                    const owner = parseOwner(deal.notes)
 
                     return (
                       <div
@@ -929,7 +1090,7 @@ export default function ProposalList({ proposalVersion }) {
                         draggable
                         onDragStart={(e) => handleDragStart(e, deal.id)}
                         onDragEnd={handleDragEnd}
-                        onClick={() => setSelectedDeal({ ...deal })}
+                        onClick={() => handleOpenDealDrawer(deal)}
                         style={{
                           background: '#ffffff',
                           padding: 12,
@@ -993,7 +1154,14 @@ export default function ProposalList({ proposalVersion }) {
                           {deal.title}
                         </p>
 
-                        {/* Feature 4: Post-Mortem Reason Badge on Lost / Won Deals */}
+                        {/* Feature 6: Commercial Owner Pill on Card */}
+                        <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                            👤 {owner}
+                          </span>
+                        </div>
+
+                        {/* Outcome Pill on Lost / Won */}
                         {deal.status === 'Lost' && (
                           <div style={{ marginBottom: 6 }}>
                             <span
@@ -1140,8 +1308,9 @@ export default function ProposalList({ proposalVersion }) {
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Client</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Scope / Title</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>SBU</th>
+                <th style={{ padding: '10px 14px', color: '#475569' }}>Commercial Owner</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Governance Gate</th>
-                <th style={{ padding: '10px 14px', color: '#475569' }}>Outcome Intelligence</th>
+                <th style={{ padding: '10px 14px', color: '#475569' }}>Outcome</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Status</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Value (ETB)</th>
                 <th style={{ padding: '10px 14px', textAlign: 'right', color: '#475569' }}>Outreach</th>
@@ -1152,11 +1321,12 @@ export default function ProposalList({ proposalVersion }) {
                 const gates = parseGates(deal.notes)
                 const isGatesComplete = gates.length === GOVERNANCE_GATES.length
                 const outcome = parseOutcome(deal.notes)
+                const owner = parseOwner(deal.notes)
 
                 return (
                   <tr
                     key={deal.id}
-                    onClick={() => setSelectedDeal({ ...deal })}
+                    onClick={() => handleOpenDealDrawer(deal)}
                     style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
                   >
                     <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0369a1' }}>
@@ -1179,6 +1349,10 @@ export default function ProposalList({ proposalVersion }) {
                         {deal.opportunities?.sbus?.name || '—'}
                       </span>
                     </td>
+                    {/* Commercial Owner Column */}
+                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#334155' }}>
+                      👤 {owner}
+                    </td>
                     <td style={{ padding: '10px 14px' }}>
                       <span
                         style={{
@@ -1193,15 +1367,14 @@ export default function ProposalList({ proposalVersion }) {
                         {isGatesComplete ? '🛡️ 4/4 Cleared' : gates.length > 0 ? `⚠️ ${gates.length}/4` : '⚪ 0/4'}
                       </span>
                     </td>
-                    {/* Outcome Intelligence Column */}
                     <td style={{ padding: '10px 14px' }}>
                       {deal.status === 'Lost' ? (
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c' }}>
-                          ❌ {outcome?.reason || 'Financial (Too Expensive)'}
+                          ❌ {outcome?.reason || 'Lost'}
                         </span>
                       ) : deal.status === 'Won' ? (
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#166534' }}>
-                          🏆 {outcome?.factor || 'Closed Won'}
+                          🏆 {outcome?.factor || 'Won'}
                         </span>
                       ) : (
                         <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>
@@ -1256,7 +1429,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 3. FEATURE 4: WIN / LOSS POST-MORTEM CAPTURE MODAL */}
+      {/* 3. POST-MORTEM MODAL */}
       {postMortemDeal && (
         <div
           style={{
@@ -1433,7 +1606,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 4. ONE-CLICK OUTREACH MODAL */}
+      {/* 4. OUTREACH GENERATOR MODAL */}
       {outreachDeal && (
         <div
           style={{
@@ -1545,7 +1718,6 @@ export default function ProposalList({ proposalVersion }) {
                   border: '1px solid #cbd5e1',
                   fontSize: 12,
                   lineHeight: 1.5,
-                  fontFamily: 'inherit',
                   background: '#f8fafc',
                 }}
               />
@@ -1627,7 +1799,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 5. HUBSPOT DEAL DOSSIER (SLIDE-OVER DRAWER) */}
+      {/* 5. DEAL DOSSIER (SLIDE-OVER DRAWER) WITH FEATURE 6 COMMERCIAL OWNER */}
       {selectedDeal && (
         <div
           style={{
@@ -1902,7 +2074,7 @@ export default function ProposalList({ proposalVersion }) {
               </form>
             </div>
 
-            {/* Editable Form */}
+            {/* Editable Form with Feature 6 Commercial Owner Selector */}
             <form onSubmit={handleSaveDealDossier} style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
@@ -1915,6 +2087,24 @@ export default function ProposalList({ proposalVersion }) {
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
                   required
                 />
+              </div>
+
+              {/* Feature 6: Commercial Owner Dropdown */}
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>
+                  👤 Assigned Commercial Owner
+                </label>
+                <select
+                  value={selectedDealOwner}
+                  onChange={(e) => setSelectedDealOwner(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13, background: '#f8fafc', fontWeight: 600 }}
+                >
+                  {TEAM_OWNERS.map((owner) => (
+                    <option key={owner} value={owner}>
+                      {owner}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
