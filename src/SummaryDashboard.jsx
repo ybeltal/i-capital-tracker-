@@ -501,7 +501,57 @@ export default function SummaryDashboard() {
               ))}
             </div>
           </div>
+{/* Visual Analytics: Bar Chart & Pie Chart */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '20px', margin: '24px 0' }}>
+        
+        {/* SBU Target vs Forecast Bar Chart */}
+        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
+            📊 SBU Target Quota vs. Weighted Forecast (ETB)
+          </h3>
+          <div style={{ width: '100%', height: 280 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sbuBarData} margin={{ top: 10, right: 15, left: 10, bottom: 5 }}>
+                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+                <YAxis stroke="#64748b" fontSize={11} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
+                <Tooltip formatter={(val) => `ETB ${Number(val).toLocaleString()}`} />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+                <Bar dataKey="Target" fill="#cbd5e1" name="Target Quota" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Forecast" fill="#0284c7" name="Weighted Forecast" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
 
+        {/* Pipeline Distribution Donut Chart */}
+        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
+            🍩 SBU Weighted Revenue Share
+          </h3>
+          <div style={{ width: '100%', height: 280 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={sbuPieData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={65}
+                  outerRadius={95}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {sbuPieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(val) => `ETB ${Number(val).toLocaleString()}`} />
+                <Legend wrapperStyle={{ fontSize: '12px' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+      </div>
           {/* Operational KPIs */}
           <h3 style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>CRM Pipeline Operational Metrics</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
