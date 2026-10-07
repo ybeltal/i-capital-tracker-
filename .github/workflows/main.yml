@@ -4,7 +4,7 @@ on:
   schedule:
     # 05:00 UTC = 08:00 AM Nairobi / Addis Ababa time (UTC+3) every day
     - cron: '0 5 * * *'
-  workflow_dispatch: # Allows manual testing anytime
+  workflow_dispatch:
 
 jobs:
   send-brief:
@@ -16,10 +16,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run Daily Morning Briefing
         env:
