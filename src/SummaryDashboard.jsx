@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 const STAGE_WEIGHTS = {
   'Initiated': 0.10,
   'In Progress': 0.30,
@@ -35,11 +35,21 @@ const DEFAULT_TARGETS = {
   'IIP': 4500000,
   'DAS': 2500000,
 }
-
+// Visual Analytics Data (Available to the entire file)
+const sbuBarData = [
+  { name: 'Institute', Target: 5000000, Forecast: 809000 },
+  { name: 'CBS', Target: 6000000, Forecast: 2486500 },
+  { name: 'IIP', Target: 4500000, Forecast: 42000 },
+  { name: 'DAS', Target: 2500000, Forecast: 0 },
+];
+const sbuPieData = [
+  { name: 'CBS', value: 2486500, color: '#f59e0b' },
+  { name: 'Institute', value: 809000, color: '#0284c7' },
+  { name: 'IIP', value: 42000, color: '#10b981' },
+];
 function formatNumber(value) {
-  return new Intl.NumberFormat('en-US').format(value ?? 0)
+  return new Intl.NumberFormat('en-US').format(value ?? 0);
 }
-
 function formatMoney(value) {
   return `ETB ${new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
