@@ -217,7 +217,41 @@ function getDealHealth(deal) {
     return { label: `🔴 Stale (${days}d)`, color: '#b91c1c', bg: '#fef2f2', border: '#fecaca', status: 'stale', days }
   }
 }
+// Calculates remaining days until tender closing
+function renderDeadlineBadge(deadlineStr) {
+  if (!deadlineStr) return null;
 
+  const now = new Date();
+  const deadline = new Date(deadlineStr);
+  const diffDays = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return (
+      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: '#fee2e2', color: '#991b1b' }}>
+        ⛔ Closed ({Math.abs(diffDays)}d ago)
+      </span>
+    );
+  }
+  if (diffDays === 0) {
+    return (
+      <span style={{ fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: '#fef3c7', color: '#b45309' }}>
+        ⚠️ Closes Today
+      </span>
+    );
+  }
+  if (diffDays <= 3) {
+    return (
+      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c' }}>
+        🚨 {diffDays}d Left
+      </span>
+    );
+  }
+  return (
+    <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', background: '#e2e8f0', color: '#334155' }}>
+      🗓️ {diffDays}d Left
+    </span>
+  );
+}
 export default function ProposalList({ proposalVersion }) {
   const [proposals, setProposals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -2189,6 +2223,85 @@ export default function ProposalList({ proposalVersion }) {
               </div>
 
               <div style={{ marginTop: 10, display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
+                {/* 1. Tender Documents Cloud Repository */}
+              <div style={{ marginBottom: '16px', padding: '12px 14px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  📂 Tender Dossier & Working Files
+                </div>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px' }}>
+                  {selectedDeal?.rfp_doc_link ? (
+                    <a href={selectedDeal.rfp_doc_link} target="_blank" rel="noreferrer" style={{ color: '#0284c7', fontWeight: 600, textDecoration: 'none' }}>
+                      📄 Tender TOR / RFP Dossier ↗
+                    </a>
+                  ) : <span style={{ color: '#94a3b8' }}>• No RFP link attached</span>}
+
+                  {selectedDeal?.tech_proposal_link && (
+                    <a href={selectedDeal.tech_proposal_link} target="_blank" rel="noreferrer" style={{ color: '#0284c7', fontWeight: 600, textDecoration: 'none' }}>
+                      📘 Technical Proposal Draft ↗
+                    </a>
+                  )}
+
+                  {selectedDeal?.fin_proposal_link && (
+                    <a href={selectedDeal.fin_proposal_link} target="_blank" rel="noreferrer" style={{ color: '#0284c7', fontWeight: 600, textDecoration: 'none' }}>
+                      💼 Financial Proposal & Budget ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Pre-Submission Institutional Compliance Gate */}
+              <div style={{ marginBottom: '20px', padding: '14px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+                {(() => {
+                  const checklistItems = [
+                    { key: 'tor_aligned', label: 'TOR Requirements & Methodology Aligned' },
+                    { key: 'cpo_bid_bond', label: 'Bid Bond / CPO Guarantee Secured' },
+                    { key: 'tax_clearance', label: 'Valid Tax Clearance & Business License' },
+                    { key: 'audited_financials', label: 'Audited Financial Statements (Last 2–3 Yrs)' },
+                    { key: 'expert_cvs', label: 'Consultant / Expert CVs Packaged' },
+                    { key: 'compliance_sheet', label: 'Signed Institutional Compliance Sheet' },
+                  ];
+                  const cl = selectedDeal?.compliance_checklist || {};
+                  const completed = checklistItems.filter((i) => cl[i.key]).length;
+                  const percent = Math.round((completed / checklistItems.length) * 100);
+
+                  return (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
+                          📋 Pre-Submission Compliance Checklist
+                        </span>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: percent === 100 ? '#16a34a' : '#ea580c' }}>
+                          {completed} of {checklistItems.length} Cleared ({percent}%)
+                        </span>
+                      </div>
+
+                      {/* Progress Bar */}
+                      <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
+                        <div style={{ width: `${percent}%`, height: '100%', background: percent === 100 ? '#16a34a' : '#0284c7', transition: 'width 0.3s' }} />
+                      </div>
+
+                      {/* Checkbox Grid */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                        {checklistItems.map((item) => (
+                          <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(cl[item.key])}
+                              onChange={(e) => {
+                                const updated = { ...cl, [item.key]: e.target.checked };
+                                setSelectedDeal((prev) => ({ ...prev, compliance_checklist: updated }));
+                              }}
+                            />
+                            <span style={{ textDecoration: cl[item.key] ? 'line-through' : 'none', color: cl[item.key] ? '#64748b' : '#0f172a' }}>
+                              {item.label}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
                 <button
                   type="button"
                   onClick={() => setSelectedDeal(null)}
