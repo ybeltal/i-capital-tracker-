@@ -262,7 +262,9 @@ async function runDailyBrief() {
 
       <!-- Direct Jump Button -->
       <div style="text-align: center; margin: 30px 0 10px 0;">
-        <a href="https://icapital-crm-hub.vercel.app" style="background: #0284c7; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 13px; display: inline-block;">
+        <a href="https://your-custom-domain.com" style="display: inline-block; background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+  🚀 Open Live i-Capital CRM Hub
+</a>
           🚀 Open Live i-Capital CRM Hub
         </a>
       </div>
