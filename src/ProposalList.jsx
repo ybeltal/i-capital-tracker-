@@ -217,41 +217,92 @@ function getDealHealth(deal) {
     return { label: `🔴 Stale (${days}d)`, color: '#b91c1c', bg: '#fef2f2', border: '#fecaca', status: 'stale', days }
   }
 }
-// Calculates remaining days until tender closing
+
+// 3:4 portrait photo component
+function OwnerPhoto({ name }) {
+  const isYbeltal = name && name.toLowerCase().includes('ybeltal');
+  const photoSrc = isYbeltal ? '/team/ybeltal.jpg' : null;
+
+  if (photoSrc) {
+    return (
+      <img
+        src={photoSrc}
+        alt={name}
+        style={{
+          width: '27px',
+          height: '36px', // exact 3:4 ratio
+          borderRadius: '4px',
+          objectFit: 'cover',
+          border: '1px solid #cbd5e1',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+          display: 'inline-block',
+          verticalAlign: 'middle',
+          flexShrink: 0,
+        }}
+        title={name}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: '27px',
+        height: '36px',
+        borderRadius: '4px',
+        background: '#e0f2fe',
+        border: '1px solid #bae6fd',
+        color: '#0369a1',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '11px',
+        fontWeight: 700,
+        verticalAlign: 'middle',
+        flexShrink: 0,
+      }}
+      title={name || 'Unassigned'}
+    >
+      {name ? name.slice(0, 2).toUpperCase() : 'N/A'}
+    </div>
+  );
+}
+
+// Deadline Urgency Badge helper
 function renderDeadlineBadge(deadlineStr) {
   if (!deadlineStr) return null;
-
   const now = new Date();
   const deadline = new Date(deadlineStr);
   const diffDays = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
 
   if (diffDays < 0) {
     return (
-      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: '#fee2e2', color: '#991b1b' }}>
+      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}>
         ⛔ Closed ({Math.abs(diffDays)}d ago)
       </span>
     );
   }
   if (diffDays === 0) {
     return (
-      <span style={{ fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '4px', background: '#fef3c7', color: '#b45309' }}>
+      <span style={{ fontSize: '10px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
         ⚠️ Closes Today
       </span>
     );
   }
   if (diffDays <= 3) {
     return (
-      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c' }}>
+      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c', border: '1px solid #fed7aa' }}>
         🚨 {diffDays}d Left
       </span>
     );
   }
   return (
-    <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', background: '#e2e8f0', color: '#334155' }}>
+    <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
       🗓️ {diffDays}d Left
     </span>
   );
 }
+
 export default function ProposalList({ proposalVersion }) {
   const [proposals, setProposals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -594,19 +645,24 @@ export default function ProposalList({ proposalVersion }) {
     e.preventDefault()
     setSaving(true)
     try {
-      // Inject owner into notes
       const notesWithOwner = stringifyOwnerWithNotes(selectedDealOwner, selectedDeal.notes)
+
+      const updatePayload = {
+        title: selectedDeal.title,
+        deal_value_etb: parseFloat(selectedDeal.deal_value_etb) || 0,
+        status: selectedDeal.status,
+        submission_deadline: selectedDeal.submission_deadline || null,
+        document_url: selectedDeal.document_url || null,
+        notes: notesWithOwner,
+      }
+
+      if (selectedDeal.compliance_checklist) {
+        updatePayload.compliance_checklist = selectedDeal.compliance_checklist
+      }
 
       const { error: updateErr } = await supabase
         .from('proposals')
-        .update({
-          title: selectedDeal.title,
-          deal_value_etb: parseFloat(selectedDeal.deal_value_etb) || 0,
-          status: selectedDeal.status,
-          submission_deadline: selectedDeal.submission_deadline || null,
-          document_url: selectedDeal.document_url || null,
-          notes: notesWithOwner,
-        })
+        .update(updatePayload)
         .eq('id', selectedDeal.id)
 
       if (updateErr) throw updateErr
@@ -949,8 +1005,11 @@ export default function ProposalList({ proposalVersion }) {
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                  <strong style={{ fontSize: 13, color: '#0f172a' }}>👤 {w.name}</strong>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <OwnerPhoto name={w.name} />
+                    <strong style={{ fontSize: 13, color: '#0f172a' }}>{w.name}</strong>
+                  </div>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', background: '#e0f2fe', padding: '1px 6px', borderRadius: 10 }}>
                     {w.openCount} active
                   </span>
@@ -1188,10 +1247,18 @@ export default function ProposalList({ proposalVersion }) {
                           {deal.title}
                         </p>
 
-                        {/* Feature 6: Commercial Owner Pill on Card */}
-                        <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
-                            👤 {owner}
+                        {/* Submission Deadline Urgency Badge */}
+                        {deal.submission_deadline && (
+                          <div style={{ marginBottom: 6 }}>
+                            {renderDeadlineBadge(deal.submission_deadline)}
+                          </div>
+                        )}
+
+                        {/* Feature 6: Commercial Owner Card Row with 3x4 Photo */}
+                        <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <OwnerPhoto name={owner} />
+                          <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>
+                            {owner}
                           </span>
                         </div>
 
@@ -1369,7 +1436,14 @@ export default function ProposalList({ proposalVersion }) {
                     <td style={{ padding: '10px 14px', fontWeight: 600 }}>
                       {deal.opportunities?.clients?.name || '—'}
                     </td>
-                    <td style={{ padding: '10px 14px', color: '#334155' }}>{deal.title}</td>
+                    <td style={{ padding: '10px 14px', color: '#334155' }}>
+                      <div>{deal.title}</div>
+                      {deal.submission_deadline && (
+                        <div style={{ marginTop: 4 }}>
+                          {renderDeadlineBadge(deal.submission_deadline)}
+                        </div>
+                      )}
+                    </td>
                     <td style={{ padding: '10px 14px' }}>
                       <span
                         style={{
@@ -1383,9 +1457,12 @@ export default function ProposalList({ proposalVersion }) {
                         {deal.opportunities?.sbus?.name || '—'}
                       </span>
                     </td>
-                    {/* Commercial Owner Column */}
+                    {/* Commercial Owner Column with 3x4 Photo */}
                     <td style={{ padding: '10px 14px', fontWeight: 600, color: '#334155' }}>
-                      👤 {owner}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <OwnerPhoto name={owner} />
+                        <span>{owner}</span>
+                      </div>
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <span
@@ -1833,7 +1910,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 5. DEAL DOSSIER (SLIDE-OVER DRAWER) WITH FEATURE 6 COMMERCIAL OWNER */}
+      {/* 5. DEAL DOSSIER (SLIDE-OVER DRAWER) */}
       {selectedDeal && (
         <div
           style={{
@@ -1861,7 +1938,7 @@ export default function ProposalList({ proposalVersion }) {
             {/* Drawer Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e2e8f0', paddingBottom: 16 }}>
               <div>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                   <span
                     style={{
                       fontSize: 11,
@@ -1892,6 +1969,7 @@ export default function ProposalList({ proposalVersion }) {
                       </span>
                     )
                   })()}
+                  {selectedDeal.submission_deadline && renderDeadlineBadge(selectedDeal.submission_deadline)}
                 </div>
                 <h3 style={{ margin: '8px 0 2px 0', color: '#0f172a' }}>
                   {selectedDeal.opportunities?.clients?.name || 'Client Deal'}
@@ -2108,7 +2186,7 @@ export default function ProposalList({ proposalVersion }) {
               </form>
             </div>
 
-            {/* Editable Form with Feature 6 Commercial Owner Selector */}
+            {/* Editable Form with Commercial Owner Selector */}
             <form onSubmit={handleSaveDealDossier} style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
@@ -2123,22 +2201,25 @@ export default function ProposalList({ proposalVersion }) {
                 />
               </div>
 
-              {/* Feature 6: Commercial Owner Dropdown */}
+              {/* Commercial Owner Dropdown with 3x4 Photo Thumbnail */}
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>
                   👤 Assigned Commercial Owner
                 </label>
-                <select
-                  value={selectedDealOwner}
-                  onChange={(e) => setSelectedDealOwner(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13, background: '#f8fafc', fontWeight: 600 }}
-                >
-                  {TEAM_OWNERS.map((owner) => (
-                    <option key={owner} value={owner}>
-                      {owner}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <OwnerPhoto name={selectedDealOwner} />
+                  <select
+                    value={selectedDealOwner}
+                    onChange={(e) => setSelectedDealOwner(e.target.value)}
+                    style={{ flex: 1, padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13, background: '#f8fafc', fontWeight: 600 }}
+                  >
+                    {TEAM_OWNERS.map((owner) => (
+                      <option key={owner} value={owner}>
+                        {owner}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -2222,9 +2303,8 @@ export default function ProposalList({ proposalVersion }) {
                 />
               </div>
 
-              <div style={{ marginTop: 10, display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
-                {/* 1. Tender Documents Cloud Repository */}
-              <div style={{ marginBottom: '16px', padding: '12px 14px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              {/* 1. Tender Documents Cloud Repository */}
+              <div style={{ marginTop: 6, padding: '12px 14px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
                   📂 Tender Dossier & Working Files
                 </div>
@@ -2250,7 +2330,7 @@ export default function ProposalList({ proposalVersion }) {
               </div>
 
               {/* 2. Pre-Submission Institutional Compliance Gate */}
-              <div style={{ marginBottom: '20px', padding: '14px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+              <div style={{ marginTop: 6, padding: '14px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
                 {(() => {
                   const checklistItems = [
                     { key: 'tor_aligned', label: 'TOR Requirements & Methodology Aligned' },
@@ -2302,6 +2382,9 @@ export default function ProposalList({ proposalVersion }) {
                   );
                 })()}
               </div>
+
+              {/* Action Buttons Row */}
+              <div style={{ marginTop: 10, display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
                 <button
                   type="button"
                   onClick={() => setSelectedDeal(null)}
