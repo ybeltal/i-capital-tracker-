@@ -259,18 +259,13 @@ async function runDailyBrief() {
                 .join('')}
             </table>`
       }
-
-      <!-- Direct Jump Button -->
-      <div style="text-align: center; margin: 30px 0 10px 0;">
-        <a href="https://your-custom-domain.com" style="display: inline-block; background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-  🚀 Open Live i-Capital CRM Hub
-</a>
-          🚀 Open Live i-Capital CRM Hub
-        </a>
-      </div>
-
+   <!-- Direct Jump Button -->
+    <div style="text-align: center; margin: 30px 0 10px 0;">
+      <a href="https://your-crm-deployment.vercel.app" style="display: inline-block; background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
+        🚀 Open Live i-Capital CRM Hub
+      </a>
     </div>
-
+    </div>
     <!-- Footer -->
     <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 30px; font-size: 11px; color: #94a3b8; text-align: center;">
       The i-Capital Africa Institute • Bole, Addis Ababa, Ethiopia • Automated CRM Governance Agent
