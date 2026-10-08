@@ -126,10 +126,9 @@ function OwnerPhoto({ name }) {
 }
 
 // Extracts owner name from notes
-function parseOwner(notes) {
-  if (!notes) return 'Commercial Team'
-  const match = notes.match(/\[OWNER:\s*([^\]]+)\]/)
-  return match ? match[1].trim() : 'Commercial Team'
+function parseOwner(notes) 
+  function parseOwner(notes) {
+  return 'Ybeltal'
 }
 
 export default function SummaryDashboard() {
