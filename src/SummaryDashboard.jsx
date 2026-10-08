@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts'
+
 const STAGE_WEIGHTS = {
   'Initiated': 0.10,
   'In Progress': 0.30,
@@ -35,21 +36,25 @@ const DEFAULT_TARGETS = {
   'IIP': 4500000,
   'DAS': 2500000,
 }
-// Visual Analytics Data (Available to the entire file)
+
+// Visual Analytics Data
 const sbuBarData = [
   { name: 'Institute', Target: 5000000, Forecast: 809000 },
   { name: 'CBS', Target: 6000000, Forecast: 2486500 },
   { name: 'IIP', Target: 4500000, Forecast: 42000 },
   { name: 'DAS', Target: 2500000, Forecast: 0 },
-];
+]
+
 const sbuPieData = [
   { name: 'CBS', value: 2486500, color: '#f59e0b' },
   { name: 'Institute', value: 809000, color: '#0284c7' },
   { name: 'IIP', value: 42000, color: '#10b981' },
-];
+]
+
 function formatNumber(value) {
-  return new Intl.NumberFormat('en-US').format(value ?? 0);
+  return new Intl.NumberFormat('en-US').format(value ?? 0)
 }
+
 function formatMoney(value) {
   return `ETB ${new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 2,
@@ -68,6 +73,63 @@ function downloadCSV(filename, csvRows) {
   link.click()
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
+}
+
+// 3:4 portrait photo component
+function OwnerPhoto({ name }) {
+  const isYbeltal = name && name.toLowerCase().includes('ybeltal')
+  const photoSrc = isYbeltal ? '/team/ybeltal.jpg' : null
+
+  if (photoSrc) {
+    return (
+      <img
+        src={photoSrc}
+        alt={name}
+        style={{
+          width: '36px',
+          height: '48px', // exact 3:4 aspect ratio
+          borderRadius: '6px',
+          objectFit: 'cover',
+          border: '2px solid #22c55e',
+          boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+          display: 'inline-block',
+          verticalAlign: 'middle',
+          flexShrink: 0,
+        }}
+        title={name}
+      />
+    )
+  }
+
+  return (
+    <div
+      style={{
+        width: '36px',
+        height: '48px',
+        borderRadius: '6px',
+        background: '#dcfce7',
+        border: '2px solid #86efac',
+        color: '#166534',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '12px',
+        fontWeight: 700,
+        verticalAlign: 'middle',
+        flexShrink: 0,
+      }}
+      title={name || 'Commercial Lead'}
+    >
+      {name && name !== 'Unassigned' ? name.slice(0, 2).toUpperCase() : '🏆'}
+    </div>
+  )
+}
+
+// Extracts owner name from notes
+function parseOwner(notes) {
+  if (!notes) return 'Commercial Team'
+  const match = notes.match(/\[OWNER:\s*([^\]]+)\]/)
+  return match ? match[1].trim() : 'Commercial Team'
 }
 
 export default function SummaryDashboard() {
@@ -111,11 +173,14 @@ export default function SummaryDashboard() {
               status,
               deal_value_etb,
               submission_deadline,
+              notes,
+              created_at,
               opportunities (
                 sbus (name),
                 clients (name, sector)
               )
-            `),
+            `)
+            .order('created_at', { ascending: false }),
         ])
 
         if (summaryRes.error) throw summaryRes.error
@@ -153,6 +218,10 @@ export default function SummaryDashboard() {
   const activeProposals = proposals.filter((p) => !['Lost', 'Cancelled'].includes(p.status))
   const openProposalsList = proposals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
   const wonProposalsList = proposals.filter((p) => p.status === 'Won')
+
+  // Latest victory for congratulations display
+  const latestWonDeal = wonProposalsList[0] || null
+  const latestWonOwner = latestWonDeal ? parseOwner(latestWonDeal.notes) : 'Commercial Team'
 
   const totalOpenValue = openProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
   const totalWonValue = wonProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
@@ -318,7 +387,6 @@ export default function SummaryDashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Feature 5: Executive Briefing Launch Button */}
           <button
             type="button"
             onClick={() => setShowBriefingModal(true)}
@@ -402,6 +470,70 @@ export default function SummaryDashboard() {
 
       {!loading && !error && data && (
         <>
+          {/* 🎉 AUTOMATED DEAL WON CONGRATULATIONS SHOWCASE */}
+          {latestWonDeal && (
+            <div
+              style={{
+                marginTop: 20,
+                padding: '16px 20px',
+                background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 60%, #e0f2fe 100%)',
+                border: '2px solid #86efac',
+                borderRadius: 12,
+                boxShadow: '0 4px 14px rgba(22, 163, 74, 0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 16,
+              }}
+            >
+              {/* Left Side: Owner Photo & Congratulatory Details */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                <OwnerPhoto name={latestWonOwner} />
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        background: '#16a34a',
+                        color: '#fff',
+                        padding: '2px 8px',
+                        borderRadius: 12,
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      🎉 Deal Won Celebration
+                    </span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: '#166534' }}>
+                      Congratulations, {latestWonOwner}!
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                    Contract Secured with {latestWonDeal.opportunities?.clients?.name || 'Institutional Client'}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
+                    {latestWonDeal.title} ({latestWonDeal.proposal_code || 'DEAL'})
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side: Final Value & SBU */}
+              <div style={{ textAlign: 'right', minWidth: 160 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>
+                  Contracted Won Revenue
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: '#166534' }}>
+                  {formatMoney(latestWonDeal.deal_value_etb)}
+                </div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', marginTop: 2 }}>
+                  SBU: {latestWonDeal.opportunities?.sbus?.name || 'Institute'}
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Revenue Forecast Trio */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 20 }}>
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18, borderLeft: '4px solid #0284c7' }}>
@@ -501,57 +633,57 @@ export default function SummaryDashboard() {
               ))}
             </div>
           </div>
-{/* Visual Analytics: Bar Chart & Pie Chart */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '20px', margin: '24px 0' }}>
-        
-        {/* SBU Target vs Forecast Bar Chart */}
-        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
-            📊 SBU Target Quota vs. Weighted Forecast (ETB)
-          </h3>
-          <div style={{ width: '100%', height: 280 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={sbuBarData} margin={{ top: 10, right: 15, left: 10, bottom: 5 }}>
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={11} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
-                <Tooltip formatter={(val) => `ETB ${Number(val).toLocaleString()}`} />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
-                <Bar dataKey="Target" fill="#cbd5e1" name="Target Quota" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="Forecast" fill="#0284c7" name="Weighted Forecast" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
 
-        {/* Pipeline Distribution Donut Chart */}
-        <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
-            🍩 SBU Weighted Revenue Share
-          </h3>
-          <div style={{ width: '100%', height: 280 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={sbuPieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={65}
-                  outerRadius={95}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {sbuPieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(val) => `ETB ${Number(val).toLocaleString()}`} />
-                <Legend wrapperStyle={{ fontSize: '12px' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+          {/* Visual Analytics: Bar Chart & Pie Chart */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '20px', margin: '24px 0' }}>
+            {/* SBU Target vs Forecast Bar Chart */}
+            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
+                📊 SBU Target Quota vs. Weighted Forecast (ETB)
+              </h3>
+              <div style={{ width: '100%', height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={sbuBarData} margin={{ top: 10, right: 15, left: 10, bottom: 5 }}>
+                    <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+                    <YAxis stroke="#64748b" fontSize={11} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
+                    <Tooltip formatter={(val) => `ETB ${Number(val).toLocaleString()}`} />
+                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                    <Bar dataKey="Target" fill="#cbd5e1" name="Target Quota" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Forecast" fill="#0284c7" name="Weighted Forecast" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
 
-      </div>
+            {/* Pipeline Distribution Donut Chart */}
+            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+              <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
+                🍩 SBU Weighted Revenue Share
+              </h3>
+              <div style={{ width: '100%', height: 280 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={sbuPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={65}
+                      outerRadius={95}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {sbuPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(val) => `ETB ${Number(val).toLocaleString()}`} />
+                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
           {/* Operational KPIs */}
           <h3 style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>CRM Pipeline Operational Metrics</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
@@ -689,9 +821,8 @@ export default function SummaryDashboard() {
               </div>
             </div>
 
-            {/* --- INSTITUTIONAL BRIEFING DOCUMENT BODY --- */}
+            {/* Document Letterhead */}
             <div style={{ fontFamily: 'Georgia, serif', color: '#0f172a' }}>
-              {/* Document Letterhead */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: 14 }}>
                 <div>
                   <h1 style={{ margin: 0, fontSize: 20, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#0f172a', fontWeight: 800 }}>
