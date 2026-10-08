@@ -77,14 +77,14 @@ function downloadCSV(filename, csvRows) {
 
 // 3:4 portrait photo component
 function OwnerPhoto({ name }) {
-  const isYbeltal = name && name.toLowerCase().includes('ybeltal')
+  const isYbeltal = !name || name.toLowerCase().includes('ybeltal') || name === 'Commercial Team'
   const photoSrc = isYbeltal ? '/team/ybeltal.jpg' : null
 
   if (photoSrc) {
     return (
       <img
         src={photoSrc}
-        alt={name}
+        alt={name || 'Ybeltal'}
         style={{
           width: '36px',
           height: '48px', // exact 3:4 aspect ratio
@@ -96,7 +96,7 @@ function OwnerPhoto({ name }) {
           verticalAlign: 'middle',
           flexShrink: 0,
         }}
-        title={name}
+        title={name || 'Ybeltal'}
       />
     )
   }
@@ -125,10 +125,13 @@ function OwnerPhoto({ name }) {
   )
 }
 
-// Extracts owner name from notes
-function parseOwner(notes) 
-  function parseOwner(notes) {
-  return 'Ybeltal'
+// Extracts owner name from notes (defaults to Ybeltal)
+function parseOwner(notes) {
+  if (!notes) return 'Ybeltal'
+  const match = notes.match(/\[OWNER:\s*([^\]]+)\]/)
+  if (!match) return 'Ybeltal'
+  const val = match[1].trim()
+  return (val === 'Commercial Team' || val === 'Unassigned') ? 'Ybeltal' : val
 }
 
 export default function SummaryDashboard() {
@@ -220,7 +223,7 @@ export default function SummaryDashboard() {
 
   // Latest victory for congratulations display
   const latestWonDeal = wonProposalsList[0] || null
-  const latestWonOwner = latestWonDeal ? parseOwner(latestWonDeal.notes) : 'Commercial Team'
+  const latestWonOwner = latestWonDeal ? parseOwner(latestWonDeal.notes) : 'Ybeltal'
 
   const totalOpenValue = openProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
   const totalWonValue = wonProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
