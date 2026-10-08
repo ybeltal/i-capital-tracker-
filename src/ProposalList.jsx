@@ -220,8 +220,8 @@ function getDealHealth(deal) {
 
 // 3:4 portrait photo component
 function OwnerPhoto({ name }) {
-  const isYbeltal = name && name.toLowerCase().includes('ybeltal');
-  const photoSrc = isYbeltal ? '/team/ybeltal.jpg' : null;
+  const isYbeltal = name && name.toLowerCase().includes('ybeltal')
+  const photoSrc = isYbeltal ? '/team/ybeltal.jpg' : null
 
   if (photoSrc) {
     return (
@@ -241,7 +241,7 @@ function OwnerPhoto({ name }) {
         }}
         title={name}
       />
-    );
+    )
   }
 
   return (
@@ -265,42 +265,42 @@ function OwnerPhoto({ name }) {
     >
       {name ? name.slice(0, 2).toUpperCase() : 'N/A'}
     </div>
-  );
+  )
 }
 
 // Deadline Urgency Badge helper
 function renderDeadlineBadge(deadlineStr) {
-  if (!deadlineStr) return null;
-  const now = new Date();
-  const deadline = new Date(deadlineStr);
-  const diffDays = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+  if (!deadlineStr) return null
+  const now = new Date()
+  const deadline = new Date(deadlineStr)
+  const diffDays = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24))
 
   if (diffDays < 0) {
     return (
       <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca' }}>
         ⛔ Closed ({Math.abs(diffDays)}d ago)
       </span>
-    );
+    )
   }
   if (diffDays === 0) {
     return (
       <span style={{ fontSize: '10px', fontWeight: 800, padding: '2px 6px', borderRadius: '4px', background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a' }}>
         ⚠️ Closes Today
       </span>
-    );
+    )
   }
   if (diffDays <= 3) {
     return (
       <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: '#ffedd5', color: '#c2410c', border: '1px solid #fed7aa' }}>
         🚨 {diffDays}d Left
       </span>
-    );
+    )
   }
   return (
     <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '4px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0' }}>
       🗓️ {diffDays}d Left
     </span>
-  );
+  )
 }
 
 export default function ProposalList({ proposalVersion }) {
@@ -325,12 +325,13 @@ export default function ProposalList({ proposalVersion }) {
   const [selectedDealOwner, setSelectedDealOwner] = useState('Unassigned')
   const [saving, setSaving] = useState(false)
 
-  // Quick Activity Log State
+  // Quick Activity Log State & In-App Toast
   const [activityType, setActivityType] = useState(ACTIVITY_TYPES[0])
   const [activityNote, setActivityNote] = useState('')
   const [nextActionCommitment, setNextActionCommitment] = useState('')
   const [nextActionDate, setNextActionDate] = useState('')
   const [loggingActivity, setLoggingActivity] = useState(false)
+  const [activitySuccessToast, setActivitySuccessToast] = useState(false)
 
   // One-Click Outreach Generator State
   const [outreachDeal, setOutreachDeal] = useState(null)
@@ -735,10 +736,12 @@ export default function ProposalList({ proposalVersion }) {
         prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
       )
 
+      // Reset form and show smooth inline success toast
       setActivityNote('')
       setNextActionCommitment('')
       setNextActionDate('')
-      alert('Activity logged successfully!')
+      setActivitySuccessToast(true)
+      setTimeout(() => setActivitySuccessToast(false), 3000)
     } catch (err) {
       alert('Could not log activity: ' + err.message)
     } finally {
@@ -2166,23 +2169,31 @@ export default function ProposalList({ proposalVersion }) {
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loggingActivity}
-                  style={{
-                    padding: '7px 12px',
-                    background: '#0284c7',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 6,
-                    fontWeight: 600,
-                    fontSize: 12,
-                    cursor: loggingActivity ? 'not-allowed' : 'pointer',
-                    alignSelf: 'flex-start',
-                  }}
-                >
-                  {loggingActivity ? 'Recording…' : 'Save Touchpoint'}
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <button
+                    type="submit"
+                    disabled={loggingActivity}
+                    style={{
+                      padding: '7px 14px',
+                      background: '#0284c7',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 6,
+                      fontWeight: 600,
+                      fontSize: 12,
+                      cursor: loggingActivity ? 'not-allowed' : 'pointer',
+                      alignSelf: 'flex-start',
+                    }}
+                  >
+                    {loggingActivity ? 'Recording…' : 'Save Touchpoint'}
+                  </button>
+
+                  {activitySuccessToast && (
+                    <span style={{ fontSize: 12, fontWeight: 700, color: '#166534', background: '#dcfce7', padding: '4px 8px', borderRadius: 4, border: '1px solid #bbf7d0', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      ✓ Touchpoint recorded to dossier!
+                    </span>
+                  )}
+                </div>
               </form>
             </div>
 
@@ -2339,10 +2350,10 @@ export default function ProposalList({ proposalVersion }) {
                     { key: 'audited_financials', label: 'Audited Financial Statements (Last 2–3 Yrs)' },
                     { key: 'expert_cvs', label: 'Consultant / Expert CVs Packaged' },
                     { key: 'compliance_sheet', label: 'Signed Institutional Compliance Sheet' },
-                  ];
-                  const cl = selectedDeal?.compliance_checklist || {};
-                  const completed = checklistItems.filter((i) => cl[i.key]).length;
-                  const percent = Math.round((completed / checklistItems.length) * 100);
+                  ]
+                  const cl = selectedDeal?.compliance_checklist || {}
+                  const completed = checklistItems.filter((i) => cl[i.key]).length
+                  const percent = Math.round((completed / checklistItems.length) * 100)
 
                   return (
                     <>
@@ -2368,8 +2379,8 @@ export default function ProposalList({ proposalVersion }) {
                               type="checkbox"
                               checked={Boolean(cl[item.key])}
                               onChange={(e) => {
-                                const updated = { ...cl, [item.key]: e.target.checked };
-                                setSelectedDeal((prev) => ({ ...prev, compliance_checklist: updated }));
+                                const updated = { ...cl, [item.key]: e.target.checked }
+                                setSelectedDeal((prev) => ({ ...prev, compliance_checklist: updated }))
                               }}
                             />
                             <span style={{ textDecoration: cl[item.key] ? 'line-through' : 'none', color: cl[item.key] ? '#64748b' : '#0f172a' }}>
@@ -2379,7 +2390,7 @@ export default function ProposalList({ proposalVersion }) {
                         ))}
                       </div>
                     </>
-                  );
+                  )
                 })()}
               </div>
 
