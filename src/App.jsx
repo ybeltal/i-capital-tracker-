@@ -50,7 +50,7 @@ function App() {
             i
           </div>
           <div>
-            <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.02em', display: 'block' }}>i-Capital Africa</span>
+            <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.02em', display: 'block' }}>The i-Capital CRM</span>
             <span style={{ fontSize: 11, color: '#94a3b8' }}>Lead & Proposal CRM</span>
           </div>
         </div>
