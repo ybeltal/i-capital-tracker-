@@ -37,19 +37,34 @@ const DEFAULT_TARGETS = {
   'DAS': 2500000,
 }
 
-// Visual Analytics Data
-const sbuBarData = [
-  { name: 'Institute', Target: 5000000, Forecast: 809000 },
-  { name: 'CBS', Target: 6000000, Forecast: 2486500 },
-  { name: 'IIP', Target: 4500000, Forecast: 42000 },
-  { name: 'DAS', Target: 2500000, Forecast: 0 },
+const SBU_COLORS = {
+  'Institute': '#0284c7',
+  'CBS': '#f59e0b',
+  'IIP': '#10b981',
+  'DAS': '#8b5cf6',
+}
+
+// Fiscal Quarter Configuration (Q1 starts in July)
+const QUARTERS = [
+  { id: 'ALL', label: 'Full Year (All Quarters)', range: 'Jul 1 – Jun 30', desc: 'Fiscal Year Total' },
+  { id: 'Q1', label: 'Q1 (Jul – Sep)', range: 'Jul 1 – Sep 30', desc: 'First Quarter' },
+  { id: 'Q2', label: 'Q2 (Oct – Dec)', range: 'Oct 1 – Dec 31', desc: 'Second Quarter' },
+  { id: 'Q3', label: 'Q3 (Jan – Mar)', range: 'Jan 1 – Mar 31', desc: 'Third Quarter' },
+  { id: 'Q4', label: 'Q4 (Apr – Jun)', range: 'Apr 1 – Jun 30', desc: 'Fourth Quarter' },
 ]
 
-const sbuPieData = [
-  { name: 'CBS', value: 2486500, color: '#f59e0b' },
-  { name: 'Institute', value: 809000, color: '#0284c7' },
-  { name: 'IIP', value: 42000, color: '#10b981' },
-]
+function getFiscalQuarter(dateString) {
+  if (!dateString) return null
+  const d = new Date(dateString)
+  if (isNaN(d.getTime())) return null
+  const month = d.getMonth() + 1 // 1 = Jan, 12 = Dec
+
+  if (month >= 7 && month <= 9) return 'Q1'
+  if (month >= 10 && month <= 12) return 'Q2'
+  if (month >= 1 && month <= 3) return 'Q3'
+  if (month >= 4 && month <= 6) return 'Q4'
+  return null
+}
 
 function formatNumber(value) {
   return new Intl.NumberFormat('en-US').format(value ?? 0)
@@ -142,6 +157,9 @@ export default function SummaryDashboard() {
   const [error, setError] = useState('')
   const [refreshVersion, setRefreshVersion] = useState(0)
 
+  // Fiscal Quarter Filter State (Default is 'ALL')
+  const [selectedQuarter, setSelectedQuarter] = useState('ALL')
+
   // SBU Targets state
   const [sbuTargets, setSbuTargets] = useState(() => {
     try {
@@ -154,7 +172,7 @@ export default function SummaryDashboard() {
   const [editingTargets, setEditingTargets] = useState(false)
   const [tempTargets, setTempTargets] = useState(sbuTargets)
 
-  // Feature 5: Executive Briefing Modal State
+  // Executive Briefing Modal State
   const [showBriefingModal, setShowBriefingModal] = useState(false)
 
   useEffect(() => {
@@ -216,13 +234,20 @@ export default function SummaryDashboard() {
     setEditingTargets(false)
   }
 
-  // Financial Calculations
-  const activeProposals = proposals.filter((p) => !['Lost', 'Cancelled'].includes(p.status))
-  const openProposalsList = proposals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
-  const wonProposalsList = proposals.filter((p) => p.status === 'Won')
+  // Filter proposals by the selected fiscal quarter (checks deadline or creation date)
+  const filteredProposals = proposals.filter((p) => {
+    if (selectedQuarter === 'ALL') return true
+    const dealQuarter = getFiscalQuarter(p.submission_deadline || p.created_at)
+    return dealQuarter === selectedQuarter
+  })
+
+  // Financial Calculations for Selected Quarter
+  const activeProposals = filteredProposals.filter((p) => !['Lost', 'Cancelled'].includes(p.status))
+  const openProposalsList = filteredProposals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
+  const wonProposalsList = filteredProposals.filter((p) => p.status === 'Won')
 
   // Latest victory for congratulations display
-  const latestWonDeal = wonProposalsList[0] || null
+  const latestWonDeal = wonProposalsList[0] || (selectedQuarter === 'ALL' ? proposals.find((p) => p.status === 'Won') : null)
   const latestWonOwner = latestWonDeal ? parseOwner(latestWonDeal.notes) : 'Ybeltal'
 
   const totalOpenValue = openProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
@@ -234,9 +259,9 @@ export default function SummaryDashboard() {
     return sum + (val * prob)
   }, 0)
 
-  // SBU Performance Matrix
+  // SBU Performance Matrix for Selected Quarter
   const sbuMetrics = CORE_SBUS.map((sbuName) => {
-    const sbuDeals = proposals.filter((p) => p.opportunities?.sbus?.name === sbuName)
+    const sbuDeals = filteredProposals.filter((p) => p.opportunities?.sbus?.name === sbuName)
     const sbuOpen = sbuDeals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
     const sbuWon = sbuDeals.filter((p) => p.status === 'Won')
     const sbuLost = sbuDeals.filter((p) => p.status === 'Lost')
@@ -252,7 +277,10 @@ export default function SummaryDashboard() {
         return sum + (val * prob)
       }, 0)
 
-    const target = sbuTargets[sbuName] || DEFAULT_TARGETS[sbuName] || 5000000
+    // Adjust target quota if looking at a single quarter (annual / 4)
+    const baseTarget = sbuTargets[sbuName] || DEFAULT_TARGETS[sbuName] || 5000000
+    const target = selectedQuarter === 'ALL' ? baseTarget : Math.round(baseTarget / 4)
+
     const attainmentPct = target > 0 ? Math.min(150, Math.round((weightedForecast / target) * 100)) : 0
     const decided = sbuWon.length + sbuLost.length
     const winRate = decided > 0 ? Math.round((sbuWon.length / decided) * 100) : null
@@ -271,9 +299,29 @@ export default function SummaryDashboard() {
     }
   })
 
-  // Stage-by-Stage Breakdown
+  // Dynamic Charts Data based on filtered quarter
+  const dynamicBarData = sbuMetrics.map((m) => ({
+    name: m.name,
+    Target: m.target,
+    Forecast: m.weightedForecast,
+  }))
+
+  const dynamicPieData = sbuMetrics
+    .filter((m) => m.weightedForecast > 0)
+    .map((m) => ({
+      name: m.name,
+      value: m.weightedForecast,
+      color: SBU_COLORS[m.name] || '#64748b',
+    }))
+
+  // Fallback for Pie Chart if no forecast in current quarter
+  const finalPieData = dynamicPieData.length > 0
+    ? dynamicPieData
+    : [{ name: 'No Active Forecast', value: 1, color: '#e2e8f0' }]
+
+  // Stage-by-Stage Breakdown for Selected Quarter
   const stageBreakdown = proposalStatuses.map((status) => {
-    const stageDeals = proposals.filter((p) => p.status === status)
+    const stageDeals = filteredProposals.filter((p) => p.status === status)
     const nominal = stageDeals.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
     const prob = STAGE_WEIGHTS[status] ?? 0
     const weighted = nominal * prob
@@ -289,10 +337,12 @@ export default function SummaryDashboard() {
     }
   })
 
-  // Top Open Pursuits (Deals > ETB 300,000 for executive sheet)
+  // Top Open Pursuits for Selected Quarter
   const topPursuits = [...openProposalsList]
     .sort((a, b) => (Number(b.deal_value_etb) || 0) - (Number(a.deal_value_etb) || 0))
     .slice(0, 8)
+
+  const activeQuarterObj = QUARTERS.find((q) => q.id === selectedQuarter) || QUARTERS[0]
 
   async function handleExportCSV() {
     if (!data) return
@@ -302,19 +352,19 @@ export default function SummaryDashboard() {
       const csvRows = []
 
       csvRows.push('THE i-CAPITAL AFRICA INSTITUTE — EXECUTIVE FORECAST & PIPELINE SUMMARY')
+      csvRows.push(`Reporting Period,${activeQuarterObj.label} (${activeQuarterObj.range})`)
       csvRows.push(`Export Date,${today}`)
-      csvRows.push(`As of (Nairobi Time),${new Date(data.as_of).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })}`)
+      csvRows.push(`As of (Nairobi/Addis Ababa),${new Date(data.as_of).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })}`)
       csvRows.push('')
 
       csvRows.push('REVENUE & PIPELINE METRIC,VALUE (ETB)')
-      csvRows.push(`Unweighted Open Pipeline Value,"${formatMoney(totalOpenValue)}"`)
+      csvRows.push(`Selected Period Pipeline Value,"${formatMoney(totalOpenValue)}"`)
       csvRows.push(`Probability-Weighted Revenue Forecast,"${formatMoney(totalWeightedForecast)}"`)
       csvRows.push(`Closed Contracted Won Revenue,"${formatMoney(totalWonValue)}"`)
-      csvRows.push(`Total Proposals,"${data.proposals_total ?? proposals.length}"`)
-      csvRows.push(`Win Rate,"${data.win_rate_pct !== null ? data.win_rate_pct + '%' : 'N/A'}"`)
+      csvRows.push(`Proposals in Period,"${filteredProposals.length}"`)
       csvRows.push('')
 
-      csvRows.push('SBU PERFORMANCE MATRIX,OPEN PROPOSALS,OPEN VALUE (ETB),WEIGHTED FORECAST (ETB),SBU TARGET (ETB),TARGET ATTAINMENT %')
+      csvRows.push('SBU PERFORMANCE MATRIX,OPEN PROPOSALS,OPEN VALUE (ETB),WEIGHTED FORECAST (ETB),PERIOD TARGET (ETB),TARGET ATTAINMENT %')
       sbuMetrics.forEach((m) => {
         csvRows.push(`"${m.name}","${m.openCount}","${m.openValue}","${m.weightedForecast}","${m.target}","${m.attainmentPct}%"`)
       })
@@ -326,7 +376,7 @@ export default function SummaryDashboard() {
       })
       csvRows.push('')
 
-      downloadCSV(`iCapital_Executive_Forecast_${today}.csv`, csvRows)
+      downloadCSV(`iCapital_Forecast_${selectedQuarter}_${today}.csv`, csvRows)
     } catch (err) {
       alert('Could not export report: ' + (err.message || err))
     } finally {
@@ -338,11 +388,13 @@ export default function SummaryDashboard() {
     ? [
         ['Clients', formatNumber(data.clients_total), '#client-directory'],
         ['Leads', formatNumber(data.leads_total), '#lead-management'],
-        ['Total proposals', formatNumber(data.proposals_total), '#proposal-tracking'],
-        ['Open proposals', formatNumber(data.proposals_open), '#proposal-tracking'],
-        ['Won proposals', formatNumber(data.proposals_won), null],
-        ['Lost proposals', formatNumber(data.proposals_lost), null],
-        ['Win rate', data.win_rate_pct === null ? 'No decided' : `${data.win_rate_pct}%`, null],
+        ['Total proposals', formatNumber(filteredProposals.length), '#proposal-tracking'],
+        ['Open proposals', formatNumber(openProposalsList.length), '#proposal-tracking'],
+        ['Won proposals', formatNumber(wonProposalsList.length), null],
+        ['Lost proposals', formatNumber(filteredProposals.filter((p) => p.status === 'Lost').length), null],
+        ['Win rate', (wonProposalsList.length + filteredProposals.filter((p) => p.status === 'Lost').length) > 0 
+          ? `${Math.round((wonProposalsList.length / (wonProposalsList.length + filteredProposals.filter((p) => p.status === 'Lost').length)) * 100)}%` 
+          : 'No decided', null],
         ['Pending actions', formatNumber(data.pending_actions), '#follow-up-queue'],
         ['Overdue actions', formatNumber(data.overdue_actions), '#follow-up-queue'],
         ['Due today', formatNumber(data.due_today_actions), '#follow-up-queue'],
@@ -444,7 +496,7 @@ export default function SummaryDashboard() {
               fontSize: 12,
             }}
           >
-            {exporting ? 'Generating…' : '📥 Export to CSV'}
+            {exporting ? 'Generating…' : `📥 Export ${selectedQuarter} to CSV`}
           </button>
 
           <button
@@ -464,6 +516,87 @@ export default function SummaryDashboard() {
           >
             {loading ? 'Loading…' : 'Refresh'}
           </button>
+        </div>
+      </div>
+
+      {/* 4-QUARTER FISCAL REPORTING SELECTOR TOOLBAR */}
+      <div
+        style={{
+          marginTop: 18,
+          backgroundColor: '#ffffff',
+          padding: '12px 18px',
+          borderRadius: 10,
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 16 }}>🗓️</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Fiscal Period:
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {QUARTERS.map((q) => {
+              const isActive = selectedQuarter === q.id
+              const count = q.id === 'ALL'
+                ? proposals.length
+                : proposals.filter((p) => getFiscalQuarter(p.submission_deadline || p.created_at) === q.id).length
+
+              return (
+                <button
+                  key={q.id}
+                  type="button"
+                  onClick={() => setSelectedQuarter(q.id)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 6,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    border: isActive ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                    backgroundColor: isActive ? '#0284c7' : '#f8fafc',
+                    color: isActive ? '#ffffff' : '#475569',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    transition: 'all 0.15s ease',
+                    boxShadow: isActive ? '0 2px 4px rgba(2, 132, 199, 0.25)' : 'none',
+                  }}
+                >
+                  <span>{q.label}</span>
+                  <span
+                    style={{
+                      fontSize: 10,
+                      padding: '1px 6px',
+                      borderRadius: 10,
+                      backgroundColor: isActive ? '#ffffff' : '#e2e8f0',
+                      color: isActive ? '#0284c7' : '#64748b',
+                      fontWeight: 800,
+                    }}
+                  >
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        <div style={{ fontSize: 12, color: '#64748b' }}>
+          Date Span: <strong style={{ color: '#0f172a' }}>{activeQuarterObj.range}</strong>
+          {selectedQuarter !== 'ALL' && (
+            <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 4, background: '#e0f2fe', color: '#0369a1', fontWeight: 600, fontSize: 11 }}>
+              SBU Quotas Scaled to Quarter
+            </span>
+          )}
         </div>
       </div>
 
@@ -540,7 +673,7 @@ export default function SummaryDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 20 }}>
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18, borderLeft: '4px solid #0284c7' }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
-                Nominal Open Pipeline Value
+                Nominal Open Pipeline Value ({selectedQuarter})
               </span>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', margin: '8px 0 4px 0' }}>
                 {formatMoney(totalOpenValue)}
@@ -553,7 +686,7 @@ export default function SummaryDashboard() {
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 18, borderLeft: '4px solid #16a34a' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase' }}>
-                  📈 Weighted Revenue Forecast
+                  📈 Weighted Revenue Forecast ({selectedQuarter})
                 </span>
                 <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: 4 }}>
                   Expected Value
@@ -569,13 +702,13 @@ export default function SummaryDashboard() {
 
             <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18, borderLeft: '4px solid #8b5cf6' }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
-                🏆 Contracted Won Revenue
+                🏆 Contracted Won Revenue ({selectedQuarter})
               </span>
               <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed', margin: '8px 0 4px 0' }}>
                 {formatMoney(totalWonValue)}
               </div>
               <span style={{ fontSize: 12, color: '#64748b' }}>
-                {wonProposalsList.length} signed deals ({data.win_rate_pct !== null ? `${data.win_rate_pct}% win rate` : 'N/A'})
+                {wonProposalsList.length} signed deals in period
               </span>
             </div>
           </div>
@@ -583,8 +716,12 @@ export default function SummaryDashboard() {
           {/* SBU Pipeline Targets */}
           <div style={{ marginTop: 28 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 style={{ margin: 0, color: '#0f172a' }}>Strategic Business Unit (SBU) Target Attainment</h3>
-              <span style={{ fontSize: 12, color: '#64748b' }}>Weighted Forecast vs. Annual Target Quota</span>
+              <h3 style={{ margin: 0, color: '#0f172a' }}>
+                Strategic Business Unit (SBU) Target Attainment — {activeQuarterObj.label}
+              </h3>
+              <span style={{ fontSize: 12, color: '#64748b' }}>
+                {selectedQuarter === 'ALL' ? 'Annual Quota Benchmark' : 'Quarterly Benchmark (Target ÷ 4)'}
+              </span>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14 }}>
@@ -636,16 +773,16 @@ export default function SummaryDashboard() {
             </div>
           </div>
 
-          {/* Visual Analytics: Bar Chart & Pie Chart */}
+          {/* Dynamic Visual Analytics: Bar Chart & Pie Chart */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '20px', margin: '24px 0' }}>
             {/* SBU Target vs Forecast Bar Chart */}
             <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
-                📊 SBU Target Quota vs. Weighted Forecast (ETB)
+                📊 SBU Target Quota vs. Weighted Forecast (ETB) — {selectedQuarter}
               </h3>
               <div style={{ width: '100%', height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={sbuBarData} margin={{ top: 10, right: 15, left: 10, bottom: 5 }}>
+                  <BarChart data={dynamicBarData} margin={{ top: 10, right: 15, left: 10, bottom: 5 }}>
                     <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
                     <YAxis stroke="#64748b" fontSize={11} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
                     <Tooltip formatter={(val) => `ETB ${Number(val).toLocaleString()}`} />
@@ -660,13 +797,13 @@ export default function SummaryDashboard() {
             {/* Pipeline Distribution Donut Chart */}
             <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
-                🍩 SBU Weighted Revenue Share
+                🍩 SBU Weighted Revenue Share — {selectedQuarter}
               </h3>
               <div style={{ width: '100%', height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={sbuPieData}
+                      data={finalPieData}
                       cx="50%"
                       cy="50%"
                       innerRadius={65}
@@ -674,7 +811,7 @@ export default function SummaryDashboard() {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {sbuPieData.map((entry, index) => (
+                      {finalPieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -687,7 +824,9 @@ export default function SummaryDashboard() {
           </div>
 
           {/* Operational KPIs */}
-          <h3 style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>CRM Pipeline Operational Metrics</h3>
+          <h3 style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>
+            CRM Pipeline Operational Metrics ({selectedQuarter})
+          </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             {cards.map(([label, value, href]) => (
               <div
@@ -716,7 +855,9 @@ export default function SummaryDashboard() {
           </div>
 
           {/* Funnel Table */}
-          <h3 style={{ marginTop: 32, marginBottom: 12, color: '#0f172a' }}>Stage-by-Stage Weighted Funnel Analysis</h3>
+          <h3 style={{ marginTop: 32, marginBottom: 12, color: '#0f172a' }}>
+            Stage-by-Stage Weighted Funnel Analysis ({selectedQuarter})
+          </h3>
           <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
               <thead>
@@ -782,7 +923,9 @@ export default function SummaryDashboard() {
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 16, marginBottom: 24 }}>
               <div>
                 <h3 style={{ margin: 0, color: '#0f172a' }}>Executive Memorandum Preview</h3>
-                <span style={{ fontSize: 12, color: '#64748b' }}>Board-Ready 1-Page Briefing Sheet</span>
+                <span style={{ fontSize: 12, color: '#64748b' }}>
+                  Board-Ready 1-Page Briefing Sheet • {activeQuarterObj.label}
+                </span>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button
@@ -831,12 +974,12 @@ export default function SummaryDashboard() {
                     The i-Capital Africa Institute
                   </h1>
                   <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#475569', fontFamily: 'sans-serif' }}>
-                    Executive Pipeline & Probability-Weighted Revenue Briefing
+                    Executive Pipeline & Probability-Weighted Revenue Briefing — <strong>{activeQuarterObj.label}</strong>
                   </p>
                 </div>
                 <div style={{ textAlign: 'right', fontFamily: 'sans-serif', fontSize: 11, color: '#64748b' }}>
                   <div><strong>Date:</strong> {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-                  <div><strong>Timezone:</strong> Africa/Nairobi (UTC+3)</div>
+                  <div><strong>Period:</strong> {activeQuarterObj.range}</div>
                   <div><strong>Classification:</strong> Confidential / Leadership Review</div>
                 </div>
               </div>
@@ -844,7 +987,7 @@ export default function SummaryDashboard() {
               {/* Financial Snapshot Table */}
               <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
-                  1. Executive Financial Summary
+                  1. Executive Financial Summary ({selectedQuarter})
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                   <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 4 }}>
@@ -864,8 +1007,12 @@ export default function SummaryDashboard() {
                   </div>
                   <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 4 }}>
                     <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>WIN RATE EFFICIENCY</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>{data.win_rate_pct !== null ? `${data.win_rate_pct}%` : 'N/A'}</div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>Decided Proposals</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>
+                      {(wonProposalsList.length + filteredProposals.filter((p) => p.status === 'Lost').length) > 0 
+                        ? `${Math.round((wonProposalsList.length / (wonProposalsList.length + filteredProposals.filter((p) => p.status === 'Lost').length)) * 100)}%` 
+                        : 'N/A'}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#64748b' }}>Decided in Period</div>
                   </div>
                 </div>
               </div>
@@ -873,7 +1020,7 @@ export default function SummaryDashboard() {
               {/* SBU Performance Table */}
               <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
-                  2. SBU Target Attainment & Performance Matrix
+                  2. SBU Target Attainment & Performance Matrix ({selectedQuarter})
                 </h4>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, border: '1px solid #cbd5e1' }}>
                   <thead>
@@ -904,7 +1051,7 @@ export default function SummaryDashboard() {
               {/* Top Active Pursuits */}
               <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
-                  3. Key Open Pipeline Pursuits
+                  3. Key Open Pipeline Pursuits ({selectedQuarter})
                 </h4>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '1px solid #cbd5e1' }}>
                   <thead>
