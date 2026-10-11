@@ -46,8 +46,28 @@ function App() {
       {/* HubSpot Top Enterprise Bar */}
       <header style={{ height: 60, backgroundColor: '#0f172a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: '1px solid #1e293b' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 6, backgroundColor: '#ff7a59', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: 18 }}>
-            i
+          {/* Official Company Logo Badge */}
+          <div
+            style={{
+              backgroundColor: '#ffffff',
+              padding: '4px 10px',
+              borderRadius: 6,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+            }}
+          >
+            <img
+              src="/logo.png"
+              alt="The i-Capital Institute"
+              style={{
+                height: 36,
+                width: 'auto',
+                display: 'block',
+                objectFit: 'contain',
+              }}
+            />
           </div>
           <div>
             <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.02em', display: 'block' }}>The i-Capital CRM</span>
