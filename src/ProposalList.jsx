@@ -37,73 +37,104 @@ const TEAM_OWNERS = [
   'Unassigned',
 ]
 
-// Dynamic Stage-by-Stage Requirements
+// COMPLETE STAGE-SPECIFIC REQUIREMENTS ARCHITECTURE
 const STAGE_REQUIREMENTS = {
   'Initiated': {
-    title: 'Opportunity Qualification & Intake Gate',
+    title: 'Qualification & Intake Gate',
+    icon: '🎯',
+    color: '#0284c7',
+    description: 'Confirm client need, decision-maker, and initial delivery feasibility.',
     gates: [
-      { id: 'decision_maker', label: 'Client Decision-Maker & Budget Sponsor Identified' },
-      { id: 'tor_obtained', label: 'TOR / Concept Scope Document Obtained & Reviewed' },
-      { id: 'sbu_capacity', label: 'SBU Delivery Capacity & Practice Lead Assigned' },
-      { id: 'go_no_go', label: 'Formal Go / No-Go Decision Cleared for Pursuit' },
+      { id: 'init_decision_maker', label: 'Client Decision-Maker & Budget Sponsor Identified' },
+      { id: 'init_tor_scope', label: 'TOR / Client Concept Scope Document Obtained & Reviewed' },
+      { id: 'init_sbu_capacity', label: 'SBU Delivery Capacity & Practice Lead Assigned' },
+      { id: 'init_go_no_go', label: 'Formal Go / No-Go Pursuit Clearance Approved' },
     ],
   },
   'In Progress': {
-    title: 'Tender & Bid Governance Gate',
+    title: 'Proposal & Compliance Assembly Gate',
+    icon: '📘',
+    color: '#f59e0b',
+    description: 'Package technical approach, credentials, and mandatory statutory documents.',
     gates: [
-      { id: 'tor_aligned', label: 'TOR & Scope Methodology Aligned' },
-      { id: 'cvs_attached', label: 'Institutional Credentials & Expert CVs Packaged' },
-      { id: 'finance_audited', label: 'Financial Quotation & Tax/Fee Audited' },
-      { id: 'director_signoff', label: 'SBU Head & Managing Director Sign-Off' },
+      { id: 'prog_methodology', label: 'Technical Approach & Implementation Work Plan Aligned' },
+      { id: 'prog_cvs', label: 'Key Consultant & Expert CVs Packaged & Formatted' },
+      { id: 'prog_statutory', label: 'Valid Tax Clearance, Business License & Audits Attached' },
+      { id: 'prog_cpo', label: 'Bid Bond / CPO Guarantee Secured (if required)' },
+      { id: 'prog_signoff', label: 'SBU Head & Managing Director Sign-Off Cleared' },
     ],
   },
   'Submitted': {
-    title: 'Submission Verification Gate',
+    title: 'Proof of Delivery & Initial Logging Gate',
+    icon: '📤',
+    color: '#6366f1',
+    description: 'Verify formal submission and log key tender evaluation dates.',
     gates: [
-      { id: 'stamped_receipt', label: 'Stamped Submission Receipt / Delivery Note Filed' },
-      { id: 'opening_recorded', label: 'Bid Opening & Review Timeline Recorded' },
-      { id: 'cpo_filed', label: 'Bid Bond / CPO Guarantee Copy Filed in Vault' },
+      { id: 'sub_receipt', label: 'Stamped Submission Receipt / Delivery Note Filed in Vault' },
+      { id: 'sub_timeline', label: 'Actual Submission Date & Bid Opening Timeline Logged' },
+      { id: 'sub_cpo_filed', label: 'Original Bid Bond / CPO Guarantee Copy Filed in Vault' },
+      { id: 'sub_first_followup', label: 'Initial Evaluation Follow-Up Touchpoint Scheduled in CRM' },
     ],
   },
   'Under Review': {
-    title: 'Client Review & Defense Gate',
+    title: 'Evaluation Tracking & Defense Gate',
+    icon: '🔍',
+    color: '#0284c7',
+    description: 'Monitor evaluation committee progress and provide clarifications.',
     gates: [
-      { id: 'eval_status_checked', label: 'Client Evaluation Process & Timeline Confirmed' },
-      { id: 'clarifications_cleared', label: 'Technical Clarifications / Queries Addressed' },
+      { id: 'rev_eval_timeline', label: 'Client Evaluation Process & Timeline Confirmed' },
+      { id: 'rev_clarifications', label: 'Technical Clarifications / Queries Formally Addressed' },
+      { id: 'rev_touchpoint_active', label: 'Active Touchpoint Logged in CRM within Last 14 Days' },
     ],
   },
   'Shortlisted': {
-    title: 'Pitch & Defense Gate',
+    title: 'Pitch & Oral Defense Readiness Gate',
+    icon: '🌟',
+    color: '#8b5cf6',
+    description: 'Prepare presentation deck and align the technical defense team.',
     gates: [
-      { id: 'pitch_deck_ready', label: 'Executive Presentation / Pitch Deck Prepared' },
-      { id: 'defense_aligned', label: 'Core Technical Defense Team Aligned' },
+      { id: 'short_pitch_deck', label: 'Executive Presentation / Pitch Deck Prepared' },
+      { id: 'short_defense_team', label: 'Core Presentation & Technical Defense Team Rehearsed' },
+      { id: 'short_ranking_verified', label: 'Final Shortlist Ranking Verified with Client' },
     ],
   },
   'Negotiation': {
-    title: 'Commercial Closing Gate',
+    title: 'Commercial & Contract Closing Gate',
+    icon: '🤝',
+    color: '#ea580c',
+    description: 'Finalize scope revisions, commercial fees, and contract terms.',
     gates: [
-      { id: 'scope_refined', label: 'Revised Work Plan & Scope of Work Confirmed' },
-      { id: 'commercials_agreed', label: 'Fee Structure & Payment Milestones Agreed' },
-      { id: 'legal_vetted', label: 'Contract Draft Vetted by Legal / MD' },
+      { id: 'neg_scope_locked', label: 'Revised Scope of Work & Delivery Milestones Agreed' },
+      { id: 'neg_commercials', label: 'Final Commercial Fee & Invoicing Terms Agreed' },
+      { id: 'neg_legal_vetting', label: 'Contract Draft Vetted by Legal Counsel & Managing Director' },
+      { id: 'neg_signing_target', label: 'Target Contract Execution Date Scheduled' },
     ],
   },
   'Won': {
     title: 'Contract Handover & Kickoff Gate',
+    icon: '🏆',
+    color: '#16a34a',
+    description: 'Secure executed agreement and transition assignment to delivery team.',
     gates: [
-      { id: 'contract_signed', label: 'Signed Contract / Award Letter Filed in Vault' },
-      { id: 'kickoff_planned', label: 'Assignment Kickoff Date Scheduled with Client' },
-      { id: 'cpo_released', label: 'Bid Bond / CPO Release Process Initiated' },
+      { id: 'won_signed_contract', label: 'Fully Executed & Signed Contract Uploaded to Vault' },
+      { id: 'won_kickoff_booked', label: 'Assignment Kickoff Date Scheduled with Client' },
+      { id: 'won_cpo_release', label: 'Bid Bond / CPO Release Process Initiated with Bank' },
+      { id: 'won_finance_notified', label: 'Finance Notified for Advance Payment / Mobilization Invoice' },
     ],
   },
   'Lost': {
-    title: 'Post-Mortem & Debrief Gate',
+    title: 'Debrief & Intelligence Gate',
+    icon: '🏁',
+    color: '#dc2626',
+    description: 'Capture pricing variance and competitive intelligence for future bidding.',
     gates: [
-      { id: 'loss_logged', label: 'Primary Loss Reason & Competitor Intelligence Documented' },
+      { id: 'lost_factor_documented', label: 'Primary Loss Factor Formally Documented' },
+      { id: 'lost_competitor_intel', label: 'Winning Competitor & Pricing Intelligence Noted' },
+      { id: 'lost_lessons_recorded', label: 'Debrief Lessons Recorded for Future Proposals' },
     ],
   },
 }
 
-// Loss Reasons
 const LOSS_REASONS = [
   'Financial (Too Expensive)',
   'Competitor Won',
@@ -114,7 +145,6 @@ const LOSS_REASONS = [
   'Other / Undisclosed',
 ]
 
-// Win Factors
 const WIN_FACTORS = [
   'Technical Methodology & Quality',
   'Institutional Track Record & Trust',
@@ -124,7 +154,6 @@ const WIN_FACTORS = [
   'Strategic SBU Partner Alignment',
 ]
 
-// Outreach Templates
 const OUTREACH_TEMPLATES = {
   status_check: {
     label: '📋 Review & Status Check',
@@ -649,29 +678,49 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  // STEP 2 IMPLEMENTED: MANDATORY VALIDATION BLOCKERS FOR INITIATED DEALS
+  // MANDATORY VALIDATION BLOCKERS PER STAGE
   async function handleSaveDealDossier(e) {
     e.preventDefault()
     setDrawerErrors([])
+    const currentStage = selectedDeal.status || 'Initiated'
+    const errors = []
 
-    // Enforce Initiated Blockers
-    if (selectedDeal.status === 'Initiated') {
-      const errors = []
-      if (!selectedDeal.title || !selectedDeal.title.trim()) {
-        errors.push('Proposal Scope / Title is required.')
-      }
+    if (!selectedDeal.title || !selectedDeal.title.trim()) {
+      errors.push('Proposal Scope / Title is required.')
+    }
+
+    if (currentStage === 'Initiated') {
       const val = parseFloat(selectedDeal.deal_value_etb)
       if (isNaN(val) || val <= 0) {
-        errors.push('Estimated Deal Value (ETB) is mandatory and must be greater than 0.')
+        errors.push('Estimated Deal Value (ETB) is mandatory for Initiated deals.')
       }
       if (!selectedDealOwner || selectedDealOwner === 'Unassigned') {
-        errors.push('A designated Commercial Owner must be assigned (cannot be Unassigned).')
+        errors.push('A designated Commercial Owner must be assigned.')
       }
+    }
 
-      if (errors.length > 0) {
-        setDrawerErrors(errors)
-        return // HARD STOP: Blocks saving until filled
+    if (currentStage === 'In Progress') {
+      if (!selectedDeal.submission_deadline) {
+        errors.push('Submission Deadline Date is mandatory for proposals In Progress.')
       }
+    }
+
+    if (currentStage === 'Submitted') {
+      if (!selectedDeal.submission_deadline && !selectedDeal.actual_submission_date) {
+        errors.push('Submission Deadline or Actual Submission Date is required.')
+      }
+    }
+
+    if (currentStage === 'Won') {
+      const val = parseFloat(selectedDeal.deal_value_etb)
+      if (isNaN(val) || val <= 0) {
+        errors.push('Final Contracted Value (ETB) must be confirmed to save as Won.')
+      }
+    }
+
+    if (errors.length > 0) {
+      setDrawerErrors(errors)
+      return // BLOCK: Stop here and do not save to Supabase
     }
 
     setSaving(true)
@@ -983,7 +1032,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       </div>
 
-      {/* Feature 6: Collapsible Team Workload Allocation Panel */}
+      {/* Feature 6: Team Workload Panel */}
       {showWorkloadPanel && (
         <div
           style={{
@@ -1038,7 +1087,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* Feature 4: Collapsible Win/Loss & Competitor Intel Drawer */}
+      {/* Feature 4: Win/Loss & Competitor Intel Drawer */}
       {showIntelPanel && (
         <div
           style={{
@@ -1186,7 +1235,6 @@ export default function ProposalList({ proposalVersion }) {
                     const isBeingDragged = draggedDealId === deal.id
                     const gates = parseGates(deal.notes)
                     
-                    // Dynamic stage gates calculation
                     const stageConfig = STAGE_REQUIREMENTS[deal.status] || STAGE_REQUIREMENTS['In Progress']
                     const totalStageGates = stageConfig.gates.length
                     const isGatesComplete = totalStageGates > 0 && gates.filter((g) => stageConfig.gates.some((sg) => sg.id === g)).length === totalStageGates
@@ -1264,14 +1312,12 @@ export default function ProposalList({ proposalVersion }) {
                           {deal.title}
                         </p>
 
-                        {/* Submission Deadline Urgency Badge */}
                         {deal.submission_deadline && (
                           <div style={{ marginBottom: 6 }}>
                             {renderDeadlineBadge(deal.submission_deadline)}
                           </div>
                         )}
 
-                        {/* Commercial Owner Card Row */}
                         <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                           <OwnerPhoto name={owner} />
                           <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>
@@ -1279,7 +1325,7 @@ export default function ProposalList({ proposalVersion }) {
                           </span>
                         </div>
 
-                        {/* Governance Gates Badge & Outreach Button */}
+                        {/* Stage-Adaptive Gates Badge */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <span
                             style={{
@@ -1292,7 +1338,7 @@ export default function ProposalList({ proposalVersion }) {
                               border: `1px solid ${isGatesComplete ? '#bbf7d0' : gates.length > 0 ? '#fde68a' : '#e2e8f0'}`,
                             }}
                           >
-                            {isGatesComplete ? `🛡️ ${totalStageGates}/${totalStageGates} Gates` : gates.length > 0 ? `⚠️ ${gates.length}/${totalStageGates}` : `⚪ 0/${totalStageGates}`}
+                            {isGatesComplete ? `🛡️ ${totalStageGates}/${totalStageGates} Gates` : gates.length > 0 ? `⚠️ ${gates.filter((g) => stageConfig.gates.some((sg) => sg.id === g)).length}/${totalStageGates}` : `⚪ 0/${totalStageGates}`}
                           </span>
 
                           <button
@@ -1396,7 +1442,6 @@ export default function ProposalList({ proposalVersion }) {
             </thead>
             <tbody>
               {filteredProposals.map((deal) => {
-                const outcome = parseOutcome(deal.notes)
                 const owner = parseOwner(deal.notes)
 
                 return (
@@ -1847,7 +1892,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 5. DEAL DOSSIER (SLIDE-OVER DRAWER) */}
+      {/* 5. UNIFIED DEAL DOSSIER (SLIDE-OVER DRAWER) */}
       {selectedDeal && (
         <div
           style={{
@@ -1944,7 +1989,7 @@ export default function ProposalList({ proposalVersion }) {
               </div>
             )}
 
-            {/* Quick Outreach Launcher Trigger */}
+            {/* Quick Outreach Trigger */}
             <div style={{ marginTop: 14 }}>
               <button
                 type="button"
@@ -1969,10 +2014,10 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* DYNAMIC STAGE-SPECIFIC GOVERNANCE CHECKLIST (INITIATED & BEYOND) */}
+            {/* UNIFIED DYNAMIC STAGE-SPECIFIC REQUIREMENTS CARD */}
             {(() => {
               const currentStage = selectedDeal.status || 'Initiated'
-              const config = STAGE_REQUIREMENTS[currentStage] || STAGE_REQUIREMENTS['In Progress']
+              const config = STAGE_REQUIREMENTS[currentStage] || STAGE_REQUIREMENTS['Initiated']
               const gatesList = config.gates || []
               const activeSavedGates = parseGates(selectedDeal.notes)
               const clearedCount = gatesList.filter((g) => activeSavedGates.includes(g.id)).length
@@ -1988,9 +2033,9 @@ export default function ProposalList({ proposalVersion }) {
                     border: '1px solid #e2e8f0',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                     <h4 style={{ margin: 0, fontSize: 13, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      🛡️ {currentStage}: {config.title}
+                      {config.icon} {currentStage}: {config.title}
                     </h4>
                     <span
                       style={{
@@ -2002,16 +2047,20 @@ export default function ProposalList({ proposalVersion }) {
                         color: clearedCount === gatesList.length && gatesList.length > 0 ? '#166534' : clearedCount > 0 ? '#92400e' : '#b91c1c',
                       }}
                     >
-                      {clearedCount} of {gatesList.length} Gates Cleared
+                      {clearedCount} of {gatesList.length} Cleared ({pct}%)
                     </span>
                   </div>
+
+                  <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#64748b' }}>
+                    {config.description}
+                  </p>
 
                   <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
                     <div
                       style={{
                         height: '100%',
                         width: `${pct}%`,
-                        background: pct === 100 ? '#16a34a' : pct >= 50 ? '#f59e0b' : '#3b82f6',
+                        background: pct === 100 ? '#16a34a' : config.color || '#0284c7',
                         transition: 'width 0.3s ease',
                       }}
                     />
@@ -2042,7 +2091,9 @@ export default function ProposalList({ proposalVersion }) {
                             onChange={() => handleToggleGate(gate.id)}
                             style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
                           />
-                          <span>{gate.label}</span>
+                          <span style={{ textDecoration: isChecked ? 'none' : 'none' }}>
+                            {gate.label}
+                          </span>
                         </label>
                       )
                     })}
@@ -2152,11 +2203,11 @@ export default function ProposalList({ proposalVersion }) {
               </form>
             </div>
 
-            {/* Editable Form with Commercial Owner Selector */}
+            {/* Editable Proposal Form with Stage-Adaptive Rules */}
             <form onSubmit={handleSaveDealDossier} style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                  Proposal Scope / Title {selectedDeal.status === 'Initiated' && <span style={{ color: '#dc2626' }}>*</span>}
+                  Proposal Scope / Title <span style={{ color: '#dc2626' }}>*</span>
                 </label>
                 <textarea
                   rows={3}
@@ -2191,7 +2242,8 @@ export default function ProposalList({ proposalVersion }) {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-                    Estimated Deal Value (ETB) {selectedDeal.status === 'Initiated' && <span style={{ color: '#dc2626' }}>*</span>}
+                    {selectedDeal.status === 'Won' ? 'Final Contracted Value (ETB)' : 'Estimated Deal Value (ETB)'}
+                    {(selectedDeal.status === 'Initiated' || selectedDeal.status === 'Won') && <span style={{ color: '#dc2626' }}>*</span>}
                   </label>
                   <input
                     type="number"
@@ -2205,8 +2257,8 @@ export default function ProposalList({ proposalVersion }) {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                    Pipeline Stage
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#0284c7', marginBottom: 4 }}>
+                    Pipeline Stage (Changes requirements above)
                   </label>
                   <select
                     value={selectedDeal.status}
@@ -2215,7 +2267,7 @@ export default function ProposalList({ proposalVersion }) {
                       setSelectedDeal({ ...selectedDeal, status: newStatus })
                       setDrawerErrors([])
                     }}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '2px solid #0284c7', fontSize: 13, fontWeight: 600, background: '#f0f9ff' }}
                   >
                     {STAGES.map((s) => (
                       <option key={s} value={s}>
@@ -2228,7 +2280,7 @@ export default function ProposalList({ proposalVersion }) {
 
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                  Submission Deadline
+                  Submission Deadline {['In Progress', 'Submitted'].includes(selectedDeal.status) && <span style={{ color: '#dc2626' }}>*</span>}
                 </label>
                 <input
                   type="date"
@@ -2271,65 +2323,6 @@ export default function ProposalList({ proposalVersion }) {
                   }}
                 />
               </div>
-
-              {/* STAGE-AWARE LOWER COMPLIANCE BOX */}
-              {selectedDeal.status === 'Initiated' ? (
-                <div style={{ marginTop: 6, padding: '12px 14px', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd', fontSize: '12px', color: '#0369a1' }}>
-                  💡 <strong>Initiated Stage Notice:</strong> Tender compliance packaging (Bid Bond/CPO, Tax Clearance, Audited Financial Statements) activates when this pursuit moves to <strong>In Progress</strong>. Complete the qualification gates above to qualify this deal.
-                </div>
-              ) : (
-                /* Tender Checklist for In Progress / Beyond */
-                <div style={{ marginTop: 6, padding: '14px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-                  {(() => {
-                    const checklistItems = [
-                      { key: 'tor_aligned', label: 'TOR Requirements & Methodology Aligned' },
-                      { key: 'cpo_bid_bond', label: 'Bid Bond / CPO Guarantee Secured' },
-                      { key: 'tax_clearance', label: 'Valid Tax Clearance & Business License' },
-                      { key: 'audited_financials', label: 'Audited Financial Statements (Last 2–3 Yrs)' },
-                      { key: 'expert_cvs', label: 'Consultant / Expert CVs Packaged' },
-                      { key: 'compliance_sheet', label: 'Signed Institutional Compliance Sheet' },
-                    ]
-                    const cl = selectedDeal?.compliance_checklist || {}
-                    const completed = checklistItems.filter((i) => cl[i.key]).length
-                    const percent = Math.round((completed / checklistItems.length) * 100)
-
-                    return (
-                      <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
-                            📋 Pre-Submission Compliance Checklist
-                          </span>
-                          <span style={{ fontSize: '11px', fontWeight: 700, color: percent === 100 ? '#16a34a' : '#ea580c' }}>
-                            {completed} of {checklistItems.length} Cleared ({percent}%)
-                          </span>
-                        </div>
-
-                        <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
-                          <div style={{ width: `${percent}%`, height: '100%', background: percent === 100 ? '#16a34a' : '#0284c7', transition: 'width 0.3s' }} />
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
-                          {checklistItems.map((item) => (
-                            <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', cursor: 'pointer' }}>
-                              <input
-                                type="checkbox"
-                                checked={Boolean(cl[item.key])}
-                                onChange={(e) => {
-                                  const updated = { ...cl, [item.key]: e.target.checked }
-                                  setSelectedDeal((prev) => ({ ...prev, compliance_checklist: updated }))
-                                }}
-                              />
-                              <span style={{ textDecoration: cl[item.key] ? 'line-through' : 'none', color: cl[item.key] ? '#64748b' : '#0f172a' }}>
-                                {item.label}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      </>
-                    )
-                  })()}
-                </div>
-              )}
 
               {/* Action Buttons Row */}
               <div style={{ marginTop: 10, display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
