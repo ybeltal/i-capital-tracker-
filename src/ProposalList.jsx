@@ -12,7 +12,6 @@ const STAGES = [
   'Lost',
 ]
 
-// Ordered milestones for proposal progression
 const PROGRESSION_STAGES = [
   'Initiated',
   'In Progress',
@@ -394,8 +393,6 @@ export default function ProposalList({ proposalVersion }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [viewMode, setViewMode] = useState('board')
-  
-  // FORMAT B: Sub-Board Switcher State ('PROPOSALS' | 'LEADS' | 'ALL')
   const [pipelineTab, setPipelineTab] = useState('PROPOSALS')
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -550,11 +547,10 @@ export default function ProposalList({ proposalVersion }) {
     setTimeout(() => setCopiedToast(false), 2500)
   }
 
-  // Promote a lead to formal proposal in 1 click
   async function handlePromoteLead(deal, e) {
     if (e) e.stopPropagation()
     await handleInitiateStatusChange(deal, 'In Progress')
-    setPipelineTab('PROPOSALS') // Auto-switch to Proposals view so user sees it
+    setPipelineTab('PROPOSALS')
   }
 
   async function handleInitiateStatusChange(deal, newStatus) {
@@ -853,7 +849,6 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  // Counts for Sub-Board Switcher
   const leadDealsList = proposals.filter((p) => p.status === 'Initiated')
   const proposalDealsList = proposals.filter((p) => p.status !== 'Initiated')
 
@@ -891,11 +886,10 @@ export default function ProposalList({ proposalVersion }) {
     }
   }).filter((w) => w.totalCount > 0 || ['Ybeltal', 'Tsegaab', 'Seife', 'Yeabsira'].includes(w.name))
 
-  // Filter deals based on active pipeline tab
   const tabFilteredProposals = proposals.filter((p) => {
     if (pipelineTab === 'LEADS') return p.status === 'Initiated'
     if (pipelineTab === 'PROPOSALS') return p.status !== 'Initiated'
-    return true // 'ALL'
+    return true
   })
 
   const filteredProposals = tabFilteredProposals.filter((p) => {
@@ -918,7 +912,6 @@ export default function ProposalList({ proposalVersion }) {
     return matchesSearch && matchesSBU && matchesHealth && matchesOwner
   })
 
-  // Determine which columns to show on the Kanban Board
   let activeStages = STAGES
   if (pipelineTab === 'LEADS') {
     activeStages = ['Initiated']
@@ -986,7 +979,6 @@ export default function ProposalList({ proposalVersion }) {
           </div>
         </div>
 
-        {/* CHEVRON PATH */}
         <div
           style={{
             display: 'flex',
@@ -1039,7 +1031,6 @@ export default function ProposalList({ proposalVersion }) {
           })}
         </div>
 
-        {/* ACTIVE MILESTONE CARD */}
         <div
           style={{
             padding: 16,
@@ -1177,7 +1168,7 @@ export default function ProposalList({ proposalVersion }) {
 
   return (
     <div>
-      {/* FORMAT B: DUAL SUB-BOARD SWITCHER TOOLBAR */}
+      {/* MODERN SEGMENTED CAPSULE SWITCHER TOOLBAR */}
       <div
         style={{
           display: 'flex',
@@ -1185,46 +1176,56 @@ export default function ProposalList({ proposalVersion }) {
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 12,
-          padding: '10px 14px',
+          padding: '8px 12px',
           background: '#ffffff',
-          borderRadius: 8,
+          borderRadius: 10,
           border: '1px solid #e2e8f0',
           marginBottom: 16,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Pipeline View:
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+            Pipeline View
           </span>
-          <div style={{ display: 'flex', gap: 6 }}>
+
+          <div
+            style={{
+              display: 'inline-flex',
+              background: '#f1f5f9',
+              padding: '3px',
+              borderRadius: 8,
+              gap: 3,
+            }}
+          >
             <button
               type="button"
               onClick={() => setPipelineTab('PROPOSALS')}
               style={{
-                padding: '6px 14px',
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-                border: pipelineTab === 'PROPOSALS' ? '1px solid #0284c7' : '1px solid #cbd5e1',
-                backgroundColor: pipelineTab === 'PROPOSALS' ? '#0284c7' : '#f8fafc',
-                color: pipelineTab === 'PROPOSALS' ? '#ffffff' : '#334155',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
-                boxShadow: pipelineTab === 'PROPOSALS' ? '0 2px 4px rgba(2, 132, 199, 0.2)' : 'none',
+                padding: '6px 14px',
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: pipelineTab === 'PROPOSALS' ? 700 : 500,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: pipelineTab === 'PROPOSALS' ? '#ffffff' : 'transparent',
+                color: pipelineTab === 'PROPOSALS' ? '#0284c7' : '#64748b',
+                boxShadow: pipelineTab === 'PROPOSALS' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease',
               }}
             >
               <span>📄 Formal Proposals</span>
               <span
                 style={{
                   fontSize: 10,
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                  backgroundColor: pipelineTab === 'PROPOSALS' ? '#ffffff' : '#e2e8f0',
-                  color: pipelineTab === 'PROPOSALS' ? '#0284c7' : '#64748b',
                   fontWeight: 800,
+                  padding: '1px 7px',
+                  borderRadius: 10,
+                  backgroundColor: pipelineTab === 'PROPOSALS' ? '#e0f2fe' : '#e2e8f0',
+                  color: pipelineTab === 'PROPOSALS' ? '#0369a1' : '#64748b',
                 }}
               >
                 {proposalDealsList.length}
@@ -1235,29 +1236,30 @@ export default function ProposalList({ proposalVersion }) {
               type="button"
               onClick={() => setPipelineTab('LEADS')}
               style={{
-                padding: '6px 14px',
-                borderRadius: 6,
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: 'pointer',
-                border: pipelineTab === 'LEADS' ? '1px solid #0284c7' : '1px solid #cbd5e1',
-                backgroundColor: pipelineTab === 'LEADS' ? '#0284c7' : '#f8fafc',
-                color: pipelineTab === 'LEADS' ? '#ffffff' : '#334155',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
-                boxShadow: pipelineTab === 'LEADS' ? '0 2px 4px rgba(2, 132, 199, 0.2)' : 'none',
+                padding: '6px 14px',
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: pipelineTab === 'LEADS' ? 700 : 500,
+                border: 'none',
+                cursor: 'pointer',
+                backgroundColor: pipelineTab === 'LEADS' ? '#ffffff' : 'transparent',
+                color: pipelineTab === 'LEADS' ? '#0284c7' : '#64748b',
+                boxShadow: pipelineTab === 'LEADS' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease',
               }}
             >
               <span>🎯 Leads & Pre-Tenders</span>
               <span
                 style={{
                   fontSize: 10,
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                  backgroundColor: pipelineTab === 'LEADS' ? '#ffffff' : '#e2e8f0',
-                  color: pipelineTab === 'LEADS' ? '#0284c7' : '#64748b',
                   fontWeight: 800,
+                  padding: '1px 7px',
+                  borderRadius: 10,
+                  backgroundColor: pipelineTab === 'LEADS' ? '#e0f2fe' : '#e2e8f0',
+                  color: pipelineTab === 'LEADS' ? '#0369a1' : '#64748b',
                 }}
               >
                 {leadDealsList.length}
@@ -1268,55 +1270,72 @@ export default function ProposalList({ proposalVersion }) {
               type="button"
               onClick={() => setPipelineTab('ALL')}
               style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
                 padding: '6px 12px',
                 borderRadius: 6,
                 fontSize: 12,
-                fontWeight: 600,
+                fontWeight: pipelineTab === 'ALL' ? 700 : 500,
+                border: 'none',
                 cursor: 'pointer',
-                border: pipelineTab === 'ALL' ? '1px solid #0f172a' : '1px solid #cbd5e1',
-                backgroundColor: pipelineTab === 'ALL' ? '#0f172a' : '#f8fafc',
-                color: pipelineTab === 'ALL' ? '#ffffff' : '#64748b',
+                backgroundColor: pipelineTab === 'ALL' ? '#ffffff' : 'transparent',
+                color: pipelineTab === 'ALL' ? '#0f172a' : '#64748b',
+                boxShadow: pipelineTab === 'ALL' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                transition: 'all 0.15s ease',
               }}
             >
-              🌐 All ({proposals.length})
+              <span>🌐 All</span>
+              <span
+                style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '1px 6px',
+                  borderRadius: 10,
+                  backgroundColor: pipelineTab === 'ALL' ? '#f1f5f9' : '#e2e8f0',
+                  color: '#475569',
+                }}
+              >
+                {proposals.length}
+              </span>
             </button>
           </div>
         </div>
 
-        <div style={{ display: 'flex', background: '#f1f5f9', padding: 3, borderRadius: 6 }}>
+        <div style={{ display: 'flex', background: '#f1f5f9', padding: '3px', borderRadius: 8, gap: 2 }}>
           <button
             type="button"
             onClick={() => setViewMode('board')}
             style={{
-              padding: '6px 14px',
-              borderRadius: 4,
+              padding: '5px 12px',
+              borderRadius: 6,
               border: 'none',
               cursor: 'pointer',
-              fontWeight: 600,
+              fontWeight: viewMode === 'board' ? 700 : 500,
               fontSize: 12,
-              backgroundColor: viewMode === 'board' ? '#fff' : 'transparent',
+              backgroundColor: viewMode === 'board' ? '#ffffff' : 'transparent',
               color: viewMode === 'board' ? '#0f172a' : '#64748b',
-              boxShadow: viewMode === 'board' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              boxShadow: viewMode === 'board' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
             }}
           >
-            📊 Pipeline Board
+            📊 Board
           </button>
           <button
             type="button"
             onClick={() => setViewMode('table')}
             style={{
-              padding: '6px 14px',
-              borderRadius: 4,
+              padding: '5px 12px',
+              borderRadius: 6,
               border: 'none',
               cursor: 'pointer',
-              fontWeight: 600,
+              fontWeight: viewMode === 'table' ? 700 : 500,
               fontSize: 12,
-              backgroundColor: viewMode === 'table' ? '#fff' : 'transparent',
+              backgroundColor: viewMode === 'table' ? '#ffffff' : 'transparent',
               color: viewMode === 'table' ? '#0f172a' : '#64748b',
-              boxShadow: viewMode === 'table' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              boxShadow: viewMode === 'table' ? '0 1px 2px rgba(0,0,0,0.08)' : 'none',
             }}
           >
-            📋 Table View
+            📋 Table
           </button>
         </div>
       </div>
@@ -1447,7 +1466,6 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       </div>
 
-      {/* Team Workload Panel */}
       {showWorkloadPanel && (
         <div
           style={{
@@ -1502,7 +1520,6 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* Win/Loss & Competitor Intel Drawer */}
       {showIntelPanel && (
         <div
           style={{
@@ -1570,7 +1587,6 @@ export default function ProposalList({ proposalVersion }) {
       {error && <p role="alert" style={{ color: '#b91c1c' }}>{error}</p>}
       {loading && <p style={{ color: '#64748b' }}>Loading pipeline data…</p>}
 
-      {/* KANBAN BOARD (ADAPTIVE PER SUB-BOARD TAB) */}
       {!loading && viewMode === 'board' && (
         <div
           style={{
@@ -1757,19 +1773,19 @@ export default function ProposalList({ proposalVersion }) {
                           </button>
                         </div>
 
-                        {/* 1-CLICK PROMOTE LEAD BUTTON (SHOWN ON INITIATED CARDS) */}
+                        {/* STREAMLINED EMERALD CONVERT BUTTON */}
                         {deal.status === 'Initiated' && (
-                          <div style={{ marginBottom: 8 }}>
+                          <div style={{ marginBottom: 8, marginTop: 2 }}>
                             <button
                               type="button"
                               onClick={(e) => handlePromoteLead(deal, e)}
                               style={{
                                 width: '100%',
                                 padding: '6px 10px',
-                                borderRadius: 5,
-                                border: '1px solid #86efac',
-                                background: '#f0fdf4',
-                                color: '#166534',
+                                borderRadius: 6,
+                                border: 'none',
+                                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                                color: '#ffffff',
                                 fontWeight: 700,
                                 fontSize: 11,
                                 cursor: 'pointer',
@@ -1777,9 +1793,11 @@ export default function ProposalList({ proposalVersion }) {
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 gap: 6,
+                                boxShadow: '0 1px 3px rgba(5, 150, 105, 0.25)',
                               }}
                             >
-                              🚀 Promote to Proposal (In Progress) ➔
+                              <span>🚀 Convert to Proposal</span>
+                              <span style={{ fontSize: 12, fontWeight: 800 }}>➔</span>
                             </button>
                           </div>
                         )}
@@ -1846,7 +1864,6 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* TABLE VIEW */}
       {!loading && viewMode === 'table' && (
         <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
@@ -1974,7 +1991,6 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* Post-Mortem Modal */}
       {postMortemDeal && (
         <div
           style={{
@@ -2142,7 +2158,6 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* Outreach Generator Modal */}
       {outreachDeal && (
         <div
           style={{
@@ -2335,7 +2350,6 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* DEAL DOSSIER (SLIDE-OVER DRAWER) */}
       {selectedDeal && (
         <div
           style={{
@@ -2409,7 +2423,6 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* ERROR BANNER */}
             {drawerErrors.length > 0 && (
               <div
                 style={{
@@ -2431,7 +2444,6 @@ export default function ProposalList({ proposalVersion }) {
               </div>
             )}
 
-            {/* QUICK OUTREACH */}
             <div style={{ marginTop: 14 }}>
               <button
                 type="button"
@@ -2456,10 +2468,8 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* CHEVRON STEPPER ROADMAP */}
             {renderChevronPipelineStepper()}
 
-            {/* TOUCHPOINT LOGGER */}
             <div
               style={{
                 marginTop: 6,
@@ -2560,7 +2570,6 @@ export default function ProposalList({ proposalVersion }) {
               </form>
             </div>
 
-            {/* EDITABLE FORM */}
             <form onSubmit={handleSaveDealDossier} style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
