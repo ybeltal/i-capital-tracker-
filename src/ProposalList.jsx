@@ -22,7 +22,6 @@ const ACTIVITY_TYPES = [
   '📝 Contract Negotiation',
 ]
 
-// Team Commercial Owners (i-Capital Directory)
 const TEAM_OWNERS = [
   'Ybeltal',
   'Tsegaab',
@@ -36,104 +35,6 @@ const TEAM_OWNERS = [
   'Atalay',
   'Unassigned',
 ]
-
-// COMPLETE STAGE-SPECIFIC REQUIREMENTS ARCHITECTURE
-const STAGE_REQUIREMENTS = {
-  'Initiated': {
-    title: 'Qualification & Intake Gate',
-    icon: '🎯',
-    color: '#0284c7',
-    description: 'Confirm client need, decision-maker, and initial delivery feasibility.',
-    gates: [
-      { id: 'init_decision_maker', label: 'Client Decision-Maker & Budget Sponsor Identified' },
-      { id: 'init_tor_scope', label: 'TOR / Client Concept Scope Document Obtained & Reviewed' },
-      { id: 'init_sbu_capacity', label: 'SBU Delivery Capacity & Practice Lead Assigned' },
-      { id: 'init_go_no_go', label: 'Formal Go / No-Go Pursuit Clearance Approved' },
-    ],
-  },
-  'In Progress': {
-    title: 'Proposal & Compliance Assembly Gate',
-    icon: '📘',
-    color: '#f59e0b',
-    description: 'Package technical approach, credentials, and mandatory statutory documents.',
-    gates: [
-      { id: 'prog_methodology', label: 'Technical Approach & Implementation Work Plan Aligned' },
-      { id: 'prog_cvs', label: 'Key Consultant & Expert CVs Packaged & Formatted' },
-      { id: 'prog_statutory', label: 'Valid Tax Clearance, Business License & Audits Attached' },
-      { id: 'prog_cpo', label: 'Bid Bond / CPO Guarantee Secured (if required)' },
-      { id: 'prog_signoff', label: 'SBU Head & Managing Director Sign-Off Cleared' },
-    ],
-  },
-  'Submitted': {
-    title: 'Proof of Delivery & Initial Logging Gate',
-    icon: '📤',
-    color: '#6366f1',
-    description: 'Verify formal submission and log key tender evaluation dates.',
-    gates: [
-      { id: 'sub_receipt', label: 'Stamped Submission Receipt / Delivery Note Filed in Vault' },
-      { id: 'sub_timeline', label: 'Actual Submission Date & Bid Opening Timeline Logged' },
-      { id: 'sub_cpo_filed', label: 'Original Bid Bond / CPO Guarantee Copy Filed in Vault' },
-      { id: 'sub_first_followup', label: 'Initial Evaluation Follow-Up Touchpoint Scheduled in CRM' },
-    ],
-  },
-  'Under Review': {
-    title: 'Evaluation Tracking & Defense Gate',
-    icon: '🔍',
-    color: '#0284c7',
-    description: 'Monitor evaluation committee progress and provide clarifications.',
-    gates: [
-      { id: 'rev_eval_timeline', label: 'Client Evaluation Process & Timeline Confirmed' },
-      { id: 'rev_clarifications', label: 'Technical Clarifications / Queries Formally Addressed' },
-      { id: 'rev_touchpoint_active', label: 'Active Touchpoint Logged in CRM within Last 14 Days' },
-    ],
-  },
-  'Shortlisted': {
-    title: 'Pitch & Oral Defense Readiness Gate',
-    icon: '🌟',
-    color: '#8b5cf6',
-    description: 'Prepare presentation deck and align the technical defense team.',
-    gates: [
-      { id: 'short_pitch_deck', label: 'Executive Presentation / Pitch Deck Prepared' },
-      { id: 'short_defense_team', label: 'Core Presentation & Technical Defense Team Rehearsed' },
-      { id: 'short_ranking_verified', label: 'Final Shortlist Ranking Verified with Client' },
-    ],
-  },
-  'Negotiation': {
-    title: 'Commercial & Contract Closing Gate',
-    icon: '🤝',
-    color: '#ea580c',
-    description: 'Finalize scope revisions, commercial fees, and contract terms.',
-    gates: [
-      { id: 'neg_scope_locked', label: 'Revised Scope of Work & Delivery Milestones Agreed' },
-      { id: 'neg_commercials', label: 'Final Commercial Fee & Invoicing Terms Agreed' },
-      { id: 'neg_legal_vetting', label: 'Contract Draft Vetted by Legal Counsel & Managing Director' },
-      { id: 'neg_signing_target', label: 'Target Contract Execution Date Scheduled' },
-    ],
-  },
-  'Won': {
-    title: 'Contract Handover & Kickoff Gate',
-    icon: '🏆',
-    color: '#16a34a',
-    description: 'Secure executed agreement and transition assignment to delivery team.',
-    gates: [
-      { id: 'won_signed_contract', label: 'Fully Executed & Signed Contract Uploaded to Vault' },
-      { id: 'won_kickoff_booked', label: 'Assignment Kickoff Date Scheduled with Client' },
-      { id: 'won_cpo_release', label: 'Bid Bond / CPO Release Process Initiated with Bank' },
-      { id: 'won_finance_notified', label: 'Finance Notified for Advance Payment / Mobilization Invoice' },
-    ],
-  },
-  'Lost': {
-    title: 'Debrief & Intelligence Gate',
-    icon: '🏁',
-    color: '#dc2626',
-    description: 'Capture pricing variance and competitive intelligence for future bidding.',
-    gates: [
-      { id: 'lost_factor_documented', label: 'Primary Loss Factor Formally Documented' },
-      { id: 'lost_competitor_intel', label: 'Winning Competitor & Pricing Intelligence Noted' },
-      { id: 'lost_lessons_recorded', label: 'Debrief Lessons Recorded for Future Proposals' },
-    ],
-  },
-}
 
 const LOSS_REASONS = [
   'Financial (Too Expensive)',
@@ -197,6 +98,24 @@ function formatMoney(amount) {
   }).format(amount)}`
 }
 
+function parseTag(text, tag) {
+  if (!text) return ''
+  const match = text.match(new RegExp(`\\[${tag}:\\s*([^\\]]+)\\]`))
+  return match ? match[1].trim() : ''
+}
+
+function updateTag(text, tag, value) {
+  const current = text || ''
+  const regex = new RegExp(`\\[${tag}:[^\\]]*\\]`)
+  const newTagStr = value ? `[${tag}: ${value}]` : ''
+
+  if (regex.test(current)) {
+    return newTagStr ? current.replace(regex, newTagStr) : current.replace(regex, '').trim()
+  }
+  if (!newTagStr) return current
+  return current ? `${newTagStr}\n${current}` : newTagStr
+}
+
 function parseGates(notes) {
   if (!notes) return []
   const match = notes.match(/\[GATES:([^\]]*)\]/)
@@ -205,21 +124,16 @@ function parseGates(notes) {
 }
 
 function stringifyGatesWithNotes(gates, existingNotes) {
-  const gateTag = `[GATES: ${gates.join(', ')}]`
-  const cleanNotes = (existingNotes || '').replace(/\[GATES:[^\]]*\]\n?/, '').trim()
-  return cleanNotes ? `${gateTag}\n\n${cleanNotes}` : gateTag
+  return updateTag(existingNotes, 'GATES', gates.join(', '))
 }
 
 function parseOwner(notes) {
-  if (!notes) return 'Unassigned'
-  const match = notes.match(/\[OWNER:\s*([^\]]+)\]/)
-  return match ? match[1].trim() : 'Unassigned'
+  const owner = parseTag(notes, 'OWNER')
+  return owner || 'Unassigned'
 }
 
 function stringifyOwnerWithNotes(owner, existingNotes) {
-  const tag = `[OWNER: ${owner}]`
-  const clean = (existingNotes || '').replace(/\[OWNER:[^\]]*\]\n?/, '').trim()
-  return clean ? `${tag}\n\n${clean}` : tag
+  return updateTag(existingNotes, 'OWNER', owner)
 }
 
 function parseOutcome(notes) {
@@ -368,17 +282,14 @@ export default function ProposalList({ proposalVersion }) {
   const [filterOwner, setFilterOwner] = useState('ALL')
   const [showWorkloadPanel, setShowWorkloadPanel] = useState(false)
 
-  // Drag-and-Drop state
   const [draggedDealId, setDraggedDealId] = useState(null)
   const [dragOverStage, setDragOverStage] = useState(null)
 
-  // Slide-over Drawer State
   const [selectedDeal, setSelectedDeal] = useState(null)
   const [selectedDealOwner, setSelectedDealOwner] = useState('Unassigned')
   const [saving, setSaving] = useState(false)
   const [drawerErrors, setDrawerErrors] = useState([])
 
-  // Quick Activity Log State
   const [activityType, setActivityType] = useState(ACTIVITY_TYPES[0])
   const [activityNote, setActivityNote] = useState('')
   const [nextActionCommitment, setNextActionCommitment] = useState('')
@@ -386,7 +297,6 @@ export default function ProposalList({ proposalVersion }) {
   const [loggingActivity, setLoggingActivity] = useState(false)
   const [activitySuccessToast, setActivitySuccessToast] = useState(false)
 
-  // Outreach Generator State
   const [outreachDeal, setOutreachDeal] = useState(null)
   const [outreachTemplateKey, setOutreachTemplateKey] = useState('status_check')
   const [outreachSubject, setOutreachSubject] = useState('')
@@ -394,7 +304,6 @@ export default function ProposalList({ proposalVersion }) {
   const [autoLogOutreach, setAutoLogOutreach] = useState(true)
   const [copiedToast, setCopiedToast] = useState(false)
 
-  // Win/Loss Post-Mortem State
   const [postMortemDeal, setPostMortemDeal] = useState(null)
   const [postMortemTargetStatus, setPostMortemTargetStatus] = useState(null)
   const [lossReason, setLossReason] = useState(LOSS_REASONS[0])
@@ -481,16 +390,8 @@ export default function ProposalList({ proposalVersion }) {
     const tplLabel = OUTREACH_TEMPLATES[outreachTemplateKey]?.label || 'Follow-Up'
     const entry = `[${timestamp}] 💬 ${channelLabel} Outreach Sent: ${tplLabel}`
 
-    const currentGates = parseGates(outreachDeal.notes)
-    const currentOwner = parseOwner(outreachDeal.notes)
     const cleanExisting = (outreachDeal.notes || '')
-      .replace(/\[GATES:[^\]]*\]\n?/, '')
-      .replace(/\[OWNER:[^\]]*\]\n?/, '')
-      .trim()
-
-    const combinedNotes = cleanExisting ? `${entry}\n\n${cleanExisting}` : entry
-    let finalNotes = stringifyGatesWithNotes(currentGates, combinedNotes)
-    finalNotes = stringifyOwnerWithNotes(currentOwner, finalNotes)
+    const finalNotes = `${entry}\n\n${cleanExisting}`.trim()
 
     try {
       await supabase
@@ -652,33 +553,23 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  async function handleToggleGate(gateId) {
+  // Generic tag-based state updates for stage-specific fields
+  function updateDealTag(tag, value) {
     if (!selectedDeal) return
-    const currentGates = parseGates(selectedDeal.notes)
-    const exists = currentGates.includes(gateId)
-    const nextGates = exists
-      ? currentGates.filter((g) => g !== gateId)
-      : [...currentGates, gateId]
-
-    const updatedNotes = stringifyGatesWithNotes(nextGates, selectedDeal.notes)
-    const updatedDeal = { ...selectedDeal, notes: updatedNotes }
-
-    setSelectedDeal(updatedDeal)
-    setProposals((prev) =>
-      prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
-    )
-
-    try {
-      await supabase
-        .from('proposals')
-        .update({ notes: updatedNotes })
-        .eq('id', selectedDeal.id)
-    } catch (err) {
-      console.error('Failed to sync checklist gate:', err)
-    }
+    const updatedNotes = updateTag(selectedDeal.notes, tag, value)
+    setSelectedDeal({ ...selectedDeal, notes: updatedNotes })
   }
 
-  // MANDATORY VALIDATION BLOCKERS PER STAGE
+  function toggleGate(gateId) {
+    if (!selectedDeal) return
+    const currentGates = parseGates(selectedDeal.notes)
+    const nextGates = currentGates.includes(gateId)
+      ? currentGates.filter((g) => g !== gateId)
+      : [...currentGates, gateId]
+    const updatedNotes = stringifyGatesWithNotes(nextGates, selectedDeal.notes)
+    setSelectedDeal({ ...selectedDeal, notes: updatedNotes })
+  }
+
   async function handleSaveDealDossier(e) {
     e.preventDefault()
     setDrawerErrors([])
@@ -707,7 +598,7 @@ export default function ProposalList({ proposalVersion }) {
 
     if (currentStage === 'Submitted') {
       if (!selectedDeal.submission_deadline && !selectedDeal.actual_submission_date) {
-        errors.push('Submission Deadline or Actual Submission Date is required.')
+        errors.push('Actual Submission Date or Deadline is required.')
       }
     }
 
@@ -720,7 +611,7 @@ export default function ProposalList({ proposalVersion }) {
 
     if (errors.length > 0) {
       setDrawerErrors(errors)
-      return // BLOCK: Stop here and do not save to Supabase
+      return
     }
 
     setSaving(true)
@@ -732,12 +623,9 @@ export default function ProposalList({ proposalVersion }) {
         deal_value_etb: parseFloat(selectedDeal.deal_value_etb) || 0,
         status: selectedDeal.status,
         submission_deadline: selectedDeal.submission_deadline || null,
+        actual_submission_date: selectedDeal.actual_submission_date || null,
         document_url: selectedDeal.document_url || null,
         notes: notesWithOwner,
-      }
-
-      if (selectedDeal.compliance_checklist) {
-        updatePayload.compliance_checklist = selectedDeal.compliance_checklist
       }
 
       const { error: updateErr } = await supabase
@@ -777,25 +665,17 @@ export default function ProposalList({ proposalVersion }) {
         logEntry += ` (Due: ${nextActionDate})`
       }
 
-      const currentGates = parseGates(selectedDeal.notes)
-      const currentOwner = parseOwner(selectedDeal.notes)
-      const cleanExistingNotes = (selectedDeal.notes || '')
-        .replace(/\[GATES:[^\]]*\]\n?/, '')
-        .replace(/\[OWNER:[^\]]*\]\n?/, '')
-        .trim()
-
+      const cleanExistingNotes = (selectedDeal.notes || '').trim()
       const combinedNotes = cleanExistingNotes ? `${logEntry}\n\n${cleanExistingNotes}` : logEntry
-      let finalNotes = stringifyGatesWithNotes(currentGates, combinedNotes)
-      finalNotes = stringifyOwnerWithNotes(currentOwner, finalNotes)
 
       const { error: propErr } = await supabase
         .from('proposals')
-        .update({ notes: finalNotes })
+        .update({ notes: combinedNotes })
         .eq('id', selectedDeal.id)
 
       if (propErr) throw propErr
 
-      const updatedDeal = { ...selectedDeal, notes: finalNotes }
+      const updatedDeal = { ...selectedDeal, notes: combinedNotes }
       setSelectedDeal(updatedDeal)
       setProposals((prev) =>
         prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
@@ -866,6 +746,479 @@ export default function ProposalList({ proposalVersion }) {
 
     return matchesSearch && matchesSBU && matchesHealth && matchesOwner
   })
+
+  // Helper to render customized format per pipeline stage inside the drawer
+  function renderStageSpecificFormat() {
+    if (!selectedDeal) return null
+    const stage = selectedDeal.status || 'Initiated'
+    const activeSavedGates = parseGates(selectedDeal.notes)
+
+    switch (stage) {
+      case 'Initiated': {
+        const goNoGo = parseTag(selectedDeal.notes, 'GONOGO') || 'Pending'
+        const stakeholder = parseTag(selectedDeal.notes, 'STAKEHOLDER')
+        const initGates = [
+          { id: 'init_tor', label: 'TOR / Concept Scope Document Obtained & Reviewed' },
+          { id: 'init_capacity', label: 'SBU Delivery Capacity & Practice Lead Assigned' },
+          { id: 'init_budget', label: 'Client Budget Availability Confirmed' },
+        ]
+
+        return (
+          <div style={{ padding: 16, background: '#f0f9ff', borderRadius: 10, border: '1px solid #bae6fd', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#0369a1' }}>
+                🎯 STAGE 1: INTAKE & QUALIFICATION
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#e0f2fe', color: '#0369a1' }}>
+                Go/No-Go Decision
+              </span>
+            </div>
+
+            {/* 3-Pill Interactive Decision Widget */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase' }}>
+                Pursuit Clearance:
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                {[
+                  { id: 'Approved Go', label: '🟢 Approved Go', bg: '#dcfce7', text: '#166534', border: '#86efac' },
+                  { id: 'Under Review', label: '🟡 Reviewing', bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+                  { id: 'No-Go', label: '🔴 No-Go', bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
+                ].map((pill) => (
+                  <button
+                    key={pill.id}
+                    type="button"
+                    onClick={() => updateDealTag('GONOGO', pill.id)}
+                    style={{
+                      flex: 1,
+                      padding: '7px 4px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      border: goNoGo === pill.id ? `2px solid ${pill.text}` : `1px solid ${pill.border}`,
+                      background: goNoGo === pill.id ? pill.bg : '#ffffff',
+                      color: pill.text,
+                      boxShadow: goNoGo === pill.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    }}
+                  >
+                    {pill.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Client Decision-Maker Input */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                Client Decision-Maker / Sponsor:
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Ato Dawit (VP Operations) or HR Director"
+                value={stakeholder}
+                onChange={(e) => updateDealTag('STAKEHOLDER', e.target.value)}
+                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+              />
+            </div>
+
+            {/* Qualification Checklist */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {initGates.map((gate) => {
+                const isChecked = activeSavedGates.includes(gate.id)
+                return (
+                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#64748b', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleGate(gate.id)}
+                      style={{ accentColor: '#0284c7', width: 15, height: 15 }}
+                    />
+                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      }
+
+      case 'In Progress': {
+        const progGates = [
+          { id: 'prog_methodology', label: 'Technical Proposal & Methodology Drafted' },
+          { id: 'prog_cvs', label: 'Key Consultant & Expert CVs Formatted' },
+          { id: 'prog_tax', label: 'Valid Tax Clearance & Business License Attached' },
+          { id: 'prog_audits', label: 'Audited Financial Statements (Last 2–3 Yrs) Packaged' },
+          { id: 'prog_cpo', label: 'Bid Bond / CPO Guarantee Secured from Bank' },
+          { id: 'prog_signoff', label: 'Managing Director & SBU Head Sign-Off Cleared' },
+        ]
+        const cleared = progGates.filter((g) => activeSavedGates.includes(g.id)).length
+        const pct = Math.round((cleared / progGates.length) * 100)
+
+        return (
+          <div style={{ padding: 16, background: '#fffbeb', borderRadius: 10, border: '1px solid #fde68a', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#b45309' }}>
+                📘 STAGE 2: TENDER DOSSIER & STATUTORY COMPLIANCE
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: pct === 100 ? '#dcfce7' : '#fef3c7', color: pct === 100 ? '#166534' : '#b45309' }}>
+                {cleared} of {progGates.length} Ready ({pct}%)
+              </span>
+            </div>
+
+            <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#92400e' }}>
+              Assemble technical, administrative, and compliance packages before submission deadline.
+            </p>
+
+            <div style={{ height: 6, background: '#fef3c7', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
+              <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#16a34a' : '#f59e0b', transition: 'width 0.3s' }} />
+            </div>
+
+            {/* 2-Column Statutory Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
+              {progGates.map((gate) => {
+                const isChecked = activeSavedGates.includes(gate.id)
+                return (
+                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#78350f', cursor: 'pointer', background: isChecked ? '#fef3c7' : '#ffffff', padding: '6px 8px', borderRadius: 6, border: '1px solid #fde68a' }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleGate(gate.id)}
+                      style={{ accentColor: '#f59e0b', width: 15, height: 15 }}
+                    />
+                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      }
+
+      case 'Submitted': {
+        const slipUrl = parseTag(selectedDeal.notes, 'SLIP_URL')
+        const openingDate = parseTag(selectedDeal.notes, 'OPENING_DATE')
+        const subGates = [
+          { id: 'sub_receipt', label: 'Stamped Submission Receipt / Tender Slip Filed' },
+          { id: 'sub_cpo_filed', label: 'Original CPO Guarantee Retained in Safe' },
+          { id: 'sub_followup', label: 'First Evaluation Check Scheduled in CRM' },
+        ]
+
+        return (
+          <div style={{ padding: 16, background: '#eef2ff', borderRadius: 10, border: '1px solid #c7d2fe', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#4338ca' }}>
+                📤 STAGE 3: PROOF OF SUBMISSION & PROTOCOL
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#e0e7ff', color: '#4338ca' }}>
+                Delivery Logged
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                  Stamped Receipt / Slip URL:
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={slipUrl}
+                  onChange={(e) => updateDealTag('SLIP_URL', e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                  Client Bid Opening Date:
+                </label>
+                <input
+                  type="date"
+                  value={openingDate}
+                  onChange={(e) => updateDealTag('OPENING_DATE', e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {subGates.map((gate) => {
+                const isChecked = activeSavedGates.includes(gate.id)
+                return (
+                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#4338ca', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleGate(gate.id)}
+                      style={{ accentColor: '#6366f1', width: 15, height: 15 }}
+                    />
+                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      }
+
+      case 'Under Review':
+      case 'Shortlisted': {
+        const pitchDeckUrl = parseTag(selectedDeal.notes, 'PITCH_DECK')
+        const evalRank = parseTag(selectedDeal.notes, 'EVAL_RANK') || 'Shortlisted'
+        const reviewGates = [
+          { id: 'rev_clarifications', label: 'Technical Clarifications / Committee Queries Formally Answered' },
+          { id: 'rev_rehearsal', label: 'Core Technical Defense Team Briefed & Rehearsed' },
+          { id: 'rev_standing', label: 'Commercial & Technical Evaluation Ranking Confirmed' },
+        ]
+
+        return (
+          <div style={{ padding: 16, background: '#faf5ff', borderRadius: 10, border: '1px solid #e9d5ff', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#6b21a8' }}>
+                🔍 STAGE 4/5: EVALUATION DEFENSE & PITCH
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#f3e8ff', color: '#6b21a8' }}>
+                Shortlist Defense
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                  Pitch Presentation Deck Link:
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={pitchDeckUrl}
+                  onChange={(e) => updateDealTag('PITCH_DECK', e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                  Client Committee Standing:
+                </label>
+                <select
+                  value={evalRank}
+                  onChange={(e) => updateDealTag('EVAL_RANK', e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                >
+                  <option value="Rank 1 (Preferred)">🥇 Rank 1 (Highest Scorer)</option>
+                  <option value="Shortlisted (Top 3)">🥈 Shortlisted (Top 3 Contenders)</option>
+                  <option value="Clarifications Pending">⏳ Clarifications Pending</option>
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {reviewGates.map((gate) => {
+                const isChecked = activeSavedGates.includes(gate.id)
+                return (
+                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#6b21a8', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleGate(gate.id)}
+                      style={{ accentColor: '#8b5cf6', width: 15, height: 15 }}
+                    />
+                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      }
+
+      case 'Negotiation': {
+        const milestones = parseTag(selectedDeal.notes, 'MILESTONES') || '30% Advance | 40% Draft | 30% Final'
+        const targetSigning = parseTag(selectedDeal.notes, 'SIGNING_TARGET')
+        const negGates = [
+          { id: 'neg_scope', label: 'Revised Scope of Work & Delivery Schedule Agreed' },
+          { id: 'neg_fees', label: 'Final Commercial Fee & Tax Structure Locked' },
+          { id: 'neg_legal', label: 'Contract Vetted by Legal Counsel & Managing Director' },
+        ]
+
+        return (
+          <div style={{ padding: 16, background: '#fff7ed', borderRadius: 10, border: '1px solid #ffedd5', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#c2410c' }}>
+                🤝 STAGE 6: COMMERCIAL CLOSING & CONTRACTING
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#ffedd5', color: '#c2410c' }}>
+                Finalizing Contract
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                  Payment Milestones:
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 30% Advance, 40% Milestone 1, 30% Final"
+                  value={milestones}
+                  onChange={(e) => updateDealTag('MILESTONES', e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                  Target Contract Signing Date:
+                </label>
+                <input
+                  type="date"
+                  value={targetSigning}
+                  onChange={(e) => updateDealTag('SIGNING_TARGET', e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {negGates.map((gate) => {
+                const isChecked = activeSavedGates.includes(gate.id)
+                return (
+                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#c2410c', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleGate(gate.id)}
+                      style={{ accentColor: '#ea580c', width: 15, height: 15 }}
+                    />
+                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      }
+
+      case 'Won': {
+        const contractLink = parseTag(selectedDeal.notes, 'CONTRACT_LINK')
+        const kickoffDate = parseTag(selectedDeal.notes, 'KICKOFF_DATE')
+        const wonGates = [
+          { id: 'won_signed', label: 'Executed Bilateral Contract Signed & Filed in Vault' },
+          { id: 'won_cpo_returned', label: 'Bid Bond / CPO Guarantee Released Back from Bank' },
+          { id: 'won_finance_invoice', label: 'Finance Notified for Advance Payment / Mobilization Invoice' },
+        ]
+
+        return (
+          <div style={{ padding: 16, background: '#f0fdf4', borderRadius: 10, border: '2px solid #86efac', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#166534' }}>
+                🏆 DEAL WON: HANDOVER & DELIVERY KICKOFF
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>
+                Contract Secured
+              </span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                  Signed Contract Vault Link:
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://drive.google.com/..."
+                  value={contractLink}
+                  onChange={(e) => updateDealTag('CONTRACT_LINK', e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                  Project Kickoff Meeting Date:
+                </label>
+                <input
+                  type="date"
+                  value={kickoffDate}
+                  onChange={(e) => updateDealTag('KICKOFF_DATE', e.target.value)}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {wonGates.map((gate) => {
+                const isChecked = activeSavedGates.includes(gate.id)
+                return (
+                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#166534', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => toggleGate(gate.id)}
+                      style={{ accentColor: '#16a34a', width: 15, height: 15 }}
+                    />
+                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )
+      }
+
+      case 'Lost': {
+        const currentLossReason = parseTag(selectedDeal.notes, 'LOSS_REASON') || LOSS_REASONS[0]
+        const comp = parseTag(selectedDeal.notes, 'COMPETITOR')
+
+        return (
+          <div style={{ padding: 16, background: '#fef2f2', borderRadius: 10, border: '1px solid #fecaca', marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: '#991b1b' }}>
+                🏁 POST-MORTEM: COMPETITIVE LOSS INTELLIGENCE
+              </span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#fee2e2', color: '#991b1b' }}>
+                Deal Lost
+              </span>
+            </div>
+
+            <div style={{ marginBottom: 10 }}>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                Primary Loss Factor:
+              </label>
+              <select
+                value={currentLossReason}
+                onChange={(e) => updateDealTag('LOSS_REASON', e.target.value)}
+                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+              >
+                {LOSS_REASONS.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
+                Winning Competitor / Firm:
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. PwC, KPMG, Deloitte, HST, Local firm"
+                value={comp}
+                onChange={(e) => updateDealTag('COMPETITOR', e.target.value)}
+                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+              />
+            </div>
+          </div>
+        )
+      }
+
+      default:
+        return null
+    }
+  }
 
   return (
     <div>
@@ -1032,7 +1385,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       </div>
 
-      {/* Feature 6: Team Workload Panel */}
+      {/* Team Workload Panel */}
       {showWorkloadPanel && (
         <div
           style={{
@@ -1087,7 +1440,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* Feature 4: Win/Loss & Competitor Intel Drawer */}
+      {/* Win/Loss & Competitor Intel Drawer */}
       {showIntelPanel && (
         <div
           style={{
@@ -1233,13 +1586,6 @@ export default function ProposalList({ proposalVersion }) {
                     const sbuName = deal.opportunities?.sbus?.name || 'SBU'
                     const health = getDealHealth(deal)
                     const isBeingDragged = draggedDealId === deal.id
-                    const gates = parseGates(deal.notes)
-                    
-                    const stageConfig = STAGE_REQUIREMENTS[deal.status] || STAGE_REQUIREMENTS['In Progress']
-                    const totalStageGates = stageConfig.gates.length
-                    const isGatesComplete = totalStageGates > 0 && gates.filter((g) => stageConfig.gates.some((sg) => sg.id === g)).length === totalStageGates
-
-                    const outcome = parseOutcome(deal.notes)
                     const owner = parseOwner(deal.notes)
 
                     return (
@@ -1318,28 +1664,13 @@ export default function ProposalList({ proposalVersion }) {
                           </div>
                         )}
 
-                        <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <OwnerPhoto name={owner} />
-                          <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>
-                            {owner}
-                          </span>
-                        </div>
-
-                        {/* Stage-Adaptive Gates Badge */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                          <span
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                              background: isGatesComplete ? '#dcfce7' : gates.length > 0 ? '#fef3c7' : '#f1f5f9',
-                              color: isGatesComplete ? '#166534' : gates.length > 0 ? '#92400e' : '#64748b',
-                              border: `1px solid ${isGatesComplete ? '#bbf7d0' : gates.length > 0 ? '#fde68a' : '#e2e8f0'}`,
-                            }}
-                          >
-                            {isGatesComplete ? `🛡️ ${totalStageGates}/${totalStageGates} Gates` : gates.length > 0 ? `⚠️ ${gates.filter((g) => stageConfig.gates.some((sg) => sg.id === g)).length}/${totalStageGates}` : `⚪ 0/${totalStageGates}`}
-                          </span>
+                        <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <OwnerPhoto name={owner} />
+                            <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>
+                              {owner}
+                            </span>
+                          </div>
 
                           <button
                             type="button"
@@ -1531,7 +1862,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 3. POST-MORTEM MODAL */}
+      {/* Post-Mortem Modal */}
       {postMortemDeal && (
         <div
           style={{
@@ -1699,7 +2030,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 4. OUTREACH GENERATOR MODAL */}
+      {/* Outreach Generator Modal */}
       {outreachDeal && (
         <div
           style={{
@@ -1892,7 +2223,7 @@ export default function ProposalList({ proposalVersion }) {
         </div>
       )}
 
-      {/* 5. UNIFIED DEAL DOSSIER (SLIDE-OVER DRAWER) */}
+      {/* DEAL DOSSIER (SLIDE-OVER DRAWER) */}
       {selectedDeal && (
         <div
           style={{
@@ -1990,7 +2321,7 @@ export default function ProposalList({ proposalVersion }) {
             )}
 
             {/* Quick Outreach Trigger */}
-            <div style={{ marginTop: 14 }}>
+            <div style={{ marginTop: 14, marginBottom: 14 }}>
               <button
                 type="button"
                 onClick={() => handleOpenOutreach(selectedDeal)}
@@ -2014,98 +2345,13 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* UNIFIED DYNAMIC STAGE-SPECIFIC REQUIREMENTS CARD */}
-            {(() => {
-              const currentStage = selectedDeal.status || 'Initiated'
-              const config = STAGE_REQUIREMENTS[currentStage] || STAGE_REQUIREMENTS['Initiated']
-              const gatesList = config.gates || []
-              const activeSavedGates = parseGates(selectedDeal.notes)
-              const clearedCount = gatesList.filter((g) => activeSavedGates.includes(g.id)).length
-              const pct = gatesList.length > 0 ? Math.round((clearedCount / gatesList.length) * 100) : 0
-
-              return (
-                <div
-                  style={{
-                    marginTop: 16,
-                    padding: 16,
-                    background: '#f8fafc',
-                    borderRadius: 8,
-                    border: '1px solid #e2e8f0',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                    <h4 style={{ margin: 0, fontSize: 13, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {config.icon} {currentStage}: {config.title}
-                    </h4>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: '2px 8px',
-                        borderRadius: 12,
-                        backgroundColor: clearedCount === gatesList.length && gatesList.length > 0 ? '#dcfce7' : clearedCount > 0 ? '#fef3c7' : '#fee2e2',
-                        color: clearedCount === gatesList.length && gatesList.length > 0 ? '#166534' : clearedCount > 0 ? '#92400e' : '#b91c1c',
-                      }}
-                    >
-                      {clearedCount} of {gatesList.length} Cleared ({pct}%)
-                    </span>
-                  </div>
-
-                  <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#64748b' }}>
-                    {config.description}
-                  </p>
-
-                  <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
-                    <div
-                      style={{
-                        height: '100%',
-                        width: `${pct}%`,
-                        background: pct === 100 ? '#16a34a' : config.color || '#0284c7',
-                        transition: 'width 0.3s ease',
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {gatesList.map((gate) => {
-                      const isChecked = activeSavedGates.includes(gate.id)
-                      return (
-                        <label
-                          key={gate.id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10,
-                            fontSize: 12,
-                            fontWeight: isChecked ? 600 : 500,
-                            color: isChecked ? '#0f172a' : '#64748b',
-                            cursor: 'pointer',
-                            padding: '4px 6px',
-                            borderRadius: 4,
-                            backgroundColor: isChecked ? '#ecfdf5' : 'transparent',
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => handleToggleGate(gate.id)}
-                            style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
-                          />
-                          <span style={{ textDecoration: isChecked ? 'none' : 'none' }}>
-                            {gate.label}
-                          </span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })()}
+            {/* SPECIALIZED STAGE-SPECIFIC REQUIREMENTS COMPONENT */}
+            {renderStageSpecificFormat()}
 
             {/* Quick Touchpoint Logger */}
             <div
               style={{
-                marginTop: 16,
+                marginTop: 6,
                 padding: 14,
                 background: '#f8fafc',
                 borderRadius: 8,
@@ -2203,7 +2449,7 @@ export default function ProposalList({ proposalVersion }) {
               </form>
             </div>
 
-            {/* Editable Proposal Form with Stage-Adaptive Rules */}
+            {/* Editable Proposal Form */}
             <form onSubmit={handleSaveDealDossier} style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
@@ -2218,7 +2464,6 @@ export default function ProposalList({ proposalVersion }) {
                 />
               </div>
 
-              {/* Commercial Owner Selector */}
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>
                   👤 Assigned Commercial Owner {selectedDeal.status === 'Initiated' && <span style={{ color: '#dc2626' }}>*</span>}
@@ -2258,7 +2503,7 @@ export default function ProposalList({ proposalVersion }) {
 
                 <div>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#0284c7', marginBottom: 4 }}>
-                    Pipeline Stage (Changes requirements above)
+                    Pipeline Stage
                   </label>
                   <select
                     value={selectedDeal.status}
@@ -2267,7 +2512,7 @@ export default function ProposalList({ proposalVersion }) {
                       setSelectedDeal({ ...selectedDeal, status: newStatus })
                       setDrawerErrors([])
                     }}
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '2px solid #0284c7', fontSize: 13, fontWeight: 600, background: '#f0f9ff' }}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '2px solid #0284c7', fontSize: 13, fontWeight: 700, background: '#f0f9ff', color: '#0369a1' }}
                   >
                     {STAGES.map((s) => (
                       <option key={s} value={s}>
@@ -2308,7 +2553,7 @@ export default function ProposalList({ proposalVersion }) {
                   Touchpoint History & Audit Log
                 </label>
                 <textarea
-                  rows={5}
+                  rows={4}
                   value={selectedDeal.notes || ''}
                   onChange={(e) => setSelectedDeal({ ...selectedDeal, notes: e.target.value })}
                   style={{
@@ -2324,7 +2569,6 @@ export default function ProposalList({ proposalVersion }) {
                 />
               </div>
 
-              {/* Action Buttons Row */}
               <div style={{ marginTop: 10, display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
                 <button
                   type="button"
