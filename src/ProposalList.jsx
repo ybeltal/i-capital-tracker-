@@ -12,6 +12,17 @@ const STAGES = [
   'Lost',
 ]
 
+// Ordered progression milestones for the Chevron Stepper
+const PROGRESSION_STAGES = [
+  'Initiated',
+  'In Progress',
+  'Submitted',
+  'Under Review',
+  'Shortlisted',
+  'Negotiation',
+  'Won',
+]
+
 const ACTIVITY_TYPES = [
   '📞 Phone Call',
   '🤝 In-Person Meeting',
@@ -35,6 +46,103 @@ const TEAM_OWNERS = [
   'Atalay',
   'Unassigned',
 ]
+
+const STAGE_REQUIREMENTS = {
+  'Initiated': {
+    title: 'Intake & Opportunity Qualification',
+    icon: '🎯',
+    color: '#0284c7',
+    description: 'Verify stakeholder authority, client need, and delivery capacity.',
+    gates: [
+      { id: 'init_decision_maker', label: 'Client Decision-Maker & Budget Sponsor Identified' },
+      { id: 'init_tor_scope', label: 'TOR / Concept Scope Document Obtained & Reviewed' },
+      { id: 'init_sbu_capacity', label: 'SBU Delivery Capacity & Practice Lead Assigned' },
+      { id: 'init_go_no_go', label: 'Formal Go / No-Go Pursuit Clearance Approved' },
+    ],
+  },
+  'In Progress': {
+    title: 'Tender Dossier & Statutory Assembly',
+    icon: '📘',
+    color: '#f59e0b',
+    description: 'Package technical approach, team credentials, and statutory clearances.',
+    gates: [
+      { id: 'prog_methodology', label: 'Technical Approach & Implementation Work Plan Aligned' },
+      { id: 'prog_cvs', label: 'Key Consultant & Expert CVs Packaged & Formatted' },
+      { id: 'prog_statutory', label: 'Valid Tax Clearance, Business License & Audits Attached' },
+      { id: 'prog_cpo', label: 'Bid Bond / CPO Guarantee Secured (if mandated)' },
+      { id: 'prog_signoff', label: 'SBU Head & Managing Director Sign-Off Cleared' },
+    ],
+  },
+  'Submitted': {
+    title: 'Proof of Delivery & Protocol Filing',
+    icon: '📤',
+    color: '#6366f1',
+    description: 'Verify formal tender delivery and log evaluation timelines.',
+    gates: [
+      { id: 'sub_receipt', label: 'Stamped Submission Receipt / Delivery Note Filed in Vault' },
+      { id: 'sub_timeline', label: 'Actual Submission Date & Bid Opening Timeline Logged' },
+      { id: 'sub_cpo_filed', label: 'Original Bid Bond / CPO Guarantee Copy Filed in Vault' },
+      { id: 'sub_first_followup', label: 'Initial Evaluation Follow-Up Scheduled in CRM' },
+    ],
+  },
+  'Under Review': {
+    title: 'Evaluation Tracking & Clarifications',
+    icon: '🔍',
+    color: '#0284c7',
+    description: 'Track client evaluation committee questions and progress.',
+    gates: [
+      { id: 'rev_eval_timeline', label: 'Client Evaluation Process & Timeline Confirmed' },
+      { id: 'rev_clarifications', label: 'Technical Clarifications / Queries Formally Addressed' },
+      { id: 'rev_touchpoint_active', label: 'Active Touchpoint Logged in CRM within Last 14 Days' },
+    ],
+  },
+  'Shortlisted': {
+    title: 'Pitch & Oral Defense Readiness',
+    icon: '🌟',
+    color: '#8b5cf6',
+    description: 'Rehearse technical presentation and confirm committee ranking.',
+    gates: [
+      { id: 'short_pitch_deck', label: 'Executive Presentation / Pitch Deck Prepared' },
+      { id: 'short_defense_team', label: 'Core Presentation & Technical Defense Team Briefed' },
+      { id: 'short_ranking_verified', label: 'Final Shortlist Ranking Verified with Client' },
+    ],
+  },
+  'Negotiation': {
+    title: 'Commercial Terms & Contract Drafting',
+    icon: '🤝',
+    color: '#ea580c',
+    description: 'Lock fee milestones, implementation schedule, and legal terms.',
+    gates: [
+      { id: 'neg_scope_locked', label: 'Revised Scope of Work & Delivery Milestones Agreed' },
+      { id: 'neg_commercials', label: 'Final Commercial Fee & Invoicing Terms Agreed' },
+      { id: 'neg_legal_vetting', label: 'Contract Draft Vetted by Legal Counsel & Managing Director' },
+      { id: 'neg_signing_target', label: 'Target Contract Execution Date Scheduled' },
+    ],
+  },
+  'Won': {
+    title: 'Contract Handover & Delivery Kickoff',
+    icon: '🏆',
+    color: '#16a34a',
+    description: 'Secure executed bilateral agreement and transition to assignment team.',
+    gates: [
+      { id: 'won_signed_contract', label: 'Fully Executed & Signed Contract Uploaded to Vault' },
+      { id: 'won_kickoff_booked', label: 'Assignment Kickoff Date Scheduled with Client' },
+      { id: 'won_cpo_release', label: 'Bid Bond / CPO Release Process Initiated with Bank' },
+      { id: 'won_finance_notified', label: 'Finance Notified for Advance Payment Invoicing' },
+    ],
+  },
+  'Lost': {
+    title: 'Debrief & Competitive Intelligence',
+    icon: '🏁',
+    color: '#dc2626',
+    description: 'Capture pricing variance and competitive intelligence for future bidding.',
+    gates: [
+      { id: 'lost_factor_documented', label: 'Primary Loss Factor Formally Documented' },
+      { id: 'lost_competitor_intel', label: 'Winning Competitor & Pricing Intelligence Noted' },
+      { id: 'lost_lessons_recorded', label: 'Debrief Lessons Recorded for Future Proposals' },
+    ],
+  },
+}
 
 const LOSS_REASONS = [
   'Financial (Too Expensive)',
@@ -553,13 +661,6 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  // Generic tag-based state updates for stage-specific fields
-  function updateDealTag(tag, value) {
-    if (!selectedDeal) return
-    const updatedNotes = updateTag(selectedDeal.notes, tag, value)
-    setSelectedDeal({ ...selectedDeal, notes: updatedNotes })
-  }
-
   function toggleGate(gateId) {
     if (!selectedDeal) return
     const currentGates = parseGates(selectedDeal.notes)
@@ -568,6 +669,47 @@ export default function ProposalList({ proposalVersion }) {
       : [...currentGates, gateId]
     const updatedNotes = stringifyGatesWithNotes(nextGates, selectedDeal.notes)
     setSelectedDeal({ ...selectedDeal, notes: updatedNotes })
+  }
+
+  // Fast-track shortcut: check all gates for current stage in 1 click
+  function handleClearAllGatesForStage(stageKey) {
+    if (!selectedDeal) return
+    const stageGates = (STAGE_REQUIREMENTS[stageKey]?.gates || []).map((g) => g.id)
+    const currentGates = parseGates(selectedDeal.notes)
+    const combined = Array.from(new Set([...currentGates, ...stageGates]))
+    const updatedNotes = stringifyGatesWithNotes(combined, selectedDeal.notes)
+    setSelectedDeal({ ...selectedDeal, notes: updatedNotes })
+  }
+
+  // Advance to next milestone via Chevron Path
+  function handleAdvanceToNextStage() {
+    if (!selectedDeal) return
+    const currentIndex = PROGRESSION_STAGES.indexOf(selectedDeal.status)
+    if (currentIndex >= 0 && currentIndex < PROGRESSION_STAGES.length - 1) {
+      const nextStage = PROGRESSION_STAGES[currentIndex + 1]
+      handleStepChevron(nextStage)
+    }
+  }
+
+  function handleStepChevron(targetStage) {
+    if (!selectedDeal) return
+    setDrawerErrors([])
+
+    // Validate transition blockers
+    if (targetStage === 'In Progress' && !selectedDeal.submission_deadline) {
+      setDrawerErrors(['Please set a Submission Deadline before moving to In Progress.'])
+      return
+    }
+
+    if (targetStage === 'Won') {
+      const val = parseFloat(selectedDeal.deal_value_etb)
+      if (isNaN(val) || val <= 0) {
+        setDrawerErrors(['Final Contracted Value (ETB) must be greater than 0 before closing as Won.'])
+        return
+      }
+    }
+
+    setSelectedDeal({ ...selectedDeal, status: targetStage })
   }
 
   async function handleSaveDealDossier(e) {
@@ -747,476 +889,260 @@ export default function ProposalList({ proposalVersion }) {
     return matchesSearch && matchesSBU && matchesHealth && matchesOwner
   })
 
-  // Helper to render customized format per pipeline stage inside the drawer
-  function renderStageSpecificFormat() {
+  // CHEVRON STEPPER & STAGE CARD RENDERER
+  function renderChevronPipelineStepper() {
     if (!selectedDeal) return null
-    const stage = selectedDeal.status || 'Initiated'
+    const currentStage = selectedDeal.status || 'Initiated'
+    const isLost = currentStage === 'Lost'
+    const currentIndex = PROGRESSION_STAGES.indexOf(currentStage)
+    const nextStage = currentIndex >= 0 && currentIndex < PROGRESSION_STAGES.length - 1
+      ? PROGRESSION_STAGES[currentIndex + 1]
+      : null
+
+    const stageConfig = STAGE_REQUIREMENTS[currentStage] || STAGE_REQUIREMENTS['Initiated']
+    const gatesList = stageConfig.gates || []
     const activeSavedGates = parseGates(selectedDeal.notes)
+    const clearedCount = gatesList.filter((g) => activeSavedGates.includes(g.id)).length
+    const pct = gatesList.length > 0 ? Math.round((clearedCount / gatesList.length) * 100) : 0
 
-    switch (stage) {
-      case 'Initiated': {
-        const goNoGo = parseTag(selectedDeal.notes, 'GONOGO') || 'Pending'
-        const stakeholder = parseTag(selectedDeal.notes, 'STAKEHOLDER')
-        const initGates = [
-          { id: 'init_tor', label: 'TOR / Concept Scope Document Obtained & Reviewed' },
-          { id: 'init_capacity', label: 'SBU Delivery Capacity & Practice Lead Assigned' },
-          { id: 'init_budget', label: 'Client Budget Availability Confirmed' },
-        ]
-
-        return (
-          <div style={{ padding: 16, background: '#f0f9ff', borderRadius: 10, border: '1px solid #bae6fd', marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#0369a1' }}>
-                🎯 STAGE 1: INTAKE & QUALIFICATION
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#e0f2fe', color: '#0369a1' }}>
-                Go/No-Go Decision
-              </span>
-            </div>
-
-            {/* 3-Pill Interactive Decision Widget */}
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 6, textTransform: 'uppercase' }}>
-                Pursuit Clearance:
-              </label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {[
-                  { id: 'Approved Go', label: '🟢 Approved Go', bg: '#dcfce7', text: '#166534', border: '#86efac' },
-                  { id: 'Under Review', label: '🟡 Reviewing', bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
-                  { id: 'No-Go', label: '🔴 No-Go', bg: '#fee2e2', text: '#991b1b', border: '#fca5a5' },
-                ].map((pill) => (
-                  <button
-                    key={pill.id}
-                    type="button"
-                    onClick={() => updateDealTag('GONOGO', pill.id)}
-                    style={{
-                      flex: 1,
-                      padding: '7px 4px',
-                      borderRadius: 6,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      border: goNoGo === pill.id ? `2px solid ${pill.text}` : `1px solid ${pill.border}`,
-                      background: goNoGo === pill.id ? pill.bg : '#ffffff',
-                      color: pill.text,
-                      boxShadow: goNoGo === pill.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                    }}
-                  >
-                    {pill.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Client Decision-Maker Input */}
-            <div style={{ marginBottom: 12 }}>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                Client Decision-Maker / Sponsor:
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Ato Dawit (VP Operations) or HR Director"
-                value={stakeholder}
-                onChange={(e) => updateDealTag('STAKEHOLDER', e.target.value)}
-                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-              />
-            </div>
-
-            {/* Qualification Checklist */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {initGates.map((gate) => {
-                const isChecked = activeSavedGates.includes(gate.id)
-                return (
-                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#64748b', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleGate(gate.id)}
-                      style={{ accentColor: '#0284c7', width: 15, height: 15 }}
-                    />
-                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )
-      }
-
-      case 'In Progress': {
-        const progGates = [
-          { id: 'prog_methodology', label: 'Technical Proposal & Methodology Drafted' },
-          { id: 'prog_cvs', label: 'Key Consultant & Expert CVs Formatted' },
-          { id: 'prog_tax', label: 'Valid Tax Clearance & Business License Attached' },
-          { id: 'prog_audits', label: 'Audited Financial Statements (Last 2–3 Yrs) Packaged' },
-          { id: 'prog_cpo', label: 'Bid Bond / CPO Guarantee Secured from Bank' },
-          { id: 'prog_signoff', label: 'Managing Director & SBU Head Sign-Off Cleared' },
-        ]
-        const cleared = progGates.filter((g) => activeSavedGates.includes(g.id)).length
-        const pct = Math.round((cleared / progGates.length) * 100)
-
-        return (
-          <div style={{ padding: 16, background: '#fffbeb', borderRadius: 10, border: '1px solid #fde68a', marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#b45309' }}>
-                📘 STAGE 2: TENDER DOSSIER & STATUTORY COMPLIANCE
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: pct === 100 ? '#dcfce7' : '#fef3c7', color: pct === 100 ? '#166534' : '#b45309' }}>
-                {cleared} of {progGates.length} Ready ({pct}%)
-              </span>
-            </div>
-
-            <p style={{ margin: '0 0 10px 0', fontSize: 12, color: '#92400e' }}>
-              Assemble technical, administrative, and compliance packages before submission deadline.
-            </p>
-
-            <div style={{ height: 6, background: '#fef3c7', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
-              <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#16a34a' : '#f59e0b', transition: 'width 0.3s' }} />
-            </div>
-
-            {/* 2-Column Statutory Grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8 }}>
-              {progGates.map((gate) => {
-                const isChecked = activeSavedGates.includes(gate.id)
-                return (
-                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#78350f', cursor: 'pointer', background: isChecked ? '#fef3c7' : '#ffffff', padding: '6px 8px', borderRadius: 6, border: '1px solid #fde68a' }}>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleGate(gate.id)}
-                      style={{ accentColor: '#f59e0b', width: 15, height: 15 }}
-                    />
-                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )
-      }
-
-      case 'Submitted': {
-        const slipUrl = parseTag(selectedDeal.notes, 'SLIP_URL')
-        const openingDate = parseTag(selectedDeal.notes, 'OPENING_DATE')
-        const subGates = [
-          { id: 'sub_receipt', label: 'Stamped Submission Receipt / Tender Slip Filed' },
-          { id: 'sub_cpo_filed', label: 'Original CPO Guarantee Retained in Safe' },
-          { id: 'sub_followup', label: 'First Evaluation Check Scheduled in CRM' },
-        ]
-
-        return (
-          <div style={{ padding: 16, background: '#eef2ff', borderRadius: 10, border: '1px solid #c7d2fe', marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#4338ca' }}>
-                📤 STAGE 3: PROOF OF SUBMISSION & PROTOCOL
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#e0e7ff', color: '#4338ca' }}>
-                Delivery Logged
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                  Stamped Receipt / Slip URL:
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://drive.google.com/..."
-                  value={slipUrl}
-                  onChange={(e) => updateDealTag('SLIP_URL', e.target.value)}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                  Client Bid Opening Date:
-                </label>
-                <input
-                  type="date"
-                  value={openingDate}
-                  onChange={(e) => updateDealTag('OPENING_DATE', e.target.value)}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {subGates.map((gate) => {
-                const isChecked = activeSavedGates.includes(gate.id)
-                return (
-                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#4338ca', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleGate(gate.id)}
-                      style={{ accentColor: '#6366f1', width: 15, height: 15 }}
-                    />
-                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )
-      }
-
-      case 'Under Review':
-      case 'Shortlisted': {
-        const pitchDeckUrl = parseTag(selectedDeal.notes, 'PITCH_DECK')
-        const evalRank = parseTag(selectedDeal.notes, 'EVAL_RANK') || 'Shortlisted'
-        const reviewGates = [
-          { id: 'rev_clarifications', label: 'Technical Clarifications / Committee Queries Formally Answered' },
-          { id: 'rev_rehearsal', label: 'Core Technical Defense Team Briefed & Rehearsed' },
-          { id: 'rev_standing', label: 'Commercial & Technical Evaluation Ranking Confirmed' },
-        ]
-
-        return (
-          <div style={{ padding: 16, background: '#faf5ff', borderRadius: 10, border: '1px solid #e9d5ff', marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#6b21a8' }}>
-                🔍 STAGE 4/5: EVALUATION DEFENSE & PITCH
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#f3e8ff', color: '#6b21a8' }}>
-                Shortlist Defense
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                  Pitch Presentation Deck Link:
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://drive.google.com/..."
-                  value={pitchDeckUrl}
-                  onChange={(e) => updateDealTag('PITCH_DECK', e.target.value)}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                  Client Committee Standing:
-                </label>
-                <select
-                  value={evalRank}
-                  onChange={(e) => updateDealTag('EVAL_RANK', e.target.value)}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-                >
-                  <option value="Rank 1 (Preferred)">🥇 Rank 1 (Highest Scorer)</option>
-                  <option value="Shortlisted (Top 3)">🥈 Shortlisted (Top 3 Contenders)</option>
-                  <option value="Clarifications Pending">⏳ Clarifications Pending</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {reviewGates.map((gate) => {
-                const isChecked = activeSavedGates.includes(gate.id)
-                return (
-                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#6b21a8', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleGate(gate.id)}
-                      style={{ accentColor: '#8b5cf6', width: 15, height: 15 }}
-                    />
-                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )
-      }
-
-      case 'Negotiation': {
-        const milestones = parseTag(selectedDeal.notes, 'MILESTONES') || '30% Advance | 40% Draft | 30% Final'
-        const targetSigning = parseTag(selectedDeal.notes, 'SIGNING_TARGET')
-        const negGates = [
-          { id: 'neg_scope', label: 'Revised Scope of Work & Delivery Schedule Agreed' },
-          { id: 'neg_fees', label: 'Final Commercial Fee & Tax Structure Locked' },
-          { id: 'neg_legal', label: 'Contract Vetted by Legal Counsel & Managing Director' },
-        ]
-
-        return (
-          <div style={{ padding: 16, background: '#fff7ed', borderRadius: 10, border: '1px solid #ffedd5', marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#c2410c' }}>
-                🤝 STAGE 6: COMMERCIAL CLOSING & CONTRACTING
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#ffedd5', color: '#c2410c' }}>
-                Finalizing Contract
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                  Payment Milestones:
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 30% Advance, 40% Milestone 1, 30% Final"
-                  value={milestones}
-                  onChange={(e) => updateDealTag('MILESTONES', e.target.value)}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                  Target Contract Signing Date:
-                </label>
-                <input
-                  type="date"
-                  value={targetSigning}
-                  onChange={(e) => updateDealTag('SIGNING_TARGET', e.target.value)}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {negGates.map((gate) => {
-                const isChecked = activeSavedGates.includes(gate.id)
-                return (
-                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#c2410c', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleGate(gate.id)}
-                      style={{ accentColor: '#ea580c', width: 15, height: 15 }}
-                    />
-                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )
-      }
-
-      case 'Won': {
-        const contractLink = parseTag(selectedDeal.notes, 'CONTRACT_LINK')
-        const kickoffDate = parseTag(selectedDeal.notes, 'KICKOFF_DATE')
-        const wonGates = [
-          { id: 'won_signed', label: 'Executed Bilateral Contract Signed & Filed in Vault' },
-          { id: 'won_cpo_returned', label: 'Bid Bond / CPO Guarantee Released Back from Bank' },
-          { id: 'won_finance_invoice', label: 'Finance Notified for Advance Payment / Mobilization Invoice' },
-        ]
-
-        return (
-          <div style={{ padding: 16, background: '#f0fdf4', borderRadius: 10, border: '2px solid #86efac', marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#166534' }}>
-                🏆 DEAL WON: HANDOVER & DELIVERY KICKOFF
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#dcfce7', color: '#166534' }}>
-                Contract Secured
-              </span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                  Signed Contract Vault Link:
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://drive.google.com/..."
-                  value={contractLink}
-                  onChange={(e) => updateDealTag('CONTRACT_LINK', e.target.value)}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                  Project Kickoff Meeting Date:
-                </label>
-                <input
-                  type="date"
-                  value={kickoffDate}
-                  onChange={(e) => updateDealTag('KICKOFF_DATE', e.target.value)}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {wonGates.map((gate) => {
-                const isChecked = activeSavedGates.includes(gate.id)
-                return (
-                  <label key={gate.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: isChecked ? '#0f172a' : '#166534', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => toggleGate(gate.id)}
-                      style={{ accentColor: '#16a34a', width: 15, height: 15 }}
-                    />
-                    <span style={{ fontWeight: isChecked ? 600 : 400 }}>{gate.label}</span>
-                  </label>
-                )
-              })}
-            </div>
-          </div>
-        )
-      }
-
-      case 'Lost': {
-        const currentLossReason = parseTag(selectedDeal.notes, 'LOSS_REASON') || LOSS_REASONS[0]
-        const comp = parseTag(selectedDeal.notes, 'COMPETITOR')
-
-        return (
-          <div style={{ padding: 16, background: '#fef2f2', borderRadius: 10, border: '1px solid #fecaca', marginBottom: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: '#991b1b' }}>
-                🏁 POST-MORTEM: COMPETITIVE LOSS INTELLIGENCE
-              </span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#fee2e2', color: '#991b1b' }}>
-                Deal Lost
-              </span>
-            </div>
-
-            <div style={{ marginBottom: 10 }}>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                Primary Loss Factor:
-              </label>
-              <select
-                value={currentLossReason}
-                onChange={(e) => updateDealTag('LOSS_REASON', e.target.value)}
-                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+    return (
+      <div style={{ marginTop: 14, marginBottom: 18 }}>
+        {/* CHEVRON STEPPER ROADMAP */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Pipeline Progression Milestone
+          </span>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {isLost ? (
+              <button
+                type="button"
+                onClick={() => handleStepChevron('Initiated')}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  color: '#0284c7',
+                  cursor: 'pointer',
+                }}
               >
-                {LOSS_REASONS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4, textTransform: 'uppercase' }}>
-                Winning Competitor / Firm:
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. PwC, KPMG, Deloitte, HST, Local firm"
-                value={comp}
-                onChange={(e) => updateDealTag('COMPETITOR', e.target.value)}
-                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
-              />
-            </div>
+                🔄 Reopen Deal
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedDeal({ ...selectedDeal, status: 'Lost' })
+                }}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  border: '1px solid #fecaca',
+                  background: '#fef2f2',
+                  color: '#b91c1c',
+                  cursor: 'pointer',
+                }}
+              >
+                🔴 Mark as Lost
+              </button>
+            )}
           </div>
-        )
-      }
+        </div>
 
-      default:
-        return null
+        {/* CHEVRON PATH BAR */}
+        <div
+          style={{
+            display: 'flex',
+            overflowX: 'auto',
+            background: '#f1f5f9',
+            borderRadius: 8,
+            padding: 3,
+            gap: 2,
+            marginBottom: 12,
+          }}
+        >
+          {PROGRESSION_STAGES.map((stageName, idx) => {
+            const isCompleted = !isLost && currentIndex > idx
+            const isActive = !isLost && currentStage === stageName
+            const isFuture = isLost || currentIndex < idx
+
+            return (
+              <button
+                key={stageName}
+                type="button"
+                onClick={() => handleStepChevron(stageName)}
+                style={{
+                  flex: 1,
+                  minWidth: 70,
+                  padding: '8px 4px',
+                  border: 'none',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: isActive ? 800 : isCompleted ? 700 : 500,
+                  cursor: 'pointer',
+                  backgroundColor: isActive
+                    ? stageConfig.color || '#0284c7'
+                    : isCompleted
+                    ? '#dcfce7'
+                    : 'transparent',
+                  color: isActive
+                    ? '#ffffff'
+                    : isCompleted
+                    ? '#166534'
+                    : '#64748b',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  boxShadow: isActive ? '0 2px 4px rgba(0,0,0,0.15)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {isCompleted ? '✓ ' : ''}
+                {stageName}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ACTIVE STAGE CARD UNDER STEPPER */}
+        <div
+          style={{
+            padding: 16,
+            background: '#ffffff',
+            borderRadius: 10,
+            border: `1px solid ${isActiveBorderColor(currentStage)}`,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: stageConfig.color || '#0f172a' }}>
+              {stageConfig.icon} {currentStage}: {stageConfig.title}
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '2px 8px',
+                borderRadius: 10,
+                backgroundColor: pct === 100 ? '#dcfce7' : '#f1f5f9',
+                color: pct === 100 ? '#166534' : '#475569',
+              }}
+            >
+              {clearedCount} of {gatesList.length} Cleared ({pct}%)
+            </span>
+          </div>
+
+          <p style={{ margin: '0 0 12px 0', fontSize: 12, color: '#64748b' }}>
+            {stageConfig.description}
+          </p>
+
+          {/* QUICK ADVANCE PRIMARY BAR */}
+          {nextStage && !isLost && (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <button
+                type="button"
+                onClick={handleAdvanceToNextStage}
+                style={{
+                  flex: 3,
+                  padding: '9px 12px',
+                  borderRadius: 6,
+                  border: 'none',
+                  background: '#0284c7',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                ▶ Advance to "{nextStage}"
+              </button>
+              <button
+                type="button"
+                onClick={() => handleClearAllGatesForStage(currentStage)}
+                style={{
+                  flex: 1,
+                  padding: '9px 8px',
+                  borderRadius: 6,
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  color: '#334155',
+                  fontWeight: 600,
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                ⚡ Clear All
+              </button>
+            </div>
+          )}
+
+          {/* PROGRESS BAR */}
+          <div style={{ height: 5, background: '#f1f5f9', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${pct}%`,
+                background: pct === 100 ? '#16a34a' : stageConfig.color || '#0284c7',
+                transition: 'width 0.25s ease',
+              }}
+            />
+          </div>
+
+          {/* STAGE REQUIREMENTS CHECKLIST */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {gatesList.map((gate) => {
+              const isChecked = activeSavedGates.includes(gate.id)
+              return (
+                <label
+                  key={gate.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    fontSize: 12,
+                    fontWeight: isChecked ? 600 : 500,
+                    color: isChecked ? '#0f172a' : '#64748b',
+                    cursor: 'pointer',
+                    padding: '5px 8px',
+                    borderRadius: 6,
+                    backgroundColor: isChecked ? '#f8fafc' : 'transparent',
+                    border: isChecked ? '1px solid #e2e8f0' : '1px solid transparent',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleGate(gate.id)}
+                    style={{ accentColor: '#16a34a', width: 15, height: 15, cursor: 'pointer' }}
+                  />
+                  <span>{gate.label}</span>
+                </label>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  function isActiveBorderColor(stage) {
+    switch (stage) {
+      case 'Initiated': return '#bae6fd'
+      case 'In Progress': return '#fde68a'
+      case 'Submitted': return '#c7d2fe'
+      case 'Shortlisted': return '#e9d5ff'
+      case 'Negotiation': return '#fed7aa'
+      case 'Won': return '#86efac'
+      case 'Lost': return '#fecaca'
+      default: return '#e2e8f0'
     }
   }
 
@@ -2321,7 +2247,7 @@ export default function ProposalList({ proposalVersion }) {
             )}
 
             {/* Quick Outreach Trigger */}
-            <div style={{ marginTop: 14, marginBottom: 14 }}>
+            <div style={{ marginTop: 14 }}>
               <button
                 type="button"
                 onClick={() => handleOpenOutreach(selectedDeal)}
@@ -2345,8 +2271,8 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* SPECIALIZED STAGE-SPECIFIC REQUIREMENTS COMPONENT */}
-            {renderStageSpecificFormat()}
+            {/* FORMAT 2: CHEVRON STEPPER ROADMAP */}
+            {renderChevronPipelineStepper()}
 
             {/* Quick Touchpoint Logger */}
             <div
@@ -2509,8 +2435,7 @@ export default function ProposalList({ proposalVersion }) {
                     value={selectedDeal.status}
                     onChange={(e) => {
                       const newStatus = e.target.value
-                      setSelectedDeal({ ...selectedDeal, status: newStatus })
-                      setDrawerErrors([])
+                      handleStepChevron(newStatus)
                     }}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '2px solid #0284c7', fontSize: 13, fontWeight: 700, background: '#f0f9ff', color: '#0369a1' }}
                   >
