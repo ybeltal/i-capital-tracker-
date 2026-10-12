@@ -9,7 +9,7 @@ const STAGES = [
   'Shortlisted',
   'Negotiation',
   'Won',
-  'Lost'
+  'Lost',
 ]
 
 const ACTIVITY_TYPES = [
@@ -19,7 +19,7 @@ const ACTIVITY_TYPES = [
   '📧 Email / Scope Sent',
   '💬 WhatsApp / Message',
   '🏛️ Board / Committee Feedback',
-  '📝 Contract Negotiation'
+  '📝 Contract Negotiation',
 ]
 
 // Team Commercial Owners (i-Capital Directory)
@@ -34,16 +34,74 @@ const TEAM_OWNERS = [
   'Aida',
   'Lemlem',
   'Atalay',
-  'Unassigned'
+  'Unassigned',
 ]
 
-// 4 Institutional Governance Gates
-const GOVERNANCE_GATES = [
-  { id: 'tor_aligned', label: 'TOR & Scope Methodology Aligned' },
-  { id: 'cvs_attached', label: 'Institutional Credentials & Expert CVs Packaged' },
-  { id: 'finance_audited', label: 'Financial Quotation & Tax/Fee Audited' },
-  { id: 'director_signoff', label: 'SBU Head & Managing Director Sign-Off' },
-]
+// Dynamic Stage-by-Stage Requirements
+const STAGE_REQUIREMENTS = {
+  'Initiated': {
+    title: 'Opportunity Qualification & Intake Gate',
+    gates: [
+      { id: 'decision_maker', label: 'Client Decision-Maker & Budget Sponsor Identified' },
+      { id: 'tor_obtained', label: 'TOR / Concept Scope Document Obtained & Reviewed' },
+      { id: 'sbu_capacity', label: 'SBU Delivery Capacity & Practice Lead Assigned' },
+      { id: 'go_no_go', label: 'Formal Go / No-Go Decision Cleared for Pursuit' },
+    ],
+  },
+  'In Progress': {
+    title: 'Tender & Bid Governance Gate',
+    gates: [
+      { id: 'tor_aligned', label: 'TOR & Scope Methodology Aligned' },
+      { id: 'cvs_attached', label: 'Institutional Credentials & Expert CVs Packaged' },
+      { id: 'finance_audited', label: 'Financial Quotation & Tax/Fee Audited' },
+      { id: 'director_signoff', label: 'SBU Head & Managing Director Sign-Off' },
+    ],
+  },
+  'Submitted': {
+    title: 'Submission Verification Gate',
+    gates: [
+      { id: 'stamped_receipt', label: 'Stamped Submission Receipt / Delivery Note Filed' },
+      { id: 'opening_recorded', label: 'Bid Opening & Review Timeline Recorded' },
+      { id: 'cpo_filed', label: 'Bid Bond / CPO Guarantee Copy Filed in Vault' },
+    ],
+  },
+  'Under Review': {
+    title: 'Client Review & Defense Gate',
+    gates: [
+      { id: 'eval_status_checked', label: 'Client Evaluation Process & Timeline Confirmed' },
+      { id: 'clarifications_cleared', label: 'Technical Clarifications / Queries Addressed' },
+    ],
+  },
+  'Shortlisted': {
+    title: 'Pitch & Defense Gate',
+    gates: [
+      { id: 'pitch_deck_ready', label: 'Executive Presentation / Pitch Deck Prepared' },
+      { id: 'defense_aligned', label: 'Core Technical Defense Team Aligned' },
+    ],
+  },
+  'Negotiation': {
+    title: 'Commercial Closing Gate',
+    gates: [
+      { id: 'scope_refined', label: 'Revised Work Plan & Scope of Work Confirmed' },
+      { id: 'commercials_agreed', label: 'Fee Structure & Payment Milestones Agreed' },
+      { id: 'legal_vetted', label: 'Contract Draft Vetted by Legal / MD' },
+    ],
+  },
+  'Won': {
+    title: 'Contract Handover & Kickoff Gate',
+    gates: [
+      { id: 'contract_signed', label: 'Signed Contract / Award Letter Filed in Vault' },
+      { id: 'kickoff_planned', label: 'Assignment Kickoff Date Scheduled with Client' },
+      { id: 'cpo_released', label: 'Bid Bond / CPO Release Process Initiated' },
+    ],
+  },
+  'Lost': {
+    title: 'Post-Mortem & Debrief Gate',
+    gates: [
+      { id: 'loss_logged', label: 'Primary Loss Reason & Competitor Intelligence Documented' },
+    ],
+  },
+}
 
 // Loss Reasons
 const LOSS_REASONS = [
@@ -53,7 +111,7 @@ const LOSS_REASONS = [
   'Client Postponed / Project Shelved',
   'Capacity Constraint / Timing',
   'Procurement Window Cancelled / Expired',
-  'Other / Undisclosed'
+  'Other / Undisclosed',
 ]
 
 // Win Factors
@@ -63,7 +121,7 @@ const WIN_FACTORS = [
   'Competitive Pricing / Best Value',
   'Executive / C-Suite Relationship',
   'Speed & Custom Proposal Design',
-  'Strategic SBU Partner Alignment'
+  'Strategic SBU Partner Alignment',
 ]
 
 // Outreach Templates
@@ -76,28 +134,13 @@ const OUTREACH_TEMPLATES = {
 
 Greetings from The i-Capital Africa Institute.
 
-I am following up regarding our submitted proposal for "${title}" (Ref: ${code}).
+I am following up regarding our proposal for "${title}" (Ref: ${code}).
 
-We wanted to check in to see if your evaluation committee has had the opportunity to review the document, and whether any technical clarifications or supplementary materials are needed from our side.
+We wanted to check in to see if your team has had the opportunity to review the document, and whether any technical clarifications or supplementary materials are needed from our side.
 
 Looking forward to your guidance.
 
 Warm regards,
-The i-Capital Africa Institute`,
-  },
-  board_decision: {
-    label: '🏛️ Executive / Board Decision Check',
-    subject: (client, title, code) => `Executive Status: ${title} (${code}) - The i-Capital Africa Institute`,
-    body: (client, title, code) =>
-`Dear ${client} Leadership Team,
-
-I hope you are doing well.
-
-Following up from The i-Capital Africa Institute regarding our institutional proposal for "${title}" (Ref: ${code}). We understand this engagement is scheduled for executive / management review.
-
-Please let us know if an executive summary briefing deck or an in-person presentation would be helpful to facilitate the committee's decision.
-
-Kind regards,
 The i-Capital Africa Institute`,
   },
   meeting_request: {
@@ -108,26 +151,11 @@ The i-Capital Africa Institute`,
 
 Greetings from The i-Capital Africa Institute.
 
-Regarding our submitted proposal for "${title}" (Ref: ${code}), our technical team would welcome a brief 15-minute call or sync to address any preliminary questions and align on execution timelines.
+Regarding "${title}" (Ref: ${code}), our technical team would welcome a brief 15-minute call to address any preliminary questions and align on execution timelines.
 
 Please let us know what day this week works best for your schedule.
 
 Best regards,
-The i-Capital Africa Institute`,
-  },
-  scope_budget: {
-    label: '💼 Scope & Budget Alignment',
-    subject: (client, title, code) => `Proposal Follow-up: ${title} (${code}) - The i-Capital Africa Institute`,
-    body: (client, title, code) =>
-`Dear ${client} Team,
-
-Following up on behalf of The i-Capital Africa Institute regarding "${title}" (Ref: ${code}).
-
-We are available to discuss any adjustments to the delivery methodology, implementation schedule, or fee structure to ensure full alignment with your institution's priorities for this fiscal quarter.
-
-Looking forward to continuing the conversation.
-
-Warm regards,
 The i-Capital Africa Institute`,
   },
 }
@@ -153,7 +181,6 @@ function stringifyGatesWithNotes(gates, existingNotes) {
   return cleanNotes ? `${gateTag}\n\n${cleanNotes}` : gateTag
 }
 
-// Feature 6: Owner Parsing & Formatting
 function parseOwner(notes) {
   if (!notes) return 'Unassigned'
   const match = notes.match(/\[OWNER:\s*([^\]]+)\]/)
@@ -175,7 +202,7 @@ function parseOutcome(notes) {
   parts.forEach((p) => {
     if (p.includes(':')) {
       const [k, v] = p.split(':', 2)
-      outcome[k.strip ? k.strip().toLowerCase() : k.trim().toLowerCase()] = v.trim()
+      outcome[k.trim().toLowerCase()] = v.trim()
     } else {
       outcome.status = p.trim()
     }
@@ -218,7 +245,6 @@ function getDealHealth(deal) {
   }
 }
 
-// 3:4 portrait photo component
 function OwnerPhoto({ name }) {
   const isYbeltal = name && name.toLowerCase().includes('ybeltal')
   const photoSrc = isYbeltal ? '/team/ybeltal.jpg' : null
@@ -230,7 +256,7 @@ function OwnerPhoto({ name }) {
         alt={name}
         style={{
           width: '27px',
-          height: '36px', // exact 3:4 ratio
+          height: '36px',
           borderRadius: '4px',
           objectFit: 'cover',
           border: '1px solid #cbd5e1',
@@ -268,7 +294,6 @@ function OwnerPhoto({ name }) {
   )
 }
 
-// Deadline Urgency Badge helper
 function renderDeadlineBadge(deadlineStr) {
   if (!deadlineStr) return null
   const now = new Date()
@@ -311,8 +336,6 @@ export default function ProposalList({ proposalVersion }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterSBU, setFilterSBU] = useState('ALL')
   const [filterHealth, setFilterHealth] = useState('ALL')
-
-  // Feature 6: Commercial Owner Filter State
   const [filterOwner, setFilterOwner] = useState('ALL')
   const [showWorkloadPanel, setShowWorkloadPanel] = useState(false)
 
@@ -324,8 +347,9 @@ export default function ProposalList({ proposalVersion }) {
   const [selectedDeal, setSelectedDeal] = useState(null)
   const [selectedDealOwner, setSelectedDealOwner] = useState('Unassigned')
   const [saving, setSaving] = useState(false)
+  const [drawerErrors, setDrawerErrors] = useState([])
 
-  // Quick Activity Log State & In-App Toast
+  // Quick Activity Log State
   const [activityType, setActivityType] = useState(ACTIVITY_TYPES[0])
   const [activityNote, setActivityNote] = useState('')
   const [nextActionCommitment, setNextActionCommitment] = useState('')
@@ -333,7 +357,7 @@ export default function ProposalList({ proposalVersion }) {
   const [loggingActivity, setLoggingActivity] = useState(false)
   const [activitySuccessToast, setActivitySuccessToast] = useState(false)
 
-  // One-Click Outreach Generator State
+  // Outreach Generator State
   const [outreachDeal, setOutreachDeal] = useState(null)
   const [outreachTemplateKey, setOutreachTemplateKey] = useState('status_check')
   const [outreachSubject, setOutreachSubject] = useState('')
@@ -394,6 +418,7 @@ export default function ProposalList({ proposalVersion }) {
   function handleOpenDealDrawer(deal) {
     setSelectedDeal({ ...deal })
     setSelectedDealOwner(parseOwner(deal.notes))
+    setDrawerErrors([])
   }
 
   function handleOpenOutreach(deal, e) {
@@ -473,24 +498,7 @@ export default function ProposalList({ proposalVersion }) {
     setTimeout(() => setCopiedToast(false), 2500)
   }
 
-  function validateGovernanceGate(deal, newStatus) {
-    if (['Submitted', 'Won'].includes(newStatus)) {
-      const clearedGates = parseGates(deal.notes)
-      if (clearedGates.length < GOVERNANCE_GATES.length) {
-        const missingCount = GOVERNANCE_GATES.length - clearedGates.length
-        return window.confirm(
-          `⚠️ Tender Governance Gate Alert:\n\nThis proposal has cleared ${clearedGates.length} of ${GOVERNANCE_GATES.length} mandatory compliance gates (${missingCount} pending).\n\nInstitutional compliance requires complete TOR, CV, and financial verification.\n\nDo you want to proceed advancing to "${newStatus}" anyway?`
-        )
-      }
-    }
-    return true
-  }
-
   async function handleInitiateStatusChange(deal, newStatus) {
-    if (!validateGovernanceGate(deal, newStatus)) {
-      return
-    }
-
     if (newStatus === 'Lost') {
       const existing = parseOutcome(deal.notes)
       setLossReason(existing?.reason || LOSS_REASONS[0])
@@ -641,9 +649,31 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  // Feature 6: Save Deal Drawer with Commercial Owner
+  // STEP 2 IMPLEMENTED: MANDATORY VALIDATION BLOCKERS FOR INITIATED DEALS
   async function handleSaveDealDossier(e) {
     e.preventDefault()
+    setDrawerErrors([])
+
+    // Enforce Initiated Blockers
+    if (selectedDeal.status === 'Initiated') {
+      const errors = []
+      if (!selectedDeal.title || !selectedDeal.title.trim()) {
+        errors.push('Proposal Scope / Title is required.')
+      }
+      const val = parseFloat(selectedDeal.deal_value_etb)
+      if (isNaN(val) || val <= 0) {
+        errors.push('Estimated Deal Value (ETB) is mandatory and must be greater than 0.')
+      }
+      if (!selectedDealOwner || selectedDealOwner === 'Unassigned') {
+        errors.push('A designated Commercial Owner must be assigned (cannot be Unassigned).')
+      }
+
+      if (errors.length > 0) {
+        setDrawerErrors(errors)
+        return // HARD STOP: Blocks saving until filled
+      }
+    }
+
     setSaving(true)
     try {
       const notesWithOwner = stringifyOwnerWithNotes(selectedDealOwner, selectedDeal.notes)
@@ -716,27 +746,12 @@ export default function ProposalList({ proposalVersion }) {
 
       if (propErr) throw propErr
 
-      try {
-        await supabase.from('follow_up_logs').insert([
-          {
-            proposal_id: selectedDeal.id,
-            activity_type: activityType,
-            remarks: activityNote,
-            next_action: nextActionCommitment || null,
-            next_action_date: nextActionDate || null,
-          },
-        ])
-      } catch {
-        // Fallback silently if table schema differs
-      }
-
       const updatedDeal = { ...selectedDeal, notes: finalNotes }
       setSelectedDeal(updatedDeal)
       setProposals((prev) =>
         prev.map((p) => (p.id === selectedDeal.id ? updatedDeal : p))
       )
 
-      // Reset form and show smooth inline success toast
       setActivityNote('')
       setNextActionCommitment('')
       setNextActionDate('')
@@ -749,7 +764,6 @@ export default function ProposalList({ proposalVersion }) {
     }
   }
 
-  // Feature 4: Competitor Intelligence & Loss Reason Stats
   const wonDealsList = proposals.filter((p) => p.status === 'Won')
   const lostDealsList = proposals.filter((p) => p.status === 'Lost')
   const decidedTotal = wonDealsList.length + lostDealsList.length
@@ -767,7 +781,6 @@ export default function ProposalList({ proposalVersion }) {
     }
   })
 
-  // Feature 6: Team Workload Metrics Calculation
   const workloadMetrics = TEAM_OWNERS.map((ownerName) => {
     const ownerDeals = proposals.filter((p) => parseOwner(p.notes) === ownerName)
     const openDeals = ownerDeals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
@@ -785,7 +798,6 @@ export default function ProposalList({ proposalVersion }) {
     }
   }).filter((w) => w.totalCount > 0 || ['Ybeltal', 'Tsegaab', 'Seife', 'Yeabsira'].includes(w.name))
 
-  // Filter Pipeline Deals by SBU, Health, Search, and Commercial Owner
   const filteredProposals = proposals.filter((p) => {
     const clientName = p.opportunities?.clients?.name?.toLowerCase() || ''
     const title = p.title?.toLowerCase() || ''
@@ -852,7 +864,6 @@ export default function ProposalList({ proposalVersion }) {
             <option value="IIP">IIP</option>
           </select>
 
-          {/* Feature 6: Commercial Owner Filter Dropdown */}
           <select
             value={filterOwner}
             onChange={(e) => setFilterOwner(e.target.value)}
@@ -893,7 +904,6 @@ export default function ProposalList({ proposalVersion }) {
             <option value="closed">⚪ Closed</option>
           </select>
 
-          {/* Feature 6: Team Workload Allocation Button */}
           <button
             type="button"
             onClick={() => {
@@ -914,7 +924,6 @@ export default function ProposalList({ proposalVersion }) {
             👥 Team Workload
           </button>
 
-          {/* Feature 4: Competitor Intelligence Button */}
           <button
             type="button"
             onClick={() => {
@@ -1176,7 +1185,12 @@ export default function ProposalList({ proposalVersion }) {
                     const health = getDealHealth(deal)
                     const isBeingDragged = draggedDealId === deal.id
                     const gates = parseGates(deal.notes)
-                    const isGatesComplete = gates.length === GOVERNANCE_GATES.length
+                    
+                    // Dynamic stage gates calculation
+                    const stageConfig = STAGE_REQUIREMENTS[deal.status] || STAGE_REQUIREMENTS['In Progress']
+                    const totalStageGates = stageConfig.gates.length
+                    const isGatesComplete = totalStageGates > 0 && gates.filter((g) => stageConfig.gates.some((sg) => sg.id === g)).length === totalStageGates
+
                     const outcome = parseOutcome(deal.notes)
                     const owner = parseOwner(deal.notes)
 
@@ -1257,51 +1271,13 @@ export default function ProposalList({ proposalVersion }) {
                           </div>
                         )}
 
-                        {/* Feature 6: Commercial Owner Card Row with 3x4 Photo */}
+                        {/* Commercial Owner Card Row */}
                         <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                           <OwnerPhoto name={owner} />
                           <span style={{ fontSize: 11, color: '#475569', fontWeight: 600 }}>
                             {owner}
                           </span>
                         </div>
-
-                        {/* Outcome Pill on Lost / Won */}
-                        {deal.status === 'Lost' && (
-                          <div style={{ marginBottom: 6 }}>
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                padding: '2px 6px',
-                                borderRadius: 4,
-                                background: '#fee2e2',
-                                color: '#b91c1c',
-                                border: '1px solid #fecaca',
-                              }}
-                            >
-                              ❌ {outcome?.reason || 'Financial (Too Expensive)'}
-                              {outcome?.competitor ? ` (${outcome.competitor})` : ''}
-                            </span>
-                          </div>
-                        )}
-
-                        {deal.status === 'Won' && (
-                          <div style={{ marginBottom: 6 }}>
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 700,
-                                padding: '2px 6px',
-                                borderRadius: 4,
-                                background: '#dcfce7',
-                                color: '#166534',
-                                border: '1px solid #bbf7d0',
-                              }}
-                            >
-                              🏆 {outcome?.factor || 'Contracted Won'}
-                            </span>
-                          </div>
-                        )}
 
                         {/* Governance Gates Badge & Outreach Button */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -1316,7 +1292,7 @@ export default function ProposalList({ proposalVersion }) {
                               border: `1px solid ${isGatesComplete ? '#bbf7d0' : gates.length > 0 ? '#fde68a' : '#e2e8f0'}`,
                             }}
                           >
-                            {isGatesComplete ? '🛡️ 4/4 Gates' : gates.length > 0 ? `⚠️ ${gates.length}/4` : '⚪ 0/4'}
+                            {isGatesComplete ? `🛡️ ${totalStageGates}/${totalStageGates} Gates` : gates.length > 0 ? `⚠️ ${gates.length}/${totalStageGates}` : `⚪ 0/${totalStageGates}`}
                           </span>
 
                           <button
@@ -1413,8 +1389,6 @@ export default function ProposalList({ proposalVersion }) {
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Scope / Title</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>SBU</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Commercial Owner</th>
-                <th style={{ padding: '10px 14px', color: '#475569' }}>Governance Gate</th>
-                <th style={{ padding: '10px 14px', color: '#475569' }}>Outcome</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Status</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Value (ETB)</th>
                 <th style={{ padding: '10px 14px', textAlign: 'right', color: '#475569' }}>Outreach</th>
@@ -1422,8 +1396,6 @@ export default function ProposalList({ proposalVersion }) {
             </thead>
             <tbody>
               {filteredProposals.map((deal) => {
-                const gates = parseGates(deal.notes)
-                const isGatesComplete = gates.length === GOVERNANCE_GATES.length
                 const outcome = parseOutcome(deal.notes)
                 const owner = parseOwner(deal.notes)
 
@@ -1460,39 +1432,11 @@ export default function ProposalList({ proposalVersion }) {
                         {deal.opportunities?.sbus?.name || '—'}
                       </span>
                     </td>
-                    {/* Commercial Owner Column with 3x4 Photo */}
                     <td style={{ padding: '10px 14px', fontWeight: 600, color: '#334155' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <OwnerPhoto name={owner} />
                         <span>{owner}</span>
                       </div>
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          padding: '3px 8px',
-                          borderRadius: 12,
-                          background: isGatesComplete ? '#dcfce7' : gates.length > 0 ? '#fef3c7' : '#f1f5f9',
-                          color: isGatesComplete ? '#166534' : gates.length > 0 ? '#92400e' : '#64748b',
-                        }}
-                      >
-                        {isGatesComplete ? '🛡️ 4/4 Cleared' : gates.length > 0 ? `⚠️ ${gates.length}/4` : '⚪ 0/4'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 14px' }}>
-                      {deal.status === 'Lost' ? (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#b91c1c' }}>
-                          ❌ {outcome?.reason || 'Lost'}
-                        </span>
-                      ) : deal.status === 'Won' ? (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#166534' }}>
-                          🏆 {outcome?.factor || 'Won'}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>
-                      )}
                     </td>
                     <td style={{ padding: '10px 14px' }}>
                       <select
@@ -1529,7 +1473,6 @@ export default function ProposalList({ proposalVersion }) {
                           fontSize: 11,
                           fontWeight: 700,
                           cursor: 'pointer',
-                          whiteSpace: 'nowrap',
                         }}
                       >
                         💬 Outreach
@@ -1626,7 +1569,7 @@ export default function ProposalList({ proposalVersion }) {
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. PwC, Deloitte, EY, local firm, client internal"
+                      placeholder="e.g. PwC, Deloitte, EY, local firm"
                       value={winningCompetitor}
                       onChange={(e) => setWinningCompetitor(e.target.value)}
                       style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
@@ -1674,7 +1617,7 @@ export default function ProposalList({ proposalVersion }) {
                 </label>
                 <textarea
                   rows={3}
-                  placeholder="Record fee variance, committee remarks, or delivery factors for future bidding rounds..."
+                  placeholder="Record remarks or delivery factors for future bidding rounds..."
                   value={postMortemLessons}
                   onChange={(e) => setPostMortemLessons(e.target.value)}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
@@ -1685,16 +1628,7 @@ export default function ProposalList({ proposalVersion }) {
                 <button
                   type="button"
                   onClick={() => setPostMortemDeal(null)}
-                  style={{
-                    flex: 1,
-                    padding: '9px',
-                    borderRadius: 6,
-                    border: '1px solid #cbd5e1',
-                    background: '#fff',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    color: '#475569',
-                  }}
+                  style={{ flex: 1, padding: '9px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#475569' }}
                 >
                   Cancel
                 </button>
@@ -1988,6 +1922,28 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
+            {/* MANDATORY VALIDATION ERROR BANNER */}
+            {drawerErrors.length > 0 && (
+              <div
+                style={{
+                  marginTop: 14,
+                  padding: '12px 14px',
+                  backgroundColor: '#fef2f2',
+                  border: '1px solid #f87171',
+                  borderRadius: 8,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: '#991b1b', fontSize: 12, marginBottom: 4 }}>
+                  ⛔ Mandatory Requirements Missing for {selectedDeal.status}:
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18, color: '#b91c1c', fontSize: 12 }}>
+                  {drawerErrors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             {/* Quick Outreach Launcher Trigger */}
             <div style={{ marginTop: 14 }}>
               <button
@@ -2013,44 +1969,43 @@ export default function ProposalList({ proposalVersion }) {
               </button>
             </div>
 
-            {/* Governance Checklist */}
-            <div
-              style={{
-                marginTop: 16,
-                padding: 16,
-                background: '#f8fafc',
-                borderRadius: 8,
-                border: '1px solid #e2e8f0',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                <h4 style={{ margin: 0, fontSize: 13, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  🛡️ Tender & Bid Governance Gate
-                </h4>
-                {(() => {
-                  const gates = parseGates(selectedDeal.notes)
-                  const count = gates.length
-                  return (
+            {/* DYNAMIC STAGE-SPECIFIC GOVERNANCE CHECKLIST (INITIATED & BEYOND) */}
+            {(() => {
+              const currentStage = selectedDeal.status || 'Initiated'
+              const config = STAGE_REQUIREMENTS[currentStage] || STAGE_REQUIREMENTS['In Progress']
+              const gatesList = config.gates || []
+              const activeSavedGates = parseGates(selectedDeal.notes)
+              const clearedCount = gatesList.filter((g) => activeSavedGates.includes(g.id)).length
+              const pct = gatesList.length > 0 ? Math.round((clearedCount / gatesList.length) * 100) : 0
+
+              return (
+                <div
+                  style={{
+                    marginTop: 16,
+                    padding: 16,
+                    background: '#f8fafc',
+                    borderRadius: 8,
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <h4 style={{ margin: 0, fontSize: 13, color: '#0f172a', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      🛡️ {currentStage}: {config.title}
+                    </h4>
                     <span
                       style={{
                         fontSize: 11,
                         fontWeight: 700,
                         padding: '2px 8px',
                         borderRadius: 12,
-                        backgroundColor: count === 4 ? '#dcfce7' : count > 0 ? '#fef3c7' : '#fee2e2',
-                        color: count === 4 ? '#166534' : count > 0 ? '#92400e' : '#b91c1c',
+                        backgroundColor: clearedCount === gatesList.length && gatesList.length > 0 ? '#dcfce7' : clearedCount > 0 ? '#fef3c7' : '#fee2e2',
+                        color: clearedCount === gatesList.length && gatesList.length > 0 ? '#166534' : clearedCount > 0 ? '#92400e' : '#b91c1c',
                       }}
                     >
-                      {count} of 4 Gates Passed
+                      {clearedCount} of {gatesList.length} Gates Cleared
                     </span>
-                  )
-                })()}
-              </div>
+                  </div>
 
-              {(() => {
-                const gates = parseGates(selectedDeal.notes)
-                const pct = Math.round((gates.length / GOVERNANCE_GATES.length) * 100)
-                return (
                   <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden', marginBottom: 12 }}>
                     <div
                       style={{
@@ -2061,40 +2016,40 @@ export default function ProposalList({ proposalVersion }) {
                       }}
                     />
                   </div>
-                )
-              })()}
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {GOVERNANCE_GATES.map((gate) => {
-                  const isChecked = parseGates(selectedDeal.notes).includes(gate.id)
-                  return (
-                    <label
-                      key={gate.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        fontSize: 12,
-                        fontWeight: isChecked ? 600 : 500,
-                        color: isChecked ? '#0f172a' : '#64748b',
-                        cursor: 'pointer',
-                        padding: '4px 6px',
-                        borderRadius: 4,
-                        backgroundColor: isChecked ? '#ecfdf5' : 'transparent',
-                      }}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => handleToggleGate(gate.id)}
-                        style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
-                      />
-                      <span>{gate.label}</span>
-                    </label>
-                  )
-                })}
-              </div>
-            </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {gatesList.map((gate) => {
+                      const isChecked = activeSavedGates.includes(gate.id)
+                      return (
+                        <label
+                          key={gate.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            fontSize: 12,
+                            fontWeight: isChecked ? 600 : 500,
+                            color: isChecked ? '#0f172a' : '#64748b',
+                            cursor: 'pointer',
+                            padding: '4px 6px',
+                            borderRadius: 4,
+                            backgroundColor: isChecked ? '#ecfdf5' : 'transparent',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleGate(gate.id)}
+                            style={{ cursor: 'pointer', accentColor: '#16a34a', width: 15, height: 15 }}
+                          />
+                          <span>{gate.label}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Quick Touchpoint Logger */}
             <div
@@ -2200,8 +2155,8 @@ export default function ProposalList({ proposalVersion }) {
             {/* Editable Form with Commercial Owner Selector */}
             <form onSubmit={handleSaveDealDossier} style={{ marginTop: 18, display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                  Proposal Scope / Title
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  Proposal Scope / Title {selectedDeal.status === 'Initiated' && <span style={{ color: '#dc2626' }}>*</span>}
                 </label>
                 <textarea
                   rows={3}
@@ -2212,10 +2167,10 @@ export default function ProposalList({ proposalVersion }) {
                 />
               </div>
 
-              {/* Commercial Owner Dropdown with 3x4 Photo Thumbnail */}
+              {/* Commercial Owner Selector */}
               <div>
                 <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#0369a1', marginBottom: 4 }}>
-                  👤 Assigned Commercial Owner
+                  👤 Assigned Commercial Owner {selectedDeal.status === 'Initiated' && <span style={{ color: '#dc2626' }}>*</span>}
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <OwnerPhoto name={selectedDealOwner} />
@@ -2235,13 +2190,15 @@ export default function ProposalList({ proposalVersion }) {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                    Deal Value (ETB)
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                    Estimated Deal Value (ETB) {selectedDeal.status === 'Initiated' && <span style={{ color: '#dc2626' }}>*</span>}
                   </label>
                   <input
                     type="number"
                     step="any"
-                    value={selectedDeal.deal_value_etb || 0}
+                    min="1"
+                    placeholder="e.g. 500000"
+                    value={selectedDeal.deal_value_etb || ''}
                     onChange={(e) => setSelectedDeal({ ...selectedDeal, deal_value_etb: e.target.value })}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
                   />
@@ -2255,7 +2212,8 @@ export default function ProposalList({ proposalVersion }) {
                     value={selectedDeal.status}
                     onChange={(e) => {
                       const newStatus = e.target.value
-                      handleInitiateStatusChange(selectedDeal, newStatus)
+                      setSelectedDeal({ ...selectedDeal, status: newStatus })
+                      setDrawerErrors([])
                     }}
                     style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
                   >
@@ -2314,85 +2272,64 @@ export default function ProposalList({ proposalVersion }) {
                 />
               </div>
 
-              {/* 1. Tender Documents Cloud Repository */}
-              <div style={{ marginTop: 6, padding: '12px 14px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                  📂 Tender Dossier & Working Files
+              {/* STAGE-AWARE LOWER COMPLIANCE BOX */}
+              {selectedDeal.status === 'Initiated' ? (
+                <div style={{ marginTop: 6, padding: '12px 14px', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd', fontSize: '12px', color: '#0369a1' }}>
+                  💡 <strong>Initiated Stage Notice:</strong> Tender compliance packaging (Bid Bond/CPO, Tax Clearance, Audited Financial Statements) activates when this pursuit moves to <strong>In Progress</strong>. Complete the qualification gates above to qualify this deal.
                 </div>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '12px' }}>
-                  {selectedDeal?.rfp_doc_link ? (
-                    <a href={selectedDeal.rfp_doc_link} target="_blank" rel="noreferrer" style={{ color: '#0284c7', fontWeight: 600, textDecoration: 'none' }}>
-                      📄 Tender TOR / RFP Dossier ↗
-                    </a>
-                  ) : <span style={{ color: '#94a3b8' }}>• No RFP link attached</span>}
+              ) : (
+                /* Tender Checklist for In Progress / Beyond */
+                <div style={{ marginTop: 6, padding: '14px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
+                  {(() => {
+                    const checklistItems = [
+                      { key: 'tor_aligned', label: 'TOR Requirements & Methodology Aligned' },
+                      { key: 'cpo_bid_bond', label: 'Bid Bond / CPO Guarantee Secured' },
+                      { key: 'tax_clearance', label: 'Valid Tax Clearance & Business License' },
+                      { key: 'audited_financials', label: 'Audited Financial Statements (Last 2–3 Yrs)' },
+                      { key: 'expert_cvs', label: 'Consultant / Expert CVs Packaged' },
+                      { key: 'compliance_sheet', label: 'Signed Institutional Compliance Sheet' },
+                    ]
+                    const cl = selectedDeal?.compliance_checklist || {}
+                    const completed = checklistItems.filter((i) => cl[i.key]).length
+                    const percent = Math.round((completed / checklistItems.length) * 100)
 
-                  {selectedDeal?.tech_proposal_link && (
-                    <a href={selectedDeal.tech_proposal_link} target="_blank" rel="noreferrer" style={{ color: '#0284c7', fontWeight: 600, textDecoration: 'none' }}>
-                      📘 Technical Proposal Draft ↗
-                    </a>
-                  )}
+                    return (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
+                            📋 Pre-Submission Compliance Checklist
+                          </span>
+                          <span style={{ fontSize: '11px', fontWeight: 700, color: percent === 100 ? '#16a34a' : '#ea580c' }}>
+                            {completed} of {checklistItems.length} Cleared ({percent}%)
+                          </span>
+                        </div>
 
-                  {selectedDeal?.fin_proposal_link && (
-                    <a href={selectedDeal.fin_proposal_link} target="_blank" rel="noreferrer" style={{ color: '#0284c7', fontWeight: 600, textDecoration: 'none' }}>
-                      💼 Financial Proposal & Budget ↗
-                    </a>
-                  )}
+                        <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
+                          <div style={{ width: `${percent}%`, height: '100%', background: percent === 100 ? '#16a34a' : '#0284c7', transition: 'width 0.3s' }} />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                          {checklistItems.map((item) => (
+                            <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', cursor: 'pointer' }}>
+                              <input
+                                type="checkbox"
+                                checked={Boolean(cl[item.key])}
+                                onChange={(e) => {
+                                  const updated = { ...cl, [item.key]: e.target.checked }
+                                  setSelectedDeal((prev) => ({ ...prev, compliance_checklist: updated }))
+                                }}
+                              />
+                              <span style={{ textDecoration: cl[item.key] ? 'line-through' : 'none', color: cl[item.key] ? '#64748b' : '#0f172a' }}>
+                                {item.label}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </>
+                    )
+                  })()}
                 </div>
-              </div>
-
-              {/* 2. Pre-Submission Institutional Compliance Gate */}
-              <div style={{ marginTop: 6, padding: '14px', background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '8px' }}>
-                {(() => {
-                  const checklistItems = [
-                    { key: 'tor_aligned', label: 'TOR Requirements & Methodology Aligned' },
-                    { key: 'cpo_bid_bond', label: 'Bid Bond / CPO Guarantee Secured' },
-                    { key: 'tax_clearance', label: 'Valid Tax Clearance & Business License' },
-                    { key: 'audited_financials', label: 'Audited Financial Statements (Last 2–3 Yrs)' },
-                    { key: 'expert_cvs', label: 'Consultant / Expert CVs Packaged' },
-                    { key: 'compliance_sheet', label: 'Signed Institutional Compliance Sheet' },
-                  ]
-                  const cl = selectedDeal?.compliance_checklist || {}
-                  const completed = checklistItems.filter((i) => cl[i.key]).length
-                  const percent = Math.round((completed / checklistItems.length) * 100)
-
-                  return (
-                    <>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>
-                          📋 Pre-Submission Compliance Checklist
-                        </span>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: percent === 100 ? '#16a34a' : '#ea580c' }}>
-                          {completed} of {checklistItems.length} Cleared ({percent}%)
-                        </span>
-                      </div>
-
-                      {/* Progress Bar */}
-                      <div style={{ height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
-                        <div style={{ width: `${percent}%`, height: '100%', background: percent === 100 ? '#16a34a' : '#0284c7', transition: 'width 0.3s' }} />
-                      </div>
-
-                      {/* Checkbox Grid */}
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
-                        {checklistItems.map((item) => (
-                          <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#334155', cursor: 'pointer' }}>
-                            <input
-                              type="checkbox"
-                              checked={Boolean(cl[item.key])}
-                              onChange={(e) => {
-                                const updated = { ...cl, [item.key]: e.target.checked }
-                                setSelectedDeal((prev) => ({ ...prev, compliance_checklist: updated }))
-                              }}
-                            />
-                            <span style={{ textDecoration: cl[item.key] ? 'line-through' : 'none', color: cl[item.key] ? '#64748b' : '#0f172a' }}>
-                              {item.label}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    </>
-                  )
-                })()}
-              </div>
+              )}
 
               {/* Action Buttons Row */}
               <div style={{ marginTop: 10, display: 'flex', gap: 10, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
