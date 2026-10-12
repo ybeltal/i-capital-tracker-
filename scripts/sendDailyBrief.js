@@ -17,6 +17,13 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 const RECIPIENT_EMAIL =
   process.env.BRIEF_RECIPIENT_EMAIL || 'ybeltalsemagn8899@gmail.com'
 
+// Safe URL resolver: ignores any outdated 'your-crm-deployment' placeholder
+const rawCrmUrl = process.env.CRM_URL || ''
+const CRM_URL =
+  rawCrmUrl && !rawCrmUrl.includes('your-crm-deployment')
+    ? rawCrmUrl
+    : 'https://icapitalcrm.pro.et'
+
 const STAGE_WEIGHTS = {
   'Initiated': 0.10,
   'In Progress': 0.30,
@@ -43,7 +50,7 @@ function parseOwner(notes) {
 }
 
 async function runDailyBrief() {
-  console.log('🚀 Starting i-Capital Daily Morning Briefing Generator...')
+  console.log('🚀 Starting The i-Capital CRM Daily Morning Briefing Generator...')
 
   // Fetch all proposals
   const { data: proposals, error } = await supabase
@@ -80,7 +87,7 @@ async function runDailyBrief() {
   const todayStr = eatFormatter.format(now) // YYYY-MM-DD
   const todayDate = new Date(`${todayStr}T00:00:00`)
 
-  console.log(`📅 Current Reporting Date (Nairobi EAT): ${todayStr}`)
+  console.log(`📅 Current Reporting Date (Nairobi/Addis Ababa EAT): ${todayStr}`)
 
   const activeProposals = proposals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
   const wonProposals = proposals.filter((p) => p.status === 'Won')
@@ -125,7 +132,7 @@ async function runDailyBrief() {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>i-Capital Morning Briefing</title>
+  <title>The i-Capital CRM Morning Briefing</title>
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; margin: 0; padding: 24px; color: #0f172a;">
   <div style="max-width: 660px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.03);">
@@ -259,13 +266,16 @@ async function runDailyBrief() {
                 .join('')}
             </table>`
       }
-   <!-- Direct Jump Button -->
-    <div style="text-align: center; margin: 30px 0 10px 0;">
-      <a href="https://your-crm-deployment.vercel.app" style="display: inline-block; background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600;">
-        🚀 Open Live i-Capital CRM Hub
-      </a>
+
+      <!-- Direct Jump Button to Official Custom Domain -->
+      <div style="text-align: center; margin: 30px 0 10px 0;">
+        <a href="${CRM_URL}" style="background: #0284c7; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 700; font-size: 13px; display: inline-block;">
+          🚀 Open Live i-Capital CRM Hub
+        </a>
+      </div>
+
     </div>
-    </div>
+
     <!-- Footer -->
     <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 30px; font-size: 11px; color: #94a3b8; text-align: center;">
       The i-Capital Africa Institute • Bole, Addis Ababa, Ethiopia • Automated CRM Governance Agent
@@ -277,7 +287,7 @@ async function runDailyBrief() {
   `
 
   // Send the email via Resend or Brevo
-  const subject = `i-Capital Daily Brief [${todayStr}]: ${dueTodayDeals.length} Due Today, ${overdueDeals.length} Overdue`
+  const subject = `The i-Capital CRM Daily Brief [${todayStr}]: ${dueTodayDeals.length} Due Today, ${overdueDeals.length} Overdue`
 
   if (process.env.RESEND_API_KEY) {
     console.log('📨 Sending via Resend API...')
@@ -288,7 +298,7 @@ async function runDailyBrief() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: process.env.SENDER_EMAIL || 'i-Capital CRM <onboarding@resend.dev>',
+        from: process.env.SENDER_EMAIL || 'The i-Capital CRM <onboarding@resend.dev>',
         to: [RECIPIENT_EMAIL],
         subject: subject,
         html: htmlContent,
@@ -311,7 +321,7 @@ async function runDailyBrief() {
       },
       body: JSON.stringify({
         sender: {
-          name: 'i-Capital Pipeline Alert',
+          name: 'The i-Capital CRM',
           email: process.env.SENDER_EMAIL || RECIPIENT_EMAIL,
         },
         to: [{ email: RECIPIENT_EMAIL }],
