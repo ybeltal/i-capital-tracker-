@@ -49,7 +49,6 @@ async function runDailyBriefing() {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_KEY)
 
-  // 1. Fetch Proposals
   const { data: proposals, error: propErr } = await supabase
     .from('proposals')
     .select(`
@@ -73,7 +72,7 @@ async function runDailyBriefing() {
     process.exit(1)
   }
 
-  // 2. Separate Leads vs Formal Proposals
+  // Segregate Leads vs Formal Proposals
   const leadDeals = (proposals || []).filter((p) => p.status === 'Initiated')
   const formalDeals = (proposals || []).filter((p) => p.status !== 'Initiated')
 
@@ -94,7 +93,6 @@ async function runDailyBriefing() {
   const decidedCount = wonDeals.length + lostDeals.length
   const winRate = decidedCount > 0 ? Math.round((wonDeals.length / decidedCount) * 100) : null
 
-  // 3. Deadline Urgency Analysis
   const now = new Date()
   const urgentProposals = openFormalDeals.filter((p) => {
     if (!p.submission_deadline) return false
@@ -109,7 +107,6 @@ async function runDailyBriefing() {
     year: 'numeric',
   })
 
-  // 4. Build HTML Email
   const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -135,7 +132,7 @@ async function runDailyBriefing() {
   <div class="card">
     <div class="header">
       <h1 class="title">The i-Capital Africa Institute</h1>
-      <div class="subtitle">Commercial Intelligence Morning Briefing • <strong>${todayStr}</strong></div>
+      <div class="subtitle">Two-Tier Commercial Intelligence Briefing • <strong>${todayStr}</strong></div>
     </div>
 
     <!-- 4-PILLAR REVENUE SNAPSHOT -->
@@ -217,7 +214,7 @@ async function runDailyBriefing() {
 
     <!-- PERFORMANCE STATS -->
     <div style="border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 14px; font-size: 11px; color: #64748b;">
-      <strong>Conversion Record:</strong> True Proposal Win Rate: <strong>${winRate != null ? winRate + '%' : 'N/A'}</strong> (${decidedCount} decided) • Overall Opportunities: ${proposals.length}
+      <strong>Conversion Record:</strong> True Proposal Win Rate: <strong>${winRate != null ? winRate + '%' : 'N/A'}</strong> (${decidedCount} decided) • Total Opportunities: ${proposals.length}
     </div>
 
     <!-- CTA BUTTON -->
@@ -231,7 +228,6 @@ async function runDailyBriefing() {
 </html>
 `
 
-  // 5. Send via Resend or Brevo
   if (RESEND_API_KEY) {
     console.log('📬 Sending email via Resend...')
     const res = await fetch('https://api.resend.com/emails', {
