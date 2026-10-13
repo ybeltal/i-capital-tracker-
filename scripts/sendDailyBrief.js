@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  process.env.SUPABASE_ANON_KEY
 const RESEND_API_KEY = process.env.RESEND_API_KEY
 const BREVO_API_KEY = process.env.BREVO_API_KEY
 const NOTIFICATION_EMAIL = process.env.NOTIFICATION_EMAIL || 'ybeltalsemagn8899@gmail.com'
@@ -72,7 +76,7 @@ async function runDailyBriefing() {
     process.exit(1)
   }
 
-  // Segregate Leads vs Formal Proposals
+  // 1. Segregate Leads vs Formal Proposals
   const leadDeals = (proposals || []).filter((p) => p.status === 'Initiated')
   const formalDeals = (proposals || []).filter((p) => p.status !== 'Initiated')
 
@@ -93,6 +97,7 @@ async function runDailyBriefing() {
   const decidedCount = wonDeals.length + lostDeals.length
   const winRate = decidedCount > 0 ? Math.round((wonDeals.length / decidedCount) * 100) : null
 
+  // 2. Urgent Deadlines (< 5 days) & Overdue
   const now = new Date()
   const urgentProposals = openFormalDeals.filter((p) => {
     if (!p.submission_deadline) return false
@@ -100,12 +105,81 @@ async function runDailyBriefing() {
     return diffDays >= 0 && diffDays <= 5
   })
 
+  const overdueProposals = openFormalDeals.filter((p) => {
+    if (!p.submission_deadline) return false
+    const diffDays = Math.ceil((new Date(p.submission_deadline) - now) / (1000 * 60 * 60 * 24))
+    return diffDays < 0
+  })
+
   const todayStr = now.toLocaleDateString('en-GB', {
     weekday: 'long',
     day: 'numeric',
-    month: 'long',
+    month: 'short',
     year: 'numeric',
   })
+
+  // 3. Pre-compile HTML sections to prevent backtick interpolation errors
+  let urgentSectionHtml = ''
+  if (overdueProposals.length > 0 || urgentProposals.length > 0) {
+    const overdueRows = overdueProposals.map((p) => `
+      <div class="deal-item" style="border-color: #fecaca; background: #fff5f5;">
+        <div style="display: flex; justify-content: space-between;">
+          <strong style="color: #0f172a; font-size: 13px;">${p.opportunities?.clients?.name || 'Client'} — ${p.title}</strong>
+          <span style="font-weight: 800; color: #b91c1c; font-size: 12px;">Overdue: ${p.submission_deadline}</span>
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+          SBU: ${p.opportunities?.sbus?.name || 'SBU'} • Value: <strong>${formatMoney(p.deal_value_etb)}</strong> • Owner: ${parseOwner(p.notes)}
+        </div>
+      </div>
+    `).join('')
+
+    const urgentRows = urgentProposals.map((p) => `
+      <div class="deal-item" style="border-color: #fed7aa; background: #fffbeb;">
+        <div style="display: flex; justify-content: space-between;">
+          <strong style="color: #0f172a; font-size: 13px;">${p.opportunities?.clients?.name || 'Client'} — ${p.title}</strong>
+          <span style="font-weight: 800; color: #c2410c; font-size: 12px;">Due: ${p.submission_deadline}</span>
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+          SBU: ${p.opportunities?.sbus?.name || 'SBU'} • Value: <strong>${formatMoney(p.deal_value_etb)}</strong> • Owner: ${parseOwner(p.notes)}
+        </div>
+      </div>
+    `).join('')
+
+    urgentSectionHtml = `
+      <div class="section-title" style="border-left-color: #dc2626; color: #991b1b;">
+        🚨 Tender Submission Alerts (${overdueProposals.length} Overdue • ${urgentProposals.length} Due Soon)
+      </div>
+      ${overdueRows}
+      ${urgentRows}
+    `
+  }
+
+  const activeProposalsRows = openFormalDeals.slice(0, 6).map((p) => {
+    const gates = parseGates(p.notes)
+    return `
+      <div class="deal-item">
+        <div style="display: flex; justify-content: space-between;">
+          <strong style="font-size: 13px; color: #0f172a;">${p.opportunities?.clients?.name || 'Client'} — ${p.title}</strong>
+          <span style="font-weight: 700; color: #0284c7; font-size: 12px;">${formatMoney(p.deal_value_etb)}</span>
+        </div>
+        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+          Stage: <strong style="color: #0f172a;">${p.status}</strong> • SBU: ${p.opportunities?.sbus?.name || 'SBU'} • Owner: <strong>${parseOwner(p.notes)}</strong> • Gates: ${gates.length}
+        </div>
+      </div>
+    `
+  }).join('')
+
+  const leadProposalsRows = leadDeals.map((p) => `
+    <div class="deal-item" style="background: #f8fafc;">
+      <div style="display: flex; justify-content: space-between;">
+        <strong style="font-size: 13px; color: #0f172a;">${p.opportunities?.clients?.name || 'Client'} — ${p.title}</strong>
+        <span style="font-weight: 700; color: #0369a1; font-size: 12px;">${formatMoney(p.deal_value_etb)}</span>
+      </div>
+      <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+        SBU: ${p.opportunities?.sbus?.name || 'SBU'} • Lead Intake • Owner: <strong>${parseOwner(p.notes)}</strong>
+      </div>
+    </div>
+  `).join('')
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -132,7 +206,7 @@ async function runDailyBriefing() {
   <div class="card">
     <div class="header">
       <h1 class="title">The i-Capital Africa Institute</h1>
-      <div class="subtitle">Two-Tier Commercial Intelligence Briefing • <strong>${todayStr}</strong></div>
+      <div class="subtitle">Two-Tier Commercial Pipeline Briefing • <strong>${todayStr}</strong></div>
     </div>
 
     <!-- 4-PILLAR REVENUE SNAPSHOT -->
@@ -159,58 +233,20 @@ async function runDailyBriefing() {
       </div>
     </div>
 
-    <!-- URGENT SUBMISSION WATCHLIST -->
-    ${urgentProposals.length > 0 ? `
-    <div class="section-title" style="border-left-color: #dc2626; color: #991b1b;">
-      🚨 Urgent Submission Watchlist (&lt; 5 Days)
-    </div>
-    ${urgentProposals.map((p) => `
-      <div class="deal-item" style="border-color: #fecaca; background: #fff5f5;">
-        <div style="display: flex; justify-content: space-between;">
-          <strong style="color: #0f172a; font-size: 13px;">${p.opportunities?.clients?.name || 'Client'} — ${p.title}</strong>
-          <span style="font-weight: 800; color: #b91c1c; font-size: 12px;">Due: ${p.submission_deadline}</span>
-        </div>
-        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
-          SBU: ${p.opportunities?.sbus?.name || 'SBU'} • Value: <strong>${formatMoney(p.deal_value_etb)}</strong> • Owner: ${parseOwner(p.notes)}
-        </div>
-      </div>
-    `).join('')}
-    ` : ''}
+    <!-- OVERDUE & URGENT WATCHLIST -->
+    ${urgentSectionHtml}
 
     <!-- ACTIVE FORMAL PROPOSALS IN PURSUIT -->
     <div class="section-title">
       📄 Active Formal Proposal Pursuits (${openFormalDeals.length})
     </div>
-    ${openFormalDeals.slice(0, 6).map((p) => {
-      const gates = parseGates(p.notes)
-      return `
-      <div class="deal-item">
-        <div style="display: flex; justify-content: space-between;">
-          <strong style="font-size: 13px; color: #0f172a;">${p.opportunities?.clients?.name \vert{}\vert{} 'Client'} — ${p.title}</strong>
-          <span style="font-weight: 700; color: #0284c7; font-size: 12px;">${formatMoney(p.deal_value_etb)}</span>
-        </div>
-        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
-          Stage: <strong style="color: #0f172a;">${p.status}</strong> • SBU: ${p.opportunities?.sbus?.name \vert{}\vert{} 'SBU'} • Owner: <strong>${parseOwner(p.notes)}</strong> • Gates Cleared: ${gates.length}
-        </div>
-      </div>
-      `
-    }).join('')}
+    ${activeProposalsRows}
 
     <!-- PRE-TENDER LEADS IN INTAKE -->
     <div class="section-title" style="border-left-color: #0284c7;">
       🎯 Pre-Tender Leads in Qualification (${leadDeals.length})
     </div>
-    ${leadDeals.map((p) => `
-      <div class="deal-item" style="background: #f8fafc;">
-        <div style="display: flex; justify-content: space-between;">
-          <strong style="font-size: 13px; color: #0f172a;">${p.opportunities?.clients?.name \vert{}\vert{} 'Client'} — ${p.title}</strong>
-          <span style="font-weight: 700; color: #0369a1; font-size: 12px;">${formatMoney(p.deal_value_etb)}</span>
-        </div>
-        <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
-          SBU: ${p.opportunities?.sbus?.name || 'SBU'} • Lead Intake • Owner: <strong>${parseOwner(p.notes)}</strong>
-        </div>
-      </div>
-    `).join('')}
+    ${leadProposalsRows}
 
     <!-- PERFORMANCE STATS -->
     <div style="border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 14px; font-size: 11px; color: #64748b;">
@@ -247,6 +283,7 @@ async function runDailyBriefing() {
     if (!res.ok) {
       const errText = await res.text()
       console.error('❌ Resend Error:', errText)
+      process.exit(1)
     } else {
       console.log('✅ Daily brief successfully delivered via Resend!')
     }
@@ -269,6 +306,7 @@ async function runDailyBriefing() {
     if (!res.ok) {
       const errText = await res.text()
       console.error('❌ Brevo Error:', errText)
+      process.exit(1)
     } else {
       console.log('✅ Daily brief successfully delivered via Brevo!')
     }
