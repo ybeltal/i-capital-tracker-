@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts'
+import PipelineCoverageGauge from './PipelineCoverageGauge'
 
 const STAGE_WEIGHTS = {
   'Initiated': 0.10,
@@ -30,11 +31,12 @@ const proposalStatuses = [
 
 const CORE_SBUS = ['Institute', 'CBS', 'IIP', 'DAS']
 
+// FY 2026/27 Approved Annual Revenue Targets (ETB)
 const DEFAULT_TARGETS = {
-  'Institute': 5000000,
-  'CBS': 6000000,
-  'IIP': 4500000,
-  'DAS': 2500000,
+  'Institute': 63000000,
+  'CBS': 35000000,
+  'IIP': 140300000,
+  'DAS': 18295000,
 }
 
 const SBU_COLORS = {
@@ -186,10 +188,11 @@ export default function SummaryDashboard() {
               status,
               deal_value_etb,
               submission_deadline,
+              product_engine,
               notes,
               created_at,
               opportunities (
-                sbus (name),
+                sbus (name, code),
                 clients (name, sector)
               )
             `)
@@ -233,11 +236,9 @@ export default function SummaryDashboard() {
     return dealQuarter === selectedQuarter
   })
 
-  // ==========================================
-  // TWO-TIER SEGREGATION: LEADS VS PROPOSALS
-  // ==========================================
-  const leadProposalsList = filteredProposals.filter((p) => p.status === 'Initiated')
-  const formalProposalsList = filteredProposals.filter((p) => p.status !== 'Initiated')
+  // Two-Tier Segregation: Leads vs Proposals
+  const leadProposalsList = filteredProposals.filter((p) => p.status === 'Initiated' || p.status === 'Target' || p.status === 'Lead')
+  const formalProposalsList = filteredProposals.filter((p) => !['Initiated', 'Target', 'Lead'].includes(p.status))
 
   // Formal Proposal Sub-Pipelines
   const openFormalProposalsList = formalProposalsList.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
@@ -249,33 +250,30 @@ export default function SummaryDashboard() {
   const totalActiveTenderValue = openFormalProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
   const totalWonValue = wonProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
 
-  // Probability-Weighted Forecast (Exclusively from Active Formal Tenders)
+  // Probability-Weighted Forecast
   const totalFormalWeightedForecast = openFormalProposalsList.reduce((sum, p) => {
     const val = Number(p.deal_value_etb) || 0
     const prob = STAGE_WEIGHTS[p.status] ?? 0.30
     return sum + (val * prob)
   }, 0)
 
-  // Decided Proposals & True Win Rate (Won / (Won + Lost))
   const decidedProposalsCount = wonProposalsList.length + lostProposalsList.length
   const trueProposalWinRate = decidedProposalsCount > 0
     ? Math.round((wonProposalsList.length / decidedProposalsCount) * 100)
     : null
 
-  // Lead-to-Proposal Qualification Rate (% of opportunities that advanced past Initiated)
   const leadQualificationRate = filteredProposals.length > 0
     ? Math.round((formalProposalsList.length / filteredProposals.length) * 100)
     : 0
 
-  // Latest victory for congratulations display
   const latestWonDeal = wonProposalsList[0] || (selectedQuarter === 'ALL' ? proposals.find((p) => p.status === 'Won') : null)
   const latestWonOwner = latestWonDeal ? parseOwner(latestWonDeal.notes) : 'Ybeltal'
 
   // SBU Performance Matrix for Selected Quarter
   const sbuMetrics = CORE_SBUS.map((sbuName) => {
     const sbuDeals = filteredProposals.filter((p) => p.opportunities?.sbus?.name === sbuName)
-    const sbuLeads = sbuDeals.filter((p) => p.status === 'Initiated')
-    const sbuFormalOpen = sbuDeals.filter((p) => p.status !== 'Initiated' && !['Won', 'Lost', 'Cancelled'].includes(p.status))
+    const sbuLeads = sbuDeals.filter((p) => ['Initiated', 'Target', 'Lead'].includes(p.status))
+    const sbuFormalOpen = sbuDeals.filter((p) => !['Initiated', 'Target', 'Lead', 'Won', 'Lost', 'Cancelled'].includes(p.status))
     const sbuWon = sbuDeals.filter((p) => p.status === 'Won')
     const sbuLost = sbuDeals.filter((p) => p.status === 'Lost')
 
@@ -312,7 +310,6 @@ export default function SummaryDashboard() {
     }
   })
 
-  // Dynamic Charts Data based on filtered quarter
   const dynamicBarData = sbuMetrics.map((m) => ({
     name: m.name,
     Target: m.target,
@@ -331,14 +328,13 @@ export default function SummaryDashboard() {
     ? dynamicPieData
     : [{ name: 'No Active Forecast', value: 1, color: '#e2e8f0' }]
 
-  // Stage Breakdown with Tier Identification
   const stageBreakdown = proposalStatuses.map((status) => {
     const stageDeals = filteredProposals.filter((p) => p.status === status)
     const nominal = stageDeals.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
     const prob = STAGE_WEIGHTS[status] ?? 0
     const weighted = nominal * prob
     const denominator = totalActiveTenderValue > 0 ? totalActiveTenderValue : 1
-    const share = status !== 'Initiated' && !['Won', 'Lost', 'Cancelled'].includes(status)
+    const share = !['Initiated', 'Target', 'Lead', 'Won', 'Lost', 'Cancelled'].includes(status)
       ? Math.round((nominal / denominator) * 100)
       : 0
 
@@ -349,7 +345,7 @@ export default function SummaryDashboard() {
       prob: Math.round(prob * 100),
       weighted,
       share,
-      isLead: status === 'Initiated',
+      isLead: ['Initiated', 'Target', 'Lead'].includes(status),
       isOutcome: ['Won', 'Lost', 'Cancelled'].includes(status),
     }
   })
@@ -406,7 +402,7 @@ export default function SummaryDashboard() {
   const operationalKpiCards = data
     ? [
         ['Total Clients', formatNumber(data.clients_total), '#client-directory', 'Institutional client directory'],
-        ['Pre-Tender Leads', formatNumber(leadProposalsList.length), '#deals-and-proposals', 'Early inquiries in qualification (Initiated)'],
+        ['Pre-Tender Leads', formatNumber(leadProposalsList.length), '#deals-and-proposals', 'Early inquiries in qualification'],
         ['Formal Proposals', formatNumber(openFormalProposalsList.length), '#deals-and-proposals', 'Active tenders from In Progress to Negotiation'],
         ['Signed Won Deals', formatNumber(wonProposalsList.length), null, 'Contracted engagements'],
         ['True Win Rate', trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'No decided', null, `Won vs Lost (${decidedProposalsCount} bids decided)`],
@@ -678,6 +674,13 @@ export default function SummaryDashboard() {
               </div>
             </div>
           )}
+
+          {/* ======================================================== */}
+          {/* FEATURE 2: 3X REQUIRED PIPELINE COVERAGE & GAP GAUGE    */}
+          {/* ======================================================== */}
+          <div style={{ marginTop: 20 }}>
+            <PipelineCoverageGauge proposals={proposals} />
+          </div>
 
           {/* ======================================================== */}
           {/* 4-PILLAR REVENUE & PIPELINE FORECAST GRID (TIERED)        */}
