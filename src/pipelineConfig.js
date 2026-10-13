@@ -161,3 +161,175 @@ export function calculatePipelineCoverage(activePipelineEtb, targetEtb) {
     coveragePercent: Math.min(100, Math.round((activePipelineEtb / targetEtb) * 100)),
   }
 }
+// Official SBU Product Engines & Service Taxonomy
+export const SBU_PRODUCT_TAXONOMY = {
+  INSTITUTE: {
+    name: 'The i-Capital Institute',
+    engines: [
+      {
+        id: 'MBL',
+        label: 'Master Builder Leadership (MBL)',
+        products: [
+          'Master Builder Leadership Development Program',
+          'Executive Leadership Transition',
+          'Board Governance & Study Tour',
+        ],
+      },
+      {
+        id: 'SOJT',
+        label: 'Structured On-the-Job Training (S-OJT)',
+        products: [
+          'S-OJT Operational Leadership Program',
+          'S-OJT In-Company Trainer Certification',
+          'Workforce Capacity Building',
+        ],
+      },
+      {
+        id: 'PRIME',
+        label: 'PRIME Staff Development',
+        products: [
+          'PRIME Core Staff Development Program',
+          'Foundational Professional Development',
+        ],
+      },
+      {
+        id: 'STRATEGIZE',
+        label: 'Strategize / Transformation',
+        products: [
+          'Corporate Strategy Formulation',
+          'Institutional Transformation & Capital Market Readiness',
+        ],
+      },
+      {
+        id: 'ADVISORY_BDS_VSM',
+        label: 'BDS & Value Stream Mapping (VSM)',
+        products: [
+          'Business Development Services (BDS)',
+          'Value Stream Mapping (VSM) Diagnostic',
+          'Gender Bond & Inclusive Advisory',
+        ],
+      },
+      {
+        id: 'KMS_DATA',
+        label: 'Knowledge Management & Afro Data',
+        products: [
+          'Knowledge Management System (KMS) Deployment',
+          'Afro Data Research & Intelligence Subscription',
+        ],
+      },
+    ],
+  },
+  CBS: {
+    name: 'Cross Border Solutions',
+    engines: [
+      {
+        id: 'REGIONAL_STUDY_TOURS',
+        label: 'Study Tours & Immersion Programs',
+        products: [
+          'Executive Leadership Immersion (Thailand/Singapore/Dubai)',
+          'Board Study Tour & Benchmark Program',
+          'Cross-Border Industrial & Financial Mission',
+        ],
+      },
+      {
+        id: 'NATIONAL_INFRASTRUCTURE',
+        label: 'National Switch & Financial Infrastructure',
+        products: [
+          'National Switch Infrastructure Capacity Building',
+          'Digital Payments & Interoperability Advisory',
+        ],
+      },
+      {
+        id: 'CROSS_BORDER_TRADE',
+        label: 'Cross-Border Trade & Policy Solutions',
+        products: [
+          'Regional Trade Corridor Advisory',
+          'Bilateral Compliance & Institutional Modernization',
+        ],
+      },
+    ],
+  },
+  IIP: {
+    name: 'i-Capital Investment Partners',
+    engines: [
+      {
+        id: 'EQUITY_ACCESS',
+        label: 'Equity Market Access Route',
+        products: [
+          'Share Registration Advisory',
+          'Rights Offer Advisory',
+          'Public Equity Issuance & Listing Support',
+        ],
+      },
+      {
+        id: 'DEBT_ACCESS',
+        label: 'Debt Market Access Route',
+        products: [
+          'Corporate Bond Advisory',
+          'Commercial Paper Advisory',
+          'Structured Debt Financing',
+        ],
+      },
+      {
+        id: 'M_AND_A',
+        label: 'Strategic Transactions & M&A Route',
+        products: [
+          'Strategic Transaction & Valuation Advisory',
+          'Mergers & Acquisitions Advisory',
+          'Joint Venture Structuring',
+        ],
+      },
+      {
+        id: 'CAPITAL_STRUCTURE',
+        label: 'Capital Structure & Cross-Cutting',
+        products: [
+          'Capital Restructuring Advisory',
+          'Corporate Balance Sheet Optimization',
+        ],
+      },
+      {
+        id: 'INVESTOR_ADVISORY',
+        label: 'Investor Advisory & Wealth Route',
+        products: [
+          'Capital Market Readiness & Training',
+          'Capital Market Advisory Services',
+          'Investor Solutions / Market Access',
+        ],
+      },
+    ],
+  },
+  DAS: {
+    name: 'Digital & AI Solutions',
+    engines: [
+      {
+        id: 'SHOFER',
+        label: 'SHOFER Mobility Platform',
+        products: [
+          'SHOFER Parking Solutions',
+          'SHOFER Car Wash Solutions',
+          'SHOFER Auto Care Platform',
+          'SHOFER Insurance Integration',
+          'SHOFER Learning & Driver Academy',
+          'SHOFER Ecosystem Promotion & Media',
+        ],
+      },
+      {
+        id: 'INVESTIFY',
+        label: 'Investify ET & Digital Platforms',
+        products: [
+          'Investify ET Platform Deployment',
+          'Digital Retail Investment Infrastructure',
+        ],
+      },
+      {
+        id: 'ENTERPRISE_AI',
+        label: 'Enterprise AI & ERP Solutions',
+        products: [
+          'AI Strategic Applications & Governance Program',
+          'Enterprise ERP Implementation',
+          'Micro-Credit Digital Lending Engine',
+        ],
+      },
+    ],
+  },
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import { PIPELINE_STAGES, checkTrackerReadiness } from './pipelineConfig'
+import { PIPELINE_STAGES, SBU_PRODUCT_TAXONOMY, checkTrackerReadiness } from './pipelineConfig'
 
 export default function ProposalForm({ leadVersion = 0, onSaved }) {
   const [leads, setLeads] = useState([])
@@ -8,6 +8,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
   const [title, setTitle] = useState('')
   const [status, setStatus] = useState('Lead')
   const [productEngine, setProductEngine] = useState('')
+  const [specificProduct, setSpecificProduct] = useState('')
   const [bdOwner, setBdOwner] = useState('')
   const [nextAction, setNextAction] = useState('')
   const [nextActionDate, setNextActionDate] = useState('')
@@ -52,9 +53,26 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
     }
   }, [leadVersion])
 
+  // Resolve active SBU taxonomy for the selected lead
+  const selectedLead = leads.find((l) => l.id === leadId)
+  const sbuCodeRaw = (selectedLead?.sbus?.code || selectedLead?.sbus?.name || 'INST').toUpperCase()
+
+  let activeSbuKey = 'INST'
+  if (sbuCodeRaw.includes('CBS') || sbuCodeRaw.includes('CROSS')) activeSbuKey = 'CBS'
+  else if (sbuCodeRaw.includes('IIP') || sbuCodeRaw.includes('INVEST')) activeSbuKey = 'IIP'
+  else if (sbuCodeRaw.includes('DAS') || sbuCodeRaw.includes('DIGITAL') || sbuCodeRaw.includes('AI')) activeSbuKey = 'DAS'
+  else activeSbuKey = 'INST'
+
+  const availableEngines = SBU_PRODUCT_TAXONOMY[activeSbuKey]?.engines || []
+  const activeEngineObj = availableEngines.find((e) => e.label === productEngine)
+  const availableProducts = activeEngineObj?.products || []
+
   // Generate the next sequential Proposal Code when a Lead is selected
   async function handleLeadChange(selectedId) {
     setLeadId(selectedId)
+    setProductEngine('')
+    setSpecificProduct('')
+
     if (!selectedId) {
       setAutoProposalCode('')
       return
@@ -94,12 +112,11 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
     }
   }
 
-  // Live Tracker-Readiness evaluation against Playbook §3 rules
-  const selectedLead = leads.find((l) => l.id === leadId)
+  // Live Tracker-Readiness evaluation against Governance rules
   const currentReadiness = checkTrackerReadiness({
     title: title.trim(),
     client_name: selectedLead?.clients?.name,
-    product_engine: productEngine.trim(),
+    product_engine: productEngine.trim() || specificProduct.trim(),
     bd_owner: bdOwner.trim(),
     notes: notes,
     next_action: nextAction.trim(),
@@ -133,6 +150,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
           deal_value_etb: amount === '' ? null : amount,
           submission_deadline: deadline || null,
           product_engine: productEngine.trim() || null,
+          specific_product: specificProduct.trim() || null,
           bd_owner: bdOwner.trim() || null,
           next_action: nextAction.trim() || null,
           next_action_date: nextActionDate || null,
@@ -148,6 +166,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
       setTitle('')
       setStatus('Lead')
       setProductEngine('')
+      setSpecificProduct('')
       setBdOwner('')
       setNextAction('')
       setNextActionDate('')
@@ -226,7 +245,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
 
           {/* 6-Stage Progression Selector */}
           <label htmlFor="proposal-status" style={{ marginTop: 12, display: 'block' }}>
-            Pipeline Stage (Playbook FY26/27)
+            Pipeline Stage
           </label>
           <select
             id="proposal-status"
@@ -241,18 +260,52 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             ))}
           </select>
 
-          {/* Product Engine & BD Owner */}
+          {/* Cascading Taxonomy: Product Engine & Specific Product */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
             <div>
-              <label htmlFor="proposal-engine">Product Engine / Service</label>
-              <input
+              <label htmlFor="proposal-engine">
+                Product Engine / Service Line ({SBU_PRODUCT_TAXONOMY[activeSbuKey]?.name || 'SBU'})
+              </label>
+              <select
                 id="proposal-engine"
-                placeholder="e.g., MBL, S-OJT, PRIME, SHOFER, Advisory"
                 value={productEngine}
-                onChange={(event) => setProductEngine(event.target.value)}
+                onChange={(e) => {
+                  setProductEngine(e.target.value)
+                  setSpecificProduct('')
+                }}
                 disabled={busy}
-              />
+              >
+                <option value="">Select Product Engine / Route</option>
+                {availableEngines.map((eng) => (
+                  <option key={eng.id} value={eng.label}>
+                    {eng.label}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            <div>
+              <label htmlFor="proposal-product">Specific Product / Offer</label>
+              <select
+                id="proposal-product"
+                value={specificProduct}
+                onChange={(e) => setSpecificProduct(e.target.value)}
+                disabled={busy || !productEngine}
+              >
+                <option value="">
+                  {productEngine ? 'Select specific offer' : 'Choose Engine first'}
+                </option>
+                {availableProducts.map((prod) => (
+                  <option key={prod} value={prod}>
+                    {prod}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Commercial Owner & Next Action */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
             <div>
               <label htmlFor="proposal-owner">BD / Commercial Owner</label>
               <input
@@ -260,20 +313,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
                 placeholder="e.g., Ybeltal Mekete"
                 value={bdOwner}
                 onChange={(event) => setBdOwner(event.target.value)}
-                disabled={busy}
-              />
-            </div>
-          </div>
-
-          {/* Mandatory Next Action & Target Date */}
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginTop: 12 }}>
-            <div>
-              <label htmlFor="proposal-action">Next Action</label>
-              <input
-                id="proposal-action"
-                placeholder="e.g., Submit concept note; schedule discovery call"
-                value={nextAction}
-                onChange={(event) => setNextAction(event.target.value)}
                 disabled={busy}
               />
             </div>
@@ -289,7 +328,19 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             </div>
           </div>
 
-          {/* Live Playbook Tracker-Readiness Status Card */}
+          {/* Mandatory Next Action */}
+          <label htmlFor="proposal-action" style={{ marginTop: 12, display: 'block' }}>
+            Mandatory Next Action
+          </label>
+          <input
+            id="proposal-action"
+            placeholder="e.g., Conduct discovery meeting; submit technical offer"
+            value={nextAction}
+            onChange={(event) => setNextAction(event.target.value)}
+            disabled={busy}
+          />
+
+          {/* Live Governance Tracker-Readiness Status Card */}
           <div
             style={{
               marginTop: 14,
@@ -309,7 +360,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
                   : '⚠️ Not Yet Tracker-Ready (Draft Only)'}
               </span>
               <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Playbook §3 Standard
+                Governance Standard
               </span>
             </div>
             {!currentReadiness.isReady && (
