@@ -44,7 +44,6 @@ const SBU_COLORS = {
   'DAS': '#8b5cf6',
 }
 
-// Fiscal Quarter Configuration (Q1 starts in July)
 const QUARTERS = [
   { id: 'ALL', label: 'Full Year (All Quarters)', range: 'Jul 1 – Jun 30', desc: 'Fiscal Year Total' },
   { id: 'Q1', label: 'Q1 (Jul – Sep)', range: 'Jul 1 – Sep 30', desc: 'First Quarter' },
@@ -57,7 +56,7 @@ function getFiscalQuarter(dateString) {
   if (!dateString) return null
   const d = new Date(dateString)
   if (isNaN(d.getTime())) return null
-  const month = d.getMonth() + 1 // 1 = Jan, 12 = Dec
+  const month = d.getMonth() + 1
 
   if (month >= 7 && month <= 9) return 'Q1'
   if (month >= 10 && month <= 12) return 'Q2'
@@ -90,7 +89,6 @@ function downloadCSV(filename, csvRows) {
   URL.revokeObjectURL(url)
 }
 
-// 3:4 portrait photo component
 function OwnerPhoto({ name }) {
   const isYbeltal = !name || name.toLowerCase().includes('ybeltal') || name === 'Commercial Team'
   const photoSrc = isYbeltal ? '/team/ybeltal.jpg' : null
@@ -102,7 +100,7 @@ function OwnerPhoto({ name }) {
         alt={name || 'Ybeltal'}
         style={{
           width: '36px',
-          height: '48px', // exact 3:4 aspect ratio
+          height: '48px',
           borderRadius: '6px',
           objectFit: 'cover',
           border: '2px solid #22c55e',
@@ -140,7 +138,6 @@ function OwnerPhoto({ name }) {
   )
 }
 
-// Extracts owner name from notes (defaults to Ybeltal)
 function parseOwner(notes) {
   if (!notes) return 'Ybeltal'
   const match = notes.match(/\[OWNER:\s*([^\]]+)\]/)
@@ -157,10 +154,8 @@ export default function SummaryDashboard() {
   const [error, setError] = useState('')
   const [refreshVersion, setRefreshVersion] = useState(0)
 
-  // Fiscal Quarter Filter State (Default is 'ALL')
   const [selectedQuarter, setSelectedQuarter] = useState('ALL')
 
-  // SBU Targets state
   const [sbuTargets, setSbuTargets] = useState(() => {
     try {
       const saved = localStorage.getItem('icapital_sbu_targets')
@@ -171,8 +166,6 @@ export default function SummaryDashboard() {
   })
   const [editingTargets, setEditingTargets] = useState(false)
   const [tempTargets, setTempTargets] = useState(sbuTargets)
-
-  // Executive Briefing Modal State
   const [showBriefingModal, setShowBriefingModal] = useState(false)
 
   useEffect(() => {
@@ -234,50 +227,68 @@ export default function SummaryDashboard() {
     setEditingTargets(false)
   }
 
-  // Filter proposals by the selected fiscal quarter (checks deadline or creation date)
   const filteredProposals = proposals.filter((p) => {
     if (selectedQuarter === 'ALL') return true
     const dealQuarter = getFiscalQuarter(p.submission_deadline || p.created_at)
     return dealQuarter === selectedQuarter
   })
 
-  // Financial Calculations for Selected Quarter
-  const activeProposals = filteredProposals.filter((p) => !['Lost', 'Cancelled'].includes(p.status))
-  const openProposalsList = filteredProposals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
-  const wonProposalsList = filteredProposals.filter((p) => p.status === 'Won')
+  // ==========================================
+  // TWO-TIER SEGREGATION: LEADS VS PROPOSALS
+  // ==========================================
+  const leadProposalsList = filteredProposals.filter((p) => p.status === 'Initiated')
+  const formalProposalsList = filteredProposals.filter((p) => p.status !== 'Initiated')
+
+  // Formal Proposal Sub-Pipelines
+  const openFormalProposalsList = formalProposalsList.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
+  const wonProposalsList = formalProposalsList.filter((p) => p.status === 'Won')
+  const lostProposalsList = formalProposalsList.filter((p) => p.status === 'Lost')
+
+  // Financial Buckets
+  const totalSpeculativeLeadValue = leadProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+  const totalActiveTenderValue = openFormalProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+  const totalWonValue = wonProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+
+  // Probability-Weighted Forecast (Exclusively from Active Formal Tenders)
+  const totalFormalWeightedForecast = openFormalProposalsList.reduce((sum, p) => {
+    const val = Number(p.deal_value_etb) || 0
+    const prob = STAGE_WEIGHTS[p.status] ?? 0.30
+    return sum + (val * prob)
+  }, 0)
+
+  // Decided Proposals & True Win Rate (Won / (Won + Lost))
+  const decidedProposalsCount = wonProposalsList.length + lostProposalsList.length
+  const trueProposalWinRate = decidedProposalsCount > 0
+    ? Math.round((wonProposalsList.length / decidedProposalsCount) * 100)
+    : null
+
+  // Lead-to-Proposal Qualification Rate (% of opportunities that advanced past Initiated)
+  const leadQualificationRate = filteredProposals.length > 0
+    ? Math.round((formalProposalsList.length / filteredProposals.length) * 100)
+    : 0
 
   // Latest victory for congratulations display
   const latestWonDeal = wonProposalsList[0] || (selectedQuarter === 'ALL' ? proposals.find((p) => p.status === 'Won') : null)
   const latestWonOwner = latestWonDeal ? parseOwner(latestWonDeal.notes) : 'Ybeltal'
 
-  const totalOpenValue = openProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
-  const totalWonValue = wonProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
-
-  const totalWeightedForecast = activeProposals.reduce((sum, p) => {
-    const val = Number(p.deal_value_etb) || 0
-    const prob = STAGE_WEIGHTS[p.status] ?? 0.20
-    return sum + (val * prob)
-  }, 0)
-
   // SBU Performance Matrix for Selected Quarter
   const sbuMetrics = CORE_SBUS.map((sbuName) => {
     const sbuDeals = filteredProposals.filter((p) => p.opportunities?.sbus?.name === sbuName)
-    const sbuOpen = sbuDeals.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
+    const sbuLeads = sbuDeals.filter((p) => p.status === 'Initiated')
+    const sbuFormalOpen = sbuDeals.filter((p) => p.status !== 'Initiated' && !['Won', 'Lost', 'Cancelled'].includes(p.status))
     const sbuWon = sbuDeals.filter((p) => p.status === 'Won')
     const sbuLost = sbuDeals.filter((p) => p.status === 'Lost')
 
-    const openVal = sbuOpen.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+    const leadVal = sbuLeads.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+    const openVal = sbuFormalOpen.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
     const wonVal = sbuWon.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
 
-    const weightedForecast = sbuDeals
-      .filter((p) => !['Lost', 'Cancelled'].includes(p.status))
-      .reduce((sum, p) => {
-        const val = Number(p.deal_value_etb) || 0
-        const prob = STAGE_WEIGHTS[p.status] ?? 0.20
-        return sum + (val * prob)
-      }, 0)
+    const weightedForecast = sbuFormalOpen.reduce((sum, p) => {
+      const val = Number(p.deal_value_etb) || 0
+      const prob = STAGE_WEIGHTS[p.status] ?? 0.30
+      return sum + (val * prob)
+    }, 0)
 
-    // Adjust target quota if looking at a single quarter (annual / 4)
     const baseTarget = sbuTargets[sbuName] || DEFAULT_TARGETS[sbuName] || 5000000
     const target = selectedQuarter === 'ALL' ? baseTarget : Math.round(baseTarget / 4)
 
@@ -288,8 +299,10 @@ export default function SummaryDashboard() {
     return {
       name: sbuName,
       totalDeals: sbuDeals.length,
-      openCount: sbuOpen.length,
+      leadCount: sbuLeads.length,
+      openCount: sbuFormalOpen.length,
       wonCount: sbuWon.length,
+      leadValue: leadVal,
       openValue: openVal,
       wonValue: wonVal,
       weightedForecast,
@@ -314,18 +327,20 @@ export default function SummaryDashboard() {
       color: SBU_COLORS[m.name] || '#64748b',
     }))
 
-  // Fallback for Pie Chart if no forecast in current quarter
   const finalPieData = dynamicPieData.length > 0
     ? dynamicPieData
     : [{ name: 'No Active Forecast', value: 1, color: '#e2e8f0' }]
 
-  // Stage-by-Stage Breakdown for Selected Quarter
+  // Stage Breakdown with Tier Identification
   const stageBreakdown = proposalStatuses.map((status) => {
     const stageDeals = filteredProposals.filter((p) => p.status === status)
     const nominal = stageDeals.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
     const prob = STAGE_WEIGHTS[status] ?? 0
     const weighted = nominal * prob
-    const share = totalOpenValue > 0 ? Math.round((nominal / totalOpenValue) * 100) : 0
+    const denominator = totalActiveTenderValue > 0 ? totalActiveTenderValue : 1
+    const share = status !== 'Initiated' && !['Won', 'Lost', 'Cancelled'].includes(status)
+      ? Math.round((nominal / denominator) * 100)
+      : 0
 
     return {
       status,
@@ -334,11 +349,12 @@ export default function SummaryDashboard() {
       prob: Math.round(prob * 100),
       weighted,
       share,
+      isLead: status === 'Initiated',
+      isOutcome: ['Won', 'Lost', 'Cancelled'].includes(status),
     }
   })
 
-  // Top Open Pursuits for Selected Quarter
-  const topPursuits = [...openProposalsList]
+  const topPursuits = [...openFormalProposalsList]
     .sort((a, b) => (Number(b.deal_value_etb) || 0) - (Number(a.deal_value_etb) || 0))
     .slice(0, 8)
 
@@ -357,26 +373,29 @@ export default function SummaryDashboard() {
       csvRows.push(`As of (Nairobi/Addis Ababa),${new Date(data.as_of).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })}`)
       csvRows.push('')
 
-      csvRows.push('REVENUE & PIPELINE METRIC,VALUE (ETB)')
-      csvRows.push(`Selected Period Pipeline Value,"${formatMoney(totalOpenValue)}"`)
-      csvRows.push(`Probability-Weighted Revenue Forecast,"${formatMoney(totalWeightedForecast)}"`)
-      csvRows.push(`Closed Contracted Won Revenue,"${formatMoney(totalWonValue)}"`)
-      csvRows.push(`Proposals in Period,"${filteredProposals.length}"`)
+      csvRows.push('COMMERCIAL PIPELINE TIERS,DEAL COUNT,VALUE (ETB)')
+      csvRows.push(`"Speculative Pre-Tender Leads (Initiated)","${leadProposalsList.length}","${formatMoney(totalSpeculativeLeadValue)}"`)
+      csvRows.push(`"Active Formal Proposals (In Progress to Negotiation)","${openFormalProposalsList.length}","${formatMoney(totalActiveTenderValue)}"`)
+      csvRows.push(`"Probability-Weighted Tender Realization","—","${formatMoney(totalFormalWeightedForecast)}"`)
+      csvRows.push(`"Contracted Won Revenue","${wonProposalsList.length}","${formatMoney(totalWonValue)}"`)
+      csvRows.push(`"True Proposal Win Rate (Decided Bids)","${decidedProposalsCount} decided","${trueProposalWinRate != null ? trueProposalWinRate + '%' : 'N/A'}"`)
+      csvRows.push(`"Lead Qualification Rate","${filteredProposals.length} total intake","${leadQualificationRate}%"`)
       csvRows.push('')
 
-      csvRows.push('SBU PERFORMANCE MATRIX,OPEN PROPOSALS,OPEN VALUE (ETB),WEIGHTED FORECAST (ETB),PERIOD TARGET (ETB),TARGET ATTAINMENT %')
+      csvRows.push('SBU PERFORMANCE MATRIX,PRE-TENDER LEADS,ACTIVE TENDERS,ACTIVE TENDER VALUE (ETB),WEIGHTED FORECAST (ETB),PERIOD TARGET (ETB),TARGET ATTAINMENT %')
       sbuMetrics.forEach((m) => {
-        csvRows.push(`"${m.name}","${m.openCount}","${m.openValue}","${m.weightedForecast}","${m.target}","${m.attainmentPct}%"`)
+        csvRows.push(`"${m.name}","${m.leadCount}","${m.openCount}","${m.openValue}","${m.weightedForecast}","${m.target}","${m.attainmentPct}%"`)
       })
       csvRows.push('')
 
-      csvRows.push('STAGE,DEAL COUNT,NOMINAL VALUE (ETB),PROBABILITY %,WEIGHTED FORECAST (ETB)')
+      csvRows.push('STAGE,TIER,DEAL COUNT,NOMINAL VALUE (ETB),PROBABILITY %,WEIGHTED FORECAST (ETB)')
       stageBreakdown.forEach((s) => {
-        csvRows.push(`"${s.status}","${s.count}","${s.nominal}","${s.prob}%","${s.weighted}"`)
+        const tier = s.isLead ? 'Lead Intake' : s.isOutcome ? 'Final Outcome' : 'Formal Tender'
+        csvRows.push(`"${s.status}","${tier}","${s.count}","${s.nominal}","${s.prob}%","${s.weighted}"`)
       })
       csvRows.push('')
 
-      downloadCSV(`iCapital_Forecast_${selectedQuarter}_${today}.csv`, csvRows)
+      downloadCSV(`iCapital_Executive_Forecast_${selectedQuarter}_${today}.csv`, csvRows)
     } catch (err) {
       alert('Could not export report: ' + (err.message || err))
     } finally {
@@ -384,28 +403,21 @@ export default function SummaryDashboard() {
     }
   }
 
-  const cards = data
+  const operationalKpiCards = data
     ? [
-        ['Clients', formatNumber(data.clients_total), '#client-directory'],
-        ['Leads', formatNumber(data.leads_total), '#lead-management'],
-        ['Total proposals', formatNumber(filteredProposals.length), '#proposal-tracking'],
-        ['Open proposals', formatNumber(openProposalsList.length), '#proposal-tracking'],
-        ['Won proposals', formatNumber(wonProposalsList.length), null],
-        ['Lost proposals', formatNumber(filteredProposals.filter((p) => p.status === 'Lost').length), null],
-        ['Win rate', (wonProposalsList.length + filteredProposals.filter((p) => p.status === 'Lost').length) > 0 
-          ? `${Math.round((wonProposalsList.length / (wonProposalsList.length + filteredProposals.filter((p) => p.status === 'Lost').length)) * 100)}%` 
-          : 'No decided', null],
-        ['Pending actions', formatNumber(data.pending_actions), '#follow-up-queue'],
-        ['Overdue actions', formatNumber(data.overdue_actions), '#follow-up-queue'],
-        ['Due today', formatNumber(data.due_today_actions), '#follow-up-queue'],
-        ['Upcoming actions', formatNumber(data.upcoming_actions), '#follow-up-queue'],
-        ['Date needed', formatNumber(data.undated_actions), '#follow-up-queue'],
+        ['Total Clients', formatNumber(data.clients_total), '#client-directory', 'Institutional client directory'],
+        ['Pre-Tender Leads', formatNumber(leadProposalsList.length), '#deals-and-proposals', 'Early inquiries in qualification (Initiated)'],
+        ['Formal Proposals', formatNumber(openFormalProposalsList.length), '#deals-and-proposals', 'Active tenders from In Progress to Negotiation'],
+        ['Signed Won Deals', formatNumber(wonProposalsList.length), null, 'Contracted engagements'],
+        ['True Win Rate', trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'No decided', null, `Won vs Lost (${decidedProposalsCount} bids decided)`],
+        ['Lead Conversion Rate', `${leadQualificationRate}%`, null, `${formalProposalsList.length} of ${filteredProposals.length} advanced to tenders`],
+        ['Pending Actions', formatNumber(data.pending_actions), '#follow-up-queue', 'Scheduled touchpoints'],
+        ['Overdue Actions', formatNumber(data.overdue_actions), '#follow-up-queue', 'Urgent SLA follow-ups needed'],
       ]
     : []
 
   return (
     <section aria-label="Summary Dashboard" style={{ marginBottom: 36, paddingBottom: 28, borderBottom: '1px solid #dbe2ea' }}>
-      {/* Print Style Injector for Crisp PDF Generation */}
       <style>{`
         @media print {
           body * {
@@ -436,7 +448,7 @@ export default function SummaryDashboard() {
         <div>
           <h2 style={{ margin: '0 0 4px 0', color: '#0f172a' }}>Executive Opportunity & Revenue Forecast Dashboard</h2>
           <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
-            Probability-weighted pipeline forecasting, SBU revenue target attainment, and live deal counts.
+            Two-tier commercial intelligence: Pre-tender lead qualification and formal proposal revenue realization.
           </p>
         </div>
 
@@ -605,7 +617,7 @@ export default function SummaryDashboard() {
 
       {!loading && !error && data && (
         <>
-          {/* 🎉 AUTOMATED DEAL WON CONGRATULATIONS SHOWCASE */}
+          {/* DEAL WON CONGRATULATIONS SHOWCASE */}
           {latestWonDeal && (
             <div
               style={{
@@ -622,7 +634,6 @@ export default function SummaryDashboard() {
                 gap: 16,
               }}
             >
-              {/* Left Side: Owner Photo & Congratulatory Details */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <OwnerPhoto name={latestWonOwner} />
                 <div>
@@ -654,7 +665,6 @@ export default function SummaryDashboard() {
                 </div>
               </div>
 
-              {/* Right Side: Final Value & SBU */}
               <div style={{ textAlign: 'right', minWidth: 160 }}>
                 <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>
                   Contracted Won Revenue
@@ -669,46 +679,79 @@ export default function SummaryDashboard() {
             </div>
           )}
 
-          {/* Revenue Forecast Trio */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14, marginTop: 20 }}>
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18, borderLeft: '4px solid #0284c7' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
-                Nominal Open Pipeline Value ({selectedQuarter})
-              </span>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', margin: '8px 0 4px 0' }}>
-                {formatMoney(totalOpenValue)}
+          {/* ======================================================== */}
+          {/* 4-PILLAR REVENUE & PIPELINE FORECAST GRID (TIERED)        */}
+          {/* ======================================================== */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginTop: 20 }}>
+            {/* Pillar 1: Speculative Pre-Tender Leads */}
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18, borderLeft: '4px solid #0284c7' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>
+                  🎯 Pre-Tender Leads Pipeline
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 800, background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4 }}>
+                  Initiated
+                </span>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '8px 0 4px 0' }}>
+                {formatMoney(totalSpeculativeLeadValue)}
               </div>
               <span style={{ fontSize: 12, color: '#64748b' }}>
-                {openProposalsList.length} active proposals in pursuit
+                {leadProposalsList.length} exploratory opportunities in qualification
               </span>
             </div>
 
+            {/* Pillar 2: Active Formal Tender Pipeline */}
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: 18, borderLeft: '4px solid #f59e0b' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#b45309', textTransform: 'uppercase' }}>
+                  📘 Active Tender Pipeline
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 800, background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: 4 }}>
+                  In Progress – Neg.
+                </span>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#78350f', margin: '8px 0 4px 0' }}>
+                {formatMoney(totalActiveTenderValue)}
+              </div>
+              <span style={{ fontSize: 12, color: '#92400e' }}>
+                {openFormalProposalsList.length} formal proposals in development & defense
+              </span>
+            </div>
+
+            {/* Pillar 3: Weighted Proposal Realization */}
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 18, borderLeft: '4px solid #16a34a' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase' }}>
-                  📈 Weighted Revenue Forecast ({selectedQuarter})
+                  📈 Weighted Tender Realization
                 </span>
-                <span style={{ fontSize: 10, fontWeight: 700, background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: 4 }}>
-                  Expected Value
+                <span style={{ fontSize: 10, fontWeight: 800, background: '#dcfce7', color: '#166534', padding: '2px 6px', borderRadius: 4 }}>
+                  Risk-Adjusted
                 </span>
               </div>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#15803d', margin: '8px 0 4px 0' }}>
-                {formatMoney(totalWeightedForecast)}
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#15803d', margin: '8px 0 4px 0' }}>
+                {formatMoney(totalFormalWeightedForecast)}
               </div>
               <span style={{ fontSize: 12, color: '#166534' }}>
-                Stage probability weighted conversion expectation
+                Stage-weighted expected conversion from formal bids
               </span>
             </div>
 
-            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18, borderLeft: '4px solid #8b5cf6' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
-                🏆 Contracted Won Revenue ({selectedQuarter})
-              </span>
-              <div style={{ fontSize: 24, fontWeight: 800, color: '#7c3aed', margin: '8px 0 4px 0' }}>
+            {/* Pillar 4: Contracted Won Revenue */}
+            <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 10, padding: 18, borderLeft: '4px solid #8b5cf6' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#6b21a8', textTransform: 'uppercase' }}>
+                  🏆 Contracted Won Revenue
+                </span>
+                <span style={{ fontSize: 10, fontWeight: 800, background: '#f3e8ff', color: '#6b21a8', padding: '2px 6px', borderRadius: 4 }}>
+                  Signed Deals
+                </span>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: '#7c3aed', margin: '8px 0 4px 0' }}>
                 {formatMoney(totalWonValue)}
               </div>
-              <span style={{ fontSize: 12, color: '#64748b' }}>
-                {wonProposalsList.length} signed deals in period
+              <span style={{ fontSize: 12, color: '#6b21a8' }}>
+                {wonProposalsList.length} closed won engagements in period
               </span>
             </div>
           </div>
@@ -764,8 +807,8 @@ export default function SummaryDashboard() {
                       <span>{formatMoney(sbu.target)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: 6, marginTop: 4 }}>
-                      <span>Deals in Pipe:</span>
-                      <span>{sbu.openCount} open ({sbu.wonCount} won)</span>
+                      <span>Portfolio Breakdown:</span>
+                      <span>{sbu.openCount} tenders • {sbu.leadCount} leads ({sbu.wonCount} won)</span>
                     </div>
                   </div>
                 </div>
@@ -773,12 +816,11 @@ export default function SummaryDashboard() {
             </div>
           </div>
 
-          {/* Dynamic Visual Analytics: Bar Chart & Pie Chart */}
+          {/* Visual Analytics: Bar Chart & Pie Chart */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '20px', margin: '24px 0' }}>
-            {/* SBU Target vs Forecast Bar Chart */}
             <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
-                📊 SBU Target Quota vs. Weighted Forecast (ETB) — {selectedQuarter}
+                📊 SBU Target Quota vs. Weighted Tender Forecast (ETB) — {selectedQuarter}
               </h3>
               <div style={{ width: '100%', height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -794,10 +836,9 @@ export default function SummaryDashboard() {
               </div>
             </div>
 
-            {/* Pipeline Distribution Donut Chart */}
             <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
-                🍩 SBU Weighted Revenue Share — {selectedQuarter}
+                🍩 SBU Weighted Tender Realization Share — {selectedQuarter}
               </h3>
               <div style={{ width: '100%', height: 280 }}>
                 <ResponsiveContainer width="100%" height="100%">
@@ -823,12 +864,12 @@ export default function SummaryDashboard() {
             </div>
           </div>
 
-          {/* Operational KPIs */}
+          {/* Operational KPIs with Dual Conversion Metrics */}
           <h3 style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>
-            CRM Pipeline Operational Metrics ({selectedQuarter})
+            CRM Commercial & Operational Performance ({selectedQuarter})
           </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-            {cards.map(([label, value, href]) => (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+            {operationalKpiCards.map(([label, value, href, description]) => (
               <div
                 key={label}
                 style={{
@@ -850,29 +891,50 @@ export default function SummaryDashboard() {
                     value
                   )}
                 </div>
+                {description && (
+                  <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+                    {description}
+                  </div>
+                )}
               </div>
             ))}
           </div>
 
-          {/* Funnel Table */}
+          {/* Tiered Funnel Table */}
           <h3 style={{ marginTop: 32, marginBottom: 12, color: '#0f172a' }}>
-            Stage-by-Stage Weighted Funnel Analysis ({selectedQuarter})
+            Two-Tier Funnel: Pre-Tender Leads vs. Formal Proposals ({selectedQuarter})
           </h3>
           <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Pipeline Stage</th>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Proposals</th>
+                  <th style={{ padding: '10px 14px', color: '#475569' }}>Pipeline Tier</th>
+                  <th style={{ padding: '10px 14px', color: '#475569' }}>Stage</th>
+                  <th style={{ padding: '10px 14px', color: '#475569' }}>Deals</th>
                   <th style={{ padding: '10px 14px', color: '#475569' }}>Nominal Deal Value (ETB)</th>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Win Probability %</th>
+                  <th style={{ padding: '10px 14px', color: '#475569' }}>Probability</th>
                   <th style={{ padding: '10px 14px', color: '#475569' }}>Weighted Forecast (ETB)</th>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Pipeline Share</th>
+                  <th style={{ padding: '10px 14px', color: '#475569' }}>Tender Share</th>
                 </tr>
               </thead>
               <tbody>
                 {stageBreakdown.map((row) => (
-                  <tr key={row.status} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={row.status} style={{ borderBottom: '1px solid #f1f5f9', background: row.isLead ? '#f0f9ff' : row.isOutcome ? '#f8fafc' : '#ffffff' }}>
+                    <td style={{ padding: '10px 14px' }}>
+                      {row.isLead ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#e0f2fe', color: '#0369a1' }}>
+                          🎯 Pre-Tender Lead
+                        </span>
+                      ) : row.isOutcome ? (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#f1f5f9', color: '#475569' }}>
+                          🏁 Commercial Outcome
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>
+                          📄 Formal Tender
+                        </span>
+                      )}
+                    </td>
                     <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>{row.status}</td>
                     <td style={{ padding: '10px 14px', color: '#334155' }}>{row.count}</td>
                     <td style={{ padding: '10px 14px', color: '#0f172a', fontWeight: 600 }}>{formatMoney(row.nominal)}</td>
@@ -882,7 +944,7 @@ export default function SummaryDashboard() {
                       </span>
                     </td>
                     <td style={{ padding: '10px 14px', color: '#15803d', fontWeight: 700 }}>{formatMoney(row.weighted)}</td>
-                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{row.share}%</td>
+                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{row.share > 0 ? `${row.share}%` : '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -891,7 +953,7 @@ export default function SummaryDashboard() {
         </>
       )}
 
-      {/* FEATURE 5: PRINTABLE EXECUTIVE BRIEFING DOSSIER MODAL */}
+      {/* PRINTABLE EXECUTIVE BRIEFING DOSSIER MODAL */}
       {showBriefingModal && (
         <div
           style={{
@@ -912,14 +974,13 @@ export default function SummaryDashboard() {
               background: '#ffffff',
               borderRadius: 12,
               width: '100%',
-              maxWidth: 820,
+              maxWidth: 840,
               padding: 32,
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
               maxHeight: '90vh',
               overflowY: 'auto',
             }}
           >
-            {/* Modal Header & Actions (Hidden during print) */}
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 16, marginBottom: 24 }}>
               <div>
                 <h3 style={{ margin: 0, color: '#0f172a' }}>Executive Memorandum Preview</h3>
@@ -966,7 +1027,6 @@ export default function SummaryDashboard() {
               </div>
             </div>
 
-            {/* Document Letterhead */}
             <div style={{ fontFamily: 'Georgia, serif', color: '#0f172a' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: 14 }}>
                 <div>
@@ -974,7 +1034,7 @@ export default function SummaryDashboard() {
                     The i-Capital Africa Institute
                   </h1>
                   <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#475569', fontFamily: 'sans-serif' }}>
-                    Executive Pipeline & Probability-Weighted Revenue Briefing — <strong>{activeQuarterObj.label}</strong>
+                    Executive Opportunity & Revenue Briefing — <strong>{activeQuarterObj.label}</strong>
                   </p>
                 </div>
                 <div style={{ textAlign: 'right', fontFamily: 'sans-serif', fontSize: 11, color: '#64748b' }}>
@@ -984,35 +1044,31 @@ export default function SummaryDashboard() {
                 </div>
               </div>
 
-              {/* Financial Snapshot Table */}
+              {/* Tiered Financial Snapshot */}
               <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
                   1. Executive Financial Summary ({selectedQuarter})
                 </h4>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                  <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 4 }}>
-                    <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>NOMINAL PIPELINE</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>{formatMoney(totalOpenValue)}</div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>{openProposalsList.length} Active Deals</div>
+                  <div style={{ padding: 10, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 4 }}>
+                    <div style={{ fontSize: 10, color: '#0369a1', fontWeight: 700 }}>PRE-TENDER LEADS</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#0369a1', marginTop: 4 }}>{formatMoney(totalSpeculativeLeadValue)}</div>
+                    <div style={{ fontSize: 10, color: '#64748b' }}>{leadProposalsList.length} In Qualification</div>
+                  </div>
+                  <div style={{ padding: 10, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 4 }}>
+                    <div style={{ fontSize: 10, color: '#92400e', fontWeight: 700 }}>ACTIVE FORMAL TENDERS</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#92400e', marginTop: 4 }}>{formatMoney(totalActiveTenderValue)}</div>
+                    <div style={{ fontSize: 10, color: '#92400e' }}>{openFormalProposalsList.length} Bids in Pursuit</div>
                   </div>
                   <div style={{ padding: 10, background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 4 }}>
-                    <div style={{ fontSize: 10, color: '#166534', fontWeight: 700 }}>WEIGHTED FORECAST</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#166534', marginTop: 4 }}>{formatMoney(totalWeightedForecast)}</div>
-                    <div style={{ fontSize: 10, color: '#166534' }}>Probability Expected</div>
+                    <div style={{ fontSize: 10, color: '#166534', fontWeight: 700 }}>WEIGHTED TENDER FORECAST</div>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: '#166534', marginTop: 4 }}>{formatMoney(totalFormalWeightedForecast)}</div>
+                    <div style={{ fontSize: 10, color: '#166534' }}>Probability Realization</div>
                   </div>
-                  <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 4 }}>
-                    <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>CONTRACTED WON</div>
+                  <div style={{ padding: 10, background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 4 }}>
+                    <div style={{ fontSize: 10, color: '#6b21a8', fontWeight: 700 }}>CONTRACTED WON</div>
                     <div style={{ fontSize: 15, fontWeight: 800, color: '#7c3aed', marginTop: 4 }}>{formatMoney(totalWonValue)}</div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>{wonProposalsList.length} Deals Closed</div>
-                  </div>
-                  <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 4 }}>
-                    <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700 }}>WIN RATE EFFICIENCY</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>
-                      {(wonProposalsList.length + filteredProposals.filter((p) => p.status === 'Lost').length) > 0 
-                        ? `${Math.round((wonProposalsList.length / (wonProposalsList.length + filteredProposals.filter((p) => p.status === 'Lost').length)) * 100)}%` 
-                        : 'N/A'}
-                    </div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>Decided in Period</div>
+                    <div style={{ fontSize: 10, color: '#6b21a8' }}>{wonProposalsList.length} Closed Deals</div>
                   </div>
                 </div>
               </div>
@@ -1026,10 +1082,11 @@ export default function SummaryDashboard() {
                   <thead>
                     <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
                       <th style={{ padding: '6px 10px', textAlign: 'left' }}>SBU</th>
-                      <th style={{ padding: '6px 10px', textAlign: 'center' }}>Open Pursuits</th>
-                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Nominal Open (ETB)</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'center' }}>Leads</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'center' }}>Tenders</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Active Tenders (ETB)</th>
                       <th style={{ padding: '6px 10px', textAlign: 'right' }}>Weighted Forecast (ETB)</th>
-                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Target Quota (ETB)</th>
+                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Target (ETB)</th>
                       <th style={{ padding: '6px 10px', textAlign: 'center' }}>Attainment %</th>
                     </tr>
                   </thead>
@@ -1037,7 +1094,8 @@ export default function SummaryDashboard() {
                     {sbuMetrics.map((m) => (
                       <tr key={m.name} style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '6px 10px', fontWeight: 700 }}>{m.name}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'center' }}>{m.openCount}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'center', color: '#0369a1' }}>{m.leadCount}</td>
+                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600 }}>{m.openCount}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'right' }}>{formatMoney(m.openValue)}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#166534' }}>{formatMoney(m.weightedForecast)}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'right' }}>{formatMoney(m.target)}</td>
@@ -1048,10 +1106,10 @@ export default function SummaryDashboard() {
                 </table>
               </div>
 
-              {/* Top Active Pursuits */}
+              {/* Key Active Pursuits */}
               <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
                 <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
-                  3. Key Open Pipeline Pursuits ({selectedQuarter})
+                  3. Key Open Formal Tender Pursuits ({selectedQuarter})
                 </h4>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '1px solid #cbd5e1' }}>
                   <thead>
@@ -1079,10 +1137,10 @@ export default function SummaryDashboard() {
                 </table>
               </div>
 
-              {/* SLA & Governance Summary */}
+              {/* Governance & Win Rate Footer */}
               <div style={{ margin: '20px 0 0 0', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #cbd5e1', paddingTop: 12, fontSize: 11, fontFamily: 'sans-serif' }}>
                 <div>
-                  <strong>SLA Compliance Queue:</strong> {data.overdue_actions || 0} Overdue • {data.due_today_actions || 0} Due Today • {data.upcoming_actions || 0} Scheduled Follow-Ups
+                  <strong>Bidding Performance:</strong> True Proposal Win Rate: {trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'N/A'} • Lead Qualification Rate: {leadQualificationRate}%
                 </div>
                 <div style={{ color: '#64748b' }}>
                   Verified by Master CRM Pipeline • Addis Ababa, Ethiopia
