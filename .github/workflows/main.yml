@@ -24,9 +24,12 @@ jobs:
       - name: Run Daily Morning Briefing
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL || secrets.VITE_SUPABASE_URL }}
-          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_KEY || secrets.SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || secrets.SUPABASE_KEY || secrets.VITE_SUPABASE_ANON_KEY || secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
-          BRIEF_RECIPIENT_EMAIL: ${{ secrets.BRIEF_RECIPIENT_EMAIL || 'ybeltalsemagn8899@gmail.com' }}
+          NOTIFICATION_EMAIL: ${{ secrets.NOTIFICATION_EMAIL || secrets.BRIEF_RECIPIENT_EMAIL || 'ybeltalsemagn8899@gmail.com' }}
+          BRIEF_RECIPIENT_EMAIL: ${{ secrets.BRIEF_RECIPIENT_EMAIL || secrets.NOTIFICATION_EMAIL || 'ybeltalsemagn8899@gmail.com' }}
           CRM_URL: 'https://icapitalcrm.pro.et'
         run: node scripts/sendDailyBrief.js
