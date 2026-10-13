@@ -14,7 +14,7 @@ export default function PipelineCoverageGauge({ proposals = [] }) {
     if (code) return code.toUpperCase()
     // Fallback detection from title or notes
     const txt = `${p.title || ''} ${p.product_engine || ''} ${p.notes || ''}`.toUpperCase()
-    if (txt.includes('CBS')) return 'CBS'
+    if (txt.includes('CBS') || txt.includes('CROSS BORDER')) return 'CBS'
     if (txt.includes('IIP') || txt.includes('INVESTMENT')) return 'IIP'
     if (txt.includes('DAS') || txt.includes('SHOFER') || txt.includes('DIGITAL')) return 'DAS'
     return 'INST' // Default to Institute
@@ -28,7 +28,7 @@ export default function PipelineCoverageGauge({ proposals = [] }) {
     DAS: 0,
   }
 
-  // Track Direct vs Tender for Institute and CBS
+  // Track Direct vs Tender for Institute and Cross Border Solutions
   const sourcingBreakdown = {
     INST: { direct: 0, tender: 0 },
     CBS: { direct: 0, tender: 0 },
@@ -102,7 +102,7 @@ export default function PipelineCoverageGauge({ proposals = [] }) {
             </span>
           </div>
           <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b' }}>
-            FY 2026/27 Group Governance Rule: 3.0× active pipeline required to secure the ETB 256.60M revenue target.
+            Group Governance Rule: 3.0× active pipeline required to secure the ETB 256.60M revenue target.
           </p>
         </div>
 
@@ -136,6 +136,7 @@ export default function PipelineCoverageGauge({ proposals = [] }) {
           const activeVal = sbuActiveValues[key] || 0
           const cov = calculatePipelineCoverage(activeVal, config.requiredPipelineTarget)
           const col = getStatusColor(cov.status)
+          const displayName = key === 'CBS' ? 'Cross Border Solutions' : config.name
 
           return (
             <div
@@ -152,7 +153,7 @@ export default function PipelineCoverageGauge({ proposals = [] }) {
             >
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: 13, color: '#1e293b' }}>{config.name}</strong>
+                  <strong style={{ fontSize: 13, color: '#1e293b' }}>{displayName}</strong>
                   <span
                     style={{
                       fontSize: 10,
@@ -175,7 +176,7 @@ export default function PipelineCoverageGauge({ proposals = [] }) {
                   </div>
                 </div>
 
-                {/* Direct vs Tender Split for Institute & CBS */}
+                {/* Direct vs Tender Split for Institute & Cross Border Solutions */}
                 {hasSplit && (
                   <div
                     style={{
