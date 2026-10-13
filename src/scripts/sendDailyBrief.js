@@ -76,7 +76,6 @@ async function runDailyBriefing() {
     process.exit(1)
   }
 
-  // 1. Segregate Leads vs Formal Proposals
   const leadDeals = (proposals || []).filter((p) => p.status === 'Initiated')
   const formalDeals = (proposals || []).filter((p) => p.status !== 'Initiated')
 
@@ -97,7 +96,6 @@ async function runDailyBriefing() {
   const decidedCount = wonDeals.length + lostDeals.length
   const winRate = decidedCount > 0 ? Math.round((wonDeals.length / decidedCount) * 100) : null
 
-  // 2. Urgent Deadlines (< 5 days) & Overdue
   const now = new Date()
   const urgentProposals = openFormalDeals.filter((p) => {
     if (!p.submission_deadline) return false
@@ -118,7 +116,6 @@ async function runDailyBriefing() {
     year: 'numeric',
   })
 
-  // 3. Pre-compile HTML sections to prevent backtick interpolation errors
   let urgentSectionHtml = ''
   if (overdueProposals.length > 0 || urgentProposals.length > 0) {
     const overdueRows = overdueProposals.map((p) => `
@@ -209,7 +206,6 @@ async function runDailyBriefing() {
       <div class="subtitle">Two-Tier Commercial Pipeline Briefing • <strong>${todayStr}</strong></div>
     </div>
 
-    <!-- 4-PILLAR REVENUE SNAPSHOT -->
     <div class="grid">
       <div class="col" style="background: #f0f9ff; border: 1px solid #bae6fd; margin-right: 6px;">
         <span class="pill" style="background: #e0f2fe; color: #0369a1;">Pre-Tender Leads</span>
@@ -233,27 +229,22 @@ async function runDailyBriefing() {
       </div>
     </div>
 
-    <!-- OVERDUE & URGENT WATCHLIST -->
     ${urgentSectionHtml}
 
-    <!-- ACTIVE FORMAL PROPOSALS IN PURSUIT -->
     <div class="section-title">
       📄 Active Formal Proposal Pursuits (${openFormalDeals.length})
     </div>
     ${activeProposalsRows}
 
-    <!-- PRE-TENDER LEADS IN INTAKE -->
     <div class="section-title" style="border-left-color: #0284c7;">
       🎯 Pre-Tender Leads in Qualification (${leadDeals.length})
     </div>
     ${leadProposalsRows}
 
-    <!-- PERFORMANCE STATS -->
     <div style="border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 14px; font-size: 11px; color: #64748b;">
       <strong>Conversion Record:</strong> True Proposal Win Rate: <strong>${winRate != null ? winRate + '%' : 'N/A'}</strong> (${decidedCount} decided) • Total Opportunities: ${proposals.length}
     </div>
 
-    <!-- CTA BUTTON -->
     <div style="text-align: center;">
       <a href="https://icapitalcrm.pro.et" class="cta-btn">
         🚀 Open Live i-Capital CRM Hub
