@@ -374,3 +374,10 @@ export const SBU_PRODUCT_TAXONOMY = {
     ],
   },
 }
+// Budget / Deal Size Classification Tiers
+export const BUDGET_TIERS = [
+  { id: 'TIER_1', label: 'Tier 1 (< 500K ETB)', min: 0, max: 500000 },
+  { id: 'TIER_2', label: 'Tier 2 (500K - 2M ETB)', min: 500000, max: 2000000 },
+  { id: 'TIER_3', label: 'Tier 3 (2M - 10M ETB)', min: 2000000, max: 10000000 },
+  { id: 'TIER_4', label: 'Tier 4 (> 10M ETB Mega Deal)', min: 10000000, max: Infinity },
+]
