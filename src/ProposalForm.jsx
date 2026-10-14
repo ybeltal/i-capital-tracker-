@@ -8,6 +8,14 @@ import {
   evaluateStageGate,
 } from './pipelineConfig'
 
+const PROPOSAL_DEVELOPERS = [
+  { id: 'Ybeltal Semagn', name: 'Ybeltal Semagn (DAS / BD Lead)' },
+  { id: 'Institute SBU Team', name: 'Institute SBU Technical Team' },
+  { id: 'CBS SBU Team', name: 'CBS SBU Technical Team' },
+  { id: 'IIP SBU Team', name: 'IIP SBU Technical Team' },
+  { id: 'DAS SBU Team', name: 'DAS SBU Technical Team' },
+]
+
 export default function ProposalForm({ leadVersion = 0, onSaved }) {
   const [leads, setLeads] = useState([])
   const [leadId, setLeadId] = useState('')
@@ -16,6 +24,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
   const [productEngine, setProductEngine] = useState('')
   const [specificProduct, setSpecificProduct] = useState('')
   const [bdOwner, setBdOwner] = useState('')
+  const [proposalDeveloper, setProposalDeveloper] = useState('Ybeltal Semagn')
   const [nextAction, setNextAction] = useState('')
   const [nextActionDate, setNextActionDate] = useState('')
   const [deadline, setDeadline] = useState('')
@@ -127,6 +136,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
     client_name: selectedLead?.clients?.name,
     product_engine: productEngine.trim() || specificProduct.trim(),
     bd_owner: bdOwner.trim(),
+    proposal_developer: proposalDeveloper.trim(),
     notes: combinedNotes,
     next_action: nextAction.trim(),
     next_action_date: nextActionDate,
@@ -183,6 +193,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
           product_engine: productEngine.trim() || null,
           specific_product: specificProduct.trim() || null,
           bd_owner: bdOwner.trim() || null,
+          proposal_developer: proposalDeveloper.trim() || null,
           next_action: nextAction.trim() || null,
           next_action_date: nextActionDate || null,
           is_tracker_ready: currentReadiness.isReady,
@@ -199,6 +210,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
       setProductEngine('')
       setSpecificProduct('')
       setBdOwner('')
+      setProposalDeveloper('Ybeltal Semagn')
       setNextAction('')
       setNextActionDate('')
       setDeadline('')
@@ -388,7 +400,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             </div>
           </div>
 
-          {/* Commercial Owner & Next Action */}
+          {/* Commercial Owner & Proposal Developer Accountability */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
             <div>
               <label htmlFor="proposal-owner">BD / Commercial Owner</label>
@@ -401,6 +413,23 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
               />
             </div>
             <div>
+              <label htmlFor="proposal-developer">Assigned Proposal Developer (Tech/Fin)</label>
+              <select
+                id="proposal-developer"
+                value={proposalDeveloper}
+                onChange={(event) => setProposalDeveloper(event.target.value)}
+                disabled={busy}
+              >
+                {PROPOSAL_DEVELOPERS.map((dev) => (
+                  <option key={dev.id} value={dev.id}>{dev.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Action Date & Mandatory Next Action */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+            <div>
               <label htmlFor="proposal-action-date">Action Target Date</label>
               <input
                 id="proposal-action-date"
@@ -410,19 +439,17 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
                 disabled={busy}
               />
             </div>
+            <div>
+              <label htmlFor="proposal-action">Mandatory Next Action</label>
+              <input
+                id="proposal-action"
+                placeholder="e.g., Submit technical offer"
+                value={nextAction}
+                onChange={(event) => setNextAction(event.target.value)}
+                disabled={busy}
+              />
+            </div>
           </div>
-
-          {/* Mandatory Next Action */}
-          <label htmlFor="proposal-action" style={{ marginTop: 12, display: 'block' }}>
-            Mandatory Next Action
-          </label>
-          <input
-            id="proposal-action"
-            placeholder="e.g., Conduct discovery meeting; submit technical offer"
-            value={nextAction}
-            onChange={(event) => setNextAction(event.target.value)}
-            disabled={busy}
-          />
 
           {/* Live Governance Tracker-Readiness Status Card */}
           <div
