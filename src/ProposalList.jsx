@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { PIPELINE_STAGES, LOSS_REASONS, evaluateStageGate } from './pipelineConfig'
+import UserAvatar from './UserAvatar'
 
 export default function ProposalList({ refreshVersion, onRefresh }) {
   const [proposals, setProposals] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  
+
   // DEFAULT TO 'all' SO BOARD MEMBERS SEE EVERY DEAL INSTANTLY
   const [pipelineTab, setPipelineTab] = useState('all') // 'proposals', 'leads', 'all'
   const [selectedSbu, setSelectedSbu] = useState('ALL')
@@ -38,6 +39,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
           submission_deadline,
           product_engine,
           bd_owner,
+          proposal_developer,
           notes,
           created_at,
           opportunities (
@@ -91,8 +93,12 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
 
       const updatePayload = {
         status: stage,
-        ...(extraFields.deal_value_etb !== undefined && { deal_value_etb: extraFields.deal_value_etb ? parseFloat(extraFields.deal_value_etb) : null }),
-        ...(extraFields.submission_deadline !== undefined && { submission_deadline: extraFields.submission_deadline || null }),
+        ...(extraFields.deal_value_etb !== undefined && {
+          deal_value_etb: extraFields.deal_value_etb ? parseFloat(extraFields.deal_value_etb) : null,
+        }),
+        ...(extraFields.submission_deadline !== undefined && {
+          submission_deadline: extraFields.submission_deadline || null,
+        }),
         ...(updatedNotes !== undefined && { notes: updatedNotes }),
       }
 
@@ -130,7 +136,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
     const isPreTender = p.status === 'Initiated' || p.status === 'Lead'
     if (pipelineTab === 'proposals') return !isPreTender
     if (pipelineTab === 'leads') return isPreTender
-    return true // 'all'
+    return true
   })
 
   // Filter logic for SBU & Search
@@ -191,7 +197,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Pipeline View:</span>
-          
+
           <button
             type="button"
             onClick={() => setPipelineTab('all')}
@@ -223,7 +229,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
               color: pipelineTab === 'proposals' ? '#fff' : '#475569',
             }}
           >
-            Formal Proposals ({proposals.filter(p => p.status !== 'Initiated' && p.status !== 'Lead').length})
+            Formal Proposals ({proposals.filter((p) => p.status !== 'Initiated' && p.status !== 'Lead').length})
           </button>
 
           <button
@@ -240,7 +246,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
               color: pipelineTab === 'leads' ? '#fff' : '#475569',
             }}
           >
-            Leads & Pre-Tenders ({proposals.filter(p => p.status === 'Initiated' || p.status === 'Lead').length})
+            Leads & Pre-Tenders ({proposals.filter((p) => p.status === 'Initiated' || p.status === 'Lead').length})
           </button>
         </div>
 
@@ -318,7 +324,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                               {sbuCode} {isPreTender ? '• Pre-Tender' : ''}
                             </span>
                           </div>
-                          
+
                           <div style={{ fontWeight: 600, fontSize: 12, color: '#0f172a', marginBottom: 2 }}>
                             {deal.opportunities?.clients?.name || 'Client'}
                           </div>
@@ -326,11 +332,29 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                             {deal.title}
                           </div>
 
+                          {/* AVATAR ACCOUNTABILITY ROW: BD Commercial Owner & Proposal Developer */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, paddingTop: 6, borderTop: '1px solid #f8fafc' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <UserAvatar name={deal.bd_owner} size={20} />
+                              <span style={{ fontSize: 11, color: '#334155', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {deal.bd_owner || 'Commercial Lead'}
+                              </span>
+                            </div>
+                            {deal.proposal_developer && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <UserAvatar name={deal.proposal_developer} size={20} />
+                                <span style={{ fontSize: 10, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {deal.proposal_developer}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 6, borderTop: '1px solid #f1f5f9' }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: '#166534' }}>
                               ETB {deal.deal_value_etb ? Number(deal.deal_value_etb).toLocaleString() : '0'}
                             </span>
-                            
+
                             <select
                               value={deal.status}
                               onChange={(e) => handleStatusChangeAttempt(deal, e.target.value)}
@@ -365,6 +389,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Client</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Scope / Title</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>SBU & Engine</th>
+                <th style={{ padding: '10px 14px', color: '#475569' }}>Accountability (BD / Dev)</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Deal Value (ETB)</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Pipeline Stage</th>
               </tr>
@@ -382,6 +407,18 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                     <td style={{ padding: '10px 14px' }}>
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>{sbuName}</div>
                       <div style={{ fontSize: 10, color: '#64748b' }}>{p.product_engine || 'General'}</div>
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <UserAvatar name={p.bd_owner} size={20} />
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>{p.bd_owner || 'Commercial Lead'}</span>
+                      </div>
+                      {p.proposal_developer && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <UserAvatar name={p.proposal_developer} size={18} />
+                          <span style={{ fontSize: 11, color: '#64748b' }}>{p.proposal_developer}</span>
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#166534' }}>ETB {dealVal}</td>
                     <td style={{ padding: '10px 14px' }}>
