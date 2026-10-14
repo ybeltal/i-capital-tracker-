@@ -2,15 +2,21 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts'
 import PipelineCoverageGauge from './PipelineCoverageGauge'
+import { SBU_PIPELINE_TARGETS } from './pipelineConfig'
 
 const STAGE_WEIGHTS = {
+  'Target': 0.05,
+  'Lead': 0.10,
   'Initiated': 0.10,
+  'Pre-Qualified': 0.25,
   'In Progress': 0.30,
+  'Qualified Pipeline': 0.50,
   'Submitted': 0.50,
   'Under Review': 0.60,
   'Shortlisted': 0.75,
   'Negotiation': 0.90,
   'Won': 1.00,
+  'Delivery & Repeat': 1.00,
   'On Hold': 0.20,
   'Lost': 0.00,
   'Cancelled': 0.00,
@@ -31,13 +37,30 @@ const proposalStatuses = [
 
 const CORE_SBUS = ['Institute', 'CBS', 'IIP', 'DAS']
 
-// FY 2026/27 Approved Annual Revenue Targets (ETB)
-const DEFAULT_TARGETS = {
-  'Institute': 63000000,
-  'CBS': 35000000,
-  'IIP': 140300000,
-  'DAS': 18295000,
+const SBU_DISPLAY_NAMES = {
+  'Institute': 'The i-Capital Institute',
+  'CBS': 'Cross Border Solutions (CBS)',
+  'IIP': 'i-Capital Investment Partners (IIP)',
+  'DAS': 'Digital & AI Solutions (DAS)',
 }
+
+// Official Readiness Report Annual Revenue Targets (ETB)
+const OFFICIAL_DOCUMENT_TARGETS = {
+  'Institute': SBU_PIPELINE_TARGETS.INSTITUTE.annualRevenueTarget, // 63,000,000
+  'CBS': SBU_PIPELINE_TARGETS.CBS.annualRevenueTarget,             // 35,000,000
+  'IIP': SBU_PIPELINE_TARGETS.IIP.annualRevenueTarget,             // 140,300,000
+  'DAS': SBU_PIPELINE_TARGETS.DAS.annualRevenueTarget,             // 18,295,000
+}
+
+// Official Readiness Report Quarterly Phasing (ETB)
+const OFFICIAL_QUARTERLY_TARGETS = {
+  'Institute': SBU_PIPELINE_TARGETS.INSTITUTE.quarterly,
+  'CBS': SBU_PIPELINE_TARGETS.CBS.quarterly,
+  'IIP': SBU_PIPELINE_TARGETS.IIP.quarterly,
+  'DAS': SBU_PIPELINE_TARGETS.DAS.quarterly,
+}
+
+const ADMIN_EMAILS = ['ybeltalsemagn8899@gmail.com']
 
 const SBU_COLORS = {
   'Institute': '#0284c7',
@@ -155,15 +178,17 @@ export default function SummaryDashboard() {
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [refreshVersion, setRefreshVersion] = useState(0)
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const [selectedQuarter, setSelectedQuarter] = useState('ALL')
 
+  // Load Official Document Targets by default (ignoring old unverified localStorage keys)
   const [sbuTargets, setSbuTargets] = useState(() => {
     try {
-      const saved = localStorage.getItem('icapital_sbu_targets')
-      return saved ? JSON.parse(saved) : DEFAULT_TARGETS
+      const saved = localStorage.getItem('icapital_sbu_targets_official_v2')
+      return saved ? JSON.parse(saved) : OFFICIAL_DOCUMENT_TARGETS
     } catch {
-      return DEFAULT_TARGETS
+      return OFFICIAL_DOCUMENT_TARGETS
     }
   })
   const [editingTargets, setEditingTargets] = useState(false)
@@ -177,6 +202,14 @@ export default function SummaryDashboard() {
       setLoading(true)
       setError('')
       try {
+        // Check if current logged-in user is Admin
+        const { data: authData } = await supabase.auth.getUser()
+        const email = authData?.user?.email?.toLowerCase() || ''
+        const role = authData?.user?.user_metadata?.role?.toLowerCase() || ''
+        if (!cancelled) {
+          setIsAdmin(ADMIN_EMAILS.includes(email) || role === 'admin')
+        }
+
         const [summaryRes, proposalsRes] = await Promise.all([
           supabase.rpc('get_dashboard_summary'),
           supabase
@@ -225,9 +258,21 @@ export default function SummaryDashboard() {
 
   function handleSaveTargets(e) {
     e.preventDefault()
+    if (!isAdmin) {
+      alert('Unauthorized: Only an Administrator can modify official SBU revenue targets.')
+      return
+    }
     setSbuTargets(tempTargets)
-    localStorage.setItem('icapital_sbu_targets', JSON.stringify(tempTargets))
+    localStorage.setItem('icapital_sbu_targets_official_v2', JSON.stringify(tempTargets))
     setEditingTargets(false)
+  }
+
+  function handleResetToOfficialDocumentTargets() {
+    if (!isAdmin) return
+    setTempTargets(OFFICIAL_DOCUMENT_TARGETS)
+    setSbuTargets(OFFICIAL_DOCUMENT_TARGETS)
+    localStorage.removeItem('icapital_sbu_targets_official_v2')
+    localStorage.removeItem('icapital_sbu_targets')
   }
 
   const filteredProposals = proposals.filter((p) => {
@@ -237,12 +282,12 @@ export default function SummaryDashboard() {
   })
 
   // Two-Tier Segregation: Leads vs Proposals
-  const leadProposalsList = filteredProposals.filter((p) => p.status === 'Initiated' || p.status === 'Target' || p.status === 'Lead')
+  const leadProposalsList = filteredProposals.filter((p) => ['Initiated', 'Target', 'Lead'].includes(p.status))
   const formalProposalsList = filteredProposals.filter((p) => !['Initiated', 'Target', 'Lead'].includes(p.status))
 
   // Formal Proposal Sub-Pipelines
   const openFormalProposalsList = formalProposalsList.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
-  const wonProposalsList = formalProposalsList.filter((p) => p.status === 'Won')
+  const wonProposalsList = formalProposalsList.filter((p) => p.status === 'Won' || p.status === 'Delivery & Repeat')
   const lostProposalsList = formalProposalsList.filter((p) => p.status === 'Lost')
 
   // Financial Buckets
@@ -269,12 +314,12 @@ export default function SummaryDashboard() {
   const latestWonDeal = wonProposalsList[0] || (selectedQuarter === 'ALL' ? proposals.find((p) => p.status === 'Won') : null)
   const latestWonOwner = latestWonDeal ? parseOwner(latestWonDeal.notes) : 'Ybeltal'
 
-  // SBU Performance Matrix for Selected Quarter
+  // SBU Performance Matrix for Selected Quarter using Official Document Phasing
   const sbuMetrics = CORE_SBUS.map((sbuName) => {
     const sbuDeals = filteredProposals.filter((p) => p.opportunities?.sbus?.name === sbuName)
     const sbuLeads = sbuDeals.filter((p) => ['Initiated', 'Target', 'Lead'].includes(p.status))
-    const sbuFormalOpen = sbuDeals.filter((p) => !['Initiated', 'Target', 'Lead', 'Won', 'Lost', 'Cancelled'].includes(p.status))
-    const sbuWon = sbuDeals.filter((p) => p.status === 'Won')
+    const sbuFormalOpen = sbuDeals.filter((p) => !['Initiated', 'Target', 'Lead', 'Won', 'Delivery & Repeat', 'Lost', 'Cancelled'].includes(p.status))
+    const sbuWon = sbuDeals.filter((p) => p.status === 'Won' || p.status === 'Delivery & Repeat')
     const sbuLost = sbuDeals.filter((p) => p.status === 'Lost')
 
     const leadVal = sbuLeads.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
@@ -287,15 +332,27 @@ export default function SummaryDashboard() {
       return sum + (val * prob)
     }, 0)
 
-    const baseTarget = sbuTargets[sbuName] || DEFAULT_TARGETS[sbuName] || 5000000
-    const target = selectedQuarter === 'ALL' ? baseTarget : Math.round(baseTarget / 4)
+    const baseAnnualTarget = sbuTargets[sbuName] || OFFICIAL_DOCUMENT_TARGETS[sbuName]
+    
+    // Use exact Readiness Report quarterly phasing when a specific quarter is selected
+    let target = baseAnnualTarget
+    if (selectedQuarter !== 'ALL') {
+      const qData = OFFICIAL_QUARTERLY_TARGETS[sbuName]?.[selectedQuarter]
+      if (qData && baseAnnualTarget === OFFICIAL_DOCUMENT_TARGETS[sbuName]) {
+        target = qData.revenue
+      } else {
+        target = Math.round(baseAnnualTarget / 4)
+      }
+    }
 
+    const required3xPipeline = target * 3
     const attainmentPct = target > 0 ? Math.min(150, Math.round((weightedForecast / target) * 100)) : 0
     const decided = sbuWon.length + sbuLost.length
     const winRate = decided > 0 ? Math.round((sbuWon.length / decided) * 100) : null
 
     return {
       name: sbuName,
+      displayName: SBU_DISPLAY_NAMES[sbuName] || sbuName,
       totalDeals: sbuDeals.length,
       leadCount: sbuLeads.length,
       openCount: sbuFormalOpen.length,
@@ -305,6 +362,7 @@ export default function SummaryDashboard() {
       wonValue: wonVal,
       weightedForecast,
       target,
+      required3xPipeline,
       attainmentPct,
       winRate,
     }
@@ -378,9 +436,9 @@ export default function SummaryDashboard() {
       csvRows.push(`"Lead Qualification Rate","${filteredProposals.length} total intake","${leadQualificationRate}%"`)
       csvRows.push('')
 
-      csvRows.push('SBU PERFORMANCE MATRIX,PRE-TENDER LEADS,ACTIVE TENDERS,ACTIVE TENDER VALUE (ETB),WEIGHTED FORECAST (ETB),PERIOD TARGET (ETB),TARGET ATTAINMENT %')
+      csvRows.push('SBU PERFORMANCE MATRIX,PRE-TENDER LEADS,ACTIVE TENDERS,ACTIVE TENDER VALUE (ETB),WEIGHTED FORECAST (ETB),PERIOD TARGET (ETB),REQUIRED 3X PIPELINE (ETB),TARGET ATTAINMENT %')
       sbuMetrics.forEach((m) => {
-        csvRows.push(`"${m.name}","${m.leadCount}","${m.openCount}","${m.openValue}","${m.weightedForecast}","${m.target}","${m.attainmentPct}%"`)
+        csvRows.push(`"${m.displayName}","${m.leadCount}","${m.openCount}","${m.openValue}","${m.weightedForecast}","${m.target}","${m.required3xPipeline}","${m.attainmentPct}%"`)
       })
       csvRows.push('')
 
@@ -469,25 +527,47 @@ export default function SummaryDashboard() {
             🖨️ Executive Briefing (PDF)
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setTempTargets(sbuTargets)
-              setEditingTargets(true)
-            }}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#fff',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
-              borderRadius: 6,
-              cursor: 'pointer',
-              fontWeight: 600,
-              fontSize: 12,
-            }}
-          >
-            ⚙️ Set SBU Targets
-          </button>
+          {/* Admin-Locked Target Governance Button */}
+          {isAdmin ? (
+            <button
+              type="button"
+              onClick={() => {
+                setTempTargets(sbuTargets)
+                setEditingTargets(true)
+              }}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: '#fff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 12,
+              }}
+              title="Admin Only: View or Manage Official SBU Targets"
+            >
+              ⚙️ SBU Targets (Admin)
+            </button>
+          ) : (
+            <span
+              style={{
+                padding: '8px 12px',
+                backgroundColor: '#f8fafc',
+                color: '#64748b',
+                border: '1px solid #e2e8f0',
+                borderRadius: 6,
+                fontWeight: 600,
+                fontSize: 11,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+              }}
+              title="Targets are locked to the Official Readiness Report by Admin"
+            >
+              🔒 Targets Locked
+            </span>
+          )}
 
           <button
             type="button"
@@ -602,7 +682,7 @@ export default function SummaryDashboard() {
           Date Span: <strong style={{ color: '#0f172a' }}>{activeQuarterObj.range}</strong>
           {selectedQuarter !== 'ALL' && (
             <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 4, background: '#e0f2fe', color: '#0369a1', fontWeight: 600, fontSize: 11 }}>
-              SBU Quotas Scaled to Quarter
+              Official Quarterly Target Phasing Applied
             </span>
           )}
         </div>
@@ -693,7 +773,7 @@ export default function SummaryDashboard() {
                   🎯 Pre-Tender Leads Pipeline
                 </span>
                 <span style={{ fontSize: 10, fontWeight: 800, background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4 }}>
-                  Initiated
+                  Initiated / Lead
                 </span>
               </div>
               <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a', margin: '8px 0 4px 0' }}>
@@ -761,12 +841,12 @@ export default function SummaryDashboard() {
 
           {/* SBU Pipeline Targets */}
           <div style={{ marginTop: 28 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
               <h3 style={{ margin: 0, color: '#0f172a' }}>
                 Strategic Business Unit (SBU) Target Attainment — {activeQuarterObj.label}
               </h3>
-              <span style={{ fontSize: 12, color: '#64748b' }}>
-                {selectedQuarter === 'ALL' ? 'Annual Quota Benchmark' : 'Quarterly Benchmark (Target ÷ 4)'}
+              <span style={{ fontSize: 12, color: '#047857', fontWeight: 600, background: '#ecfdf5', padding: '4px 10px', borderRadius: 6, border: '1px solid #a7f3d0' }}>
+                🔒 Locked to Approved Readiness Report Baseline
               </span>
             </div>
 
@@ -774,7 +854,7 @@ export default function SummaryDashboard() {
               {sbuMetrics.map((sbu) => (
                 <div key={sbu.name} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <strong style={{ fontSize: 15, color: '#0f172a' }}>{sbu.name}</strong>
+                    <strong style={{ fontSize: 14, color: '#0f172a' }}>{sbu.displayName}</strong>
                     <span
                       style={{
                         fontSize: 11,
@@ -806,8 +886,12 @@ export default function SummaryDashboard() {
                       <strong style={{ color: '#0f172a' }}>{formatMoney(sbu.weightedForecast)}</strong>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
-                      <span>Target Quota:</span>
-                      <span>{formatMoney(sbu.target)}</span>
+                      <span>Revenue Target:</span>
+                      <strong style={{ color: '#334155' }}>{formatMoney(sbu.target)}</strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                      <span>Required 3× Pipeline:</span>
+                      <span>{formatMoney(sbu.required3xPipeline)}</span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: 6, marginTop: 4 }}>
                       <span>Portfolio Breakdown:</span>
@@ -1096,7 +1180,7 @@ export default function SummaryDashboard() {
                   <tbody>
                     {sbuMetrics.map((m) => (
                       <tr key={m.name} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '6px 10px', fontWeight: 700 }}>{m.name}</td>
+                        <td style={{ padding: '6px 10px', fontWeight: 700 }}>{m.displayName}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'center', color: '#0369a1' }}>{m.leadCount}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600 }}>{m.openCount}</td>
                         <td style={{ padding: '6px 10px', textAlign: 'right' }}>{formatMoney(m.openValue)}</td>
@@ -1154,8 +1238,8 @@ export default function SummaryDashboard() {
         </div>
       )}
 
-      {/* SBU Target Setting Modal */}
-      {editingTargets && (
+      {/* ADMIN-ONLY SBU Target Setting Modal */}
+      {editingTargets && isAdmin && (
         <div
           style={{
             position: 'fixed',
@@ -1168,30 +1252,61 @@ export default function SummaryDashboard() {
             padding: 16,
           }}
         >
-          <div style={{ background: '#fff', borderRadius: 10, width: '100%', maxWidth: 460, padding: 24 }}>
-            <h3 style={{ margin: '0 0 6px 0', color: '#0f172a' }}>⚙️ Set SBU Revenue Target Quotas</h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: 13, color: '#64748b' }}>
-              Set annual or quarterly revenue benchmarks (in ETB) to track SBU pipeline performance.
+          <div style={{ background: '#fff', borderRadius: 10, width: '100%', maxWidth: 480, padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <h3 style={{ margin: 0, color: '#0f172a' }}>🔒 Official SBU Revenue Target Quotas</h3>
+              <span style={{ fontSize: 10, fontWeight: 800, background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: 6 }}>
+                ADMIN ONLY
+              </span>
+            </div>
+            <p style={{ margin: '0 0 14px 0', fontSize: 12, color: '#64748b' }}>
+              Targets are locked to the SBU Pipeline Readiness Report baseline (Annual Revenue Target in ETB; 3× Pipeline Coverage is calculated automatically).
             </p>
 
             <form onSubmit={handleSaveTargets} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {CORE_SBUS.map((sbu) => (
-                <div key={sbu}>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>
-                    {sbu} Target (ETB)
-                  </label>
-                  <input
-                    type="number"
-                    value={tempTargets[sbu] ?? ''}
-                    onChange={(e) =>
-                      setTempTargets({ ...tempTargets, [sbu]: parseFloat(e.target.value) || 0 })
-                    }
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
-                  />
-                </div>
-              ))}
+              {CORE_SBUS.map((sbu) => {
+                const currentVal = tempTargets[sbu] ?? OFFICIAL_DOCUMENT_TARGETS[sbu]
+                return (
+                  <div key={sbu} style={{ background: '#f8fafc', padding: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <label style={{ fontSize: 12, fontWeight: 700, color: '#1e293b' }}>
+                        {SBU_DISPLAY_NAMES[sbu]}
+                      </label>
+                      <span style={{ fontSize: 11, color: '#047857', fontWeight: 600 }}>
+                        3× Pipeline: {formatMoney(currentVal * 3)}
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      value={currentVal}
+                      disabled={!isAdmin}
+                      onChange={(e) =>
+                        setTempTargets({ ...tempTargets, [sbu]: parseFloat(e.target.value) || 0 })
+                      }
+                      style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    />
+                  </div>
+                )
+              })}
 
-              <div style={{ display: 'flex', gap: 10, marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={handleResetToOfficialDocumentTargets}
+                style={{
+                  padding: '8px',
+                  borderRadius: 6,
+                  border: '1px dashed #0284c7',
+                  background: '#f0f9ff',
+                  color: '#0369a1',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: 12,
+                }}
+              >
+                ↺ Reset to Approved Document Baseline (ETB 256.595M Total)
+              </button>
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
                 <button
                   type="button"
                   onClick={() => setEditingTargets(false)}
@@ -1210,6 +1325,7 @@ export default function SummaryDashboard() {
                 </button>
                 <button
                   type="submit"
+                  disabled={!isAdmin}
                   style={{
                     flex: 2,
                     padding: '9px',
@@ -1221,7 +1337,7 @@ export default function SummaryDashboard() {
                     fontWeight: 700,
                   }}
                 >
-                  Save Targets
+                  Save Official Targets
                 </button>
               </div>
             </form>
