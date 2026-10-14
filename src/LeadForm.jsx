@@ -112,6 +112,13 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
         targetClientId = newClientData.id
       }
 
+      // Resolve authenticated owner ID
+      let currentOwnerId = userId
+      if (!currentOwnerId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        currentOwnerId = user?.id || null
+      }
+
       const { error } = await supabase
         .from('opportunities')
         .insert({
@@ -119,7 +126,7 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
           client_id: targetClientId,
           sbu_id: sbuId,
           title: title.trim(),
-          owner_id: userId,
+          owner_id: currentOwnerId,
           qualification_status: 'Unscreened',
           priority: 'Medium',
         })
