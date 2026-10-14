@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import { PIPELINE_STAGES, LOSS_REASONS, evaluateStageGate } from './pipelineConfig'
 import UserAvatar from './UserAvatar'
+import ProposalEditor from './ProposalEditor'
 
 export default function ProposalList({ refreshVersion, onRefresh }) {
   const [proposals, setProposals] = useState([])
@@ -9,8 +10,11 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
 
-  // DEFAULT TO 'all' SO BOARD MEMBERS SEE EVERY DEAL INSTANTLY
-  const [pipelineTab, setPipelineTab] = useState('all') // 'proposals', 'leads', 'all'
+  // Drawer Edit State
+  const [editingProposal, setEditingProposal] = useState(null)
+
+  // Pipeline Filter Tab: 'all', 'proposals', 'leads'
+  const [pipelineTab, setPipelineTab] = useState('all')
   const [selectedSbu, setSelectedSbu] = useState('ALL')
 
   // Stage-Gate Modal State
@@ -44,6 +48,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
           created_at,
           opportunities (
             lead_code,
+            title,
             clients (name),
             sbus (code, name)
           )
@@ -131,7 +136,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
     })
   }
 
-  // Filter logic for Pipeline Tab (Pre-Tenders vs Formal Proposals vs All)
+  // Filter logic for Pipeline Tab
   const filteredByTab = proposals.filter((p) => {
     const isPreTender = p.status === 'Initiated' || p.status === 'Lead'
     if (pipelineTab === 'proposals') return !isPreTender
@@ -153,7 +158,6 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
     return matchesSearch && matchesSbu
   })
 
-  // Kanban Board Columns (Only active progression stages)
   const boardStages = PIPELINE_STAGES.filter((s) => s.id !== 'Target')
 
   if (loading) return <p>Loading deals and proposals…</p>
@@ -164,7 +168,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
       {/* Top Header & Search Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ margin: '0 0 4px 0', color: '#0f172a' }}>Active Deals & Formal Proposals</h2>
+          <h2 style={{ margin: '0 0 4px 0', color: '#0f172a' }}>Active Deals &amp; Formal Proposals</h2>
           <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
             Board-ready commercial governance pipeline with automated stage-gating and instant filters.
           </p>
@@ -193,7 +197,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
         </div>
       </div>
 
-      {/* PIPELINE VIEW TABS & BOARD/TABLE TOGGLE */}
+      {/* Pipeline View Tabs & Mode Switcher */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '10px 14px', borderRadius: 8, border: '1px solid #e2e8f0', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Pipeline View:</span>
@@ -246,11 +250,10 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
               color: pipelineTab === 'leads' ? '#fff' : '#475569',
             }}
           >
-            Leads & Pre-Tenders ({proposals.filter((p) => p.status === 'Initiated' || p.status === 'Lead').length})
+            Leads &amp; Pre-Tenders ({proposals.filter((p) => p.status === 'Initiated' || p.status === 'Lead').length})
           </button>
         </div>
 
-        {/* Board vs Table Switcher */}
         <div style={{ display: 'flex', background: '#e2e8f0', padding: 3, borderRadius: 6 }}>
           <button
             type="button"
@@ -317,7 +320,21 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                       const isPreTender = deal.status === 'Initiated' || deal.status === 'Lead'
 
                       return (
-                        <div key={deal.id} style={{ background: '#fff', borderRadius: 6, border: '1px solid #cbd5e1', padding: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                        <div
+                          key={deal.id}
+                          onClick={() => setEditingProposal(deal)}
+                          style={{
+                            background: '#fff',
+                            borderRadius: 6,
+                            border: '1px solid #cbd5e1',
+                            padding: 10,
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#0284c7')}
+                          onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#cbd5e1')}
+                        >
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1' }}>{deal.proposal_code}</span>
                             <span style={{ fontSize: 10, fontWeight: 700, background: isPreTender ? '#fef3c7' : '#f1f5f9', color: isPreTender ? '#92400e' : '#475569', padding: '1px 6px', borderRadius: 4 }}>
@@ -332,12 +349,12 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                             {deal.title}
                           </div>
 
-                          {/* AVATAR ACCOUNTABILITY ROW: BD Commercial Owner & Proposal Developer */}
+                          {/* Avatar row */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 6, paddingTop: 6, borderTop: '1px solid #f8fafc' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <UserAvatar name={deal.bd_owner} size={20} />
                               <span style={{ fontSize: 11, color: '#334155', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                {deal.bd_owner || 'Commercial Lead'}
+                                {deal.bd_owner || 'Unassigned BD (Click to assign)'}
                               </span>
                             </div>
                             {deal.proposal_developer && (
@@ -350,7 +367,11 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                             )}
                           </div>
 
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 6, borderTop: '1px solid #f1f5f9' }}>
+                          {/* Bottom Row */}
+                          <div
+                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, paddingTop: 6, borderTop: '1px solid #f1f5f9' }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <span style={{ fontSize: 11, fontWeight: 700, color: '#166534' }}>
                               ETB {deal.deal_value_etb ? Number(deal.deal_value_etb).toLocaleString() : '0'}
                             </span>
@@ -388,7 +409,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Proposal Code</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Client</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Scope / Title</th>
-                <th style={{ padding: '10px 14px', color: '#475569' }}>SBU & Engine</th>
+                <th style={{ padding: '10px 14px', color: '#475569' }}>SBU &amp; Engine</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Accountability (BD / Dev)</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Deal Value (ETB)</th>
                 <th style={{ padding: '10px 14px', color: '#475569' }}>Pipeline Stage</th>
@@ -400,7 +421,11 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                 const dealVal = p.deal_value_etb ? Number(p.deal_value_etb).toLocaleString() : '—'
 
                 return (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr
+                    key={p.id}
+                    onClick={() => setEditingProposal(p)}
+                    style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer' }}
+                  >
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0369a1' }}>{p.proposal_code || '—'}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a' }}>{p.opportunities?.clients?.name || '—'}</td>
                     <td style={{ padding: '10px 14px', color: '#334155', maxWidth: 240, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.title}</td>
@@ -411,7 +436,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                     <td style={{ padding: '10px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <UserAvatar name={p.bd_owner} size={20} />
-                        <span style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>{p.bd_owner || 'Commercial Lead'}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>{p.bd_owner || 'Unassigned'}</span>
                       </div>
                       {p.proposal_developer && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -421,7 +446,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                       )}
                     </td>
                     <td style={{ padding: '10px 14px', fontWeight: 700, color: '#166534' }}>ETB {dealVal}</td>
-                    <td style={{ padding: '10px 14px' }}>
+                    <td style={{ padding: '10px 14px' }} onClick={(e) => e.stopPropagation()}>
                       <select
                         value={p.status}
                         onChange={(e) => handleStatusChangeAttempt(p, e.target.value)}
@@ -453,7 +478,45 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
         </div>
       )}
 
-      {/* SMART STAGE-GATE POPUP MODAL */}
+      {/* EDIT DRAWER MODAL */}
+      {editingProposal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            zIndex: 9999,
+            display: 'flex',
+            justifyContent: 'flex-end',
+          }}
+          onClick={() => setEditingProposal(null)}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 620,
+              height: '100vh',
+              background: '#fff',
+              overflowY: 'auto',
+              padding: 24,
+              boxShadow: '-4px 0 20px rgba(0,0,0,0.15)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <ProposalEditor
+              proposal={editingProposal}
+              onSaved={(savedData) => {
+                loadProposals()
+                onRefresh?.()
+                setEditingProposal(null)
+              }}
+              onClose={() => setEditingProposal(null)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Stage-Gate Requirement Check Modal */}
       {stageGateModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 10, width: '100%', maxWidth: 480, padding: 24, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
