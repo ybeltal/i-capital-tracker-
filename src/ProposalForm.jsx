@@ -36,7 +36,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
   const [status, setStatus] = useState('Lead')
   const [productEngine, setProductEngine] = useState('')
   const [specificProduct, setSpecificProduct] = useState('')
-  
+
   // Default to active members so it is NEVER unassigned
   const [bdOwner, setBdOwner] = useState('Ybeltal Semagn')
   const [proposalDeveloper, setProposalDeveloper] = useState('Ybeltal Semagn (DAS / BD Lead)')
