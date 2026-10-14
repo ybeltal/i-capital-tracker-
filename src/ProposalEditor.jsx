@@ -4,25 +4,29 @@ import FollowUpForm from './FollowUpForm'
 import FollowUpList from './FollowUpList'
 import ProposalDocumentEditor from './ProposalDocumentEditor'
 
-const TEAM_MEMBERS = [
-  'Ybeltal Semagn',
-  'Tsegaab',
-  'Seife',
-  'Yeabsira',
-  'Dr. Daniel',
-  'Dr. Abel',
-  'Raphael',
-  'Aida',
-  'Lemlem',
-  'Atalay',
+// Commercial Owner organizational units
+const COMMERCIAL_OWNERS = [
+  'Corporate RG',
+  'CEO OFFICE',
+  'SBU (Institute)',
+  'SBU (IIP)',
+  'SBU (DAS)',
+  'BD (Institute)',
+  'BD (IIP)',
 ]
 
-const PROPOSAL_DEVELOPERS = [
-  'Ybeltal Semagn (DAS / BD Lead)',
-  'Institute SBU Technical Team',
-  'CBS SBU Technical Team',
-  'IIP SBU Technical Team',
-  'DAS SBU Technical Team',
+// Technical team developers (assigned avatars)
+const TECHNICAL_TEAM_MEMBERS = [
+  'Lemlem',
+  'Atalay',
+  'Raphael',
+  'Yeabsira',
+  'Seife',
+  'Tsegaab',
+  'Ybeltal Semagn',
+  'Dr. Daniel',
+  'Dr. Abel',
+  'Aida',
 ]
 
 // Stage-by-Stage Advisory Gates
@@ -120,10 +124,10 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
     proposal.deal_value_etb == null ? '' : String(proposal.deal_value_etb)
   )
 
-  // Strict ownership accountability: never unassigned
-  const [bdOwner, setBdOwner] = useState(proposal.bd_owner || 'Ybeltal Semagn')
+  // Commercial Owner defaults to first unit; Developer defaults to first technical team member
+  const [bdOwner, setBdOwner] = useState(proposal.bd_owner || COMMERCIAL_OWNERS[0])
   const [proposalDeveloper, setProposalDeveloper] = useState(
-    proposal.proposal_developer || 'Ybeltal Semagn (DAS / BD Lead)'
+    proposal.proposal_developer || TECHNICAL_TEAM_MEMBERS[0]
   )
 
   const [notes, setNotes] = useState(proposal.notes || '')
@@ -132,15 +136,15 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
   const [validationErrors, setValidationErrors] = useState([])
   const [activityVersion, setActivityVersion] = useState(0)
 
-  // Keep state synchronized if a different deal is selected
+  // Keep state synchronized when opening different deals
   useEffect(() => {
     setStatus(proposal.status)
     setPreviousStatus(proposal.status)
     setDeadline(proposal.submission_deadline || '')
     setActualDate(proposal.actual_submission_date || '')
     setAmount(proposal.deal_value_etb == null ? '' : String(proposal.deal_value_etb))
-    setBdOwner(proposal.bd_owner || 'Ybeltal Semagn')
-    setProposalDeveloper(proposal.proposal_developer || 'Ybeltal Semagn (DAS / BD Lead)')
+    setBdOwner(proposal.bd_owner || COMMERCIAL_OWNERS[0])
+    setProposalDeveloper(proposal.proposal_developer || TECHNICAL_TEAM_MEMBERS[0])
     setNotes(proposal.notes || '')
     setValidationErrors([])
     setMessage('')
@@ -205,11 +209,11 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
     const errors = []
 
     if (!bdOwner.trim()) {
-      errors.push('Commercial Owner (BD) is mandatory and cannot be unassigned.')
+      errors.push('Commercial Owner (BD) is mandatory.')
     }
 
     if (!proposalDeveloper.trim()) {
-      errors.push('Proposal Developer (Tech/Fin) is mandatory and cannot be unassigned.')
+      errors.push('Technical Team Lead (Tech/Fin) is mandatory.')
     }
 
     if (amount !== '' && !/^\d+(\.\d{1,2})?$/.test(amount)) {
@@ -427,7 +431,7 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
           </select>
         </div>
 
-        {/* ACCOUNTABILITY FIELDS: Commercial Owner & Proposal Developer */}
+        {/* ACCOUNTABILITY FIELDS: Commercial Owner Unit & Technical Team Lead */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label htmlFor="edit-bd-owner" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
@@ -441,9 +445,9 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
               disabled={busy}
               style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
             >
-              {TEAM_MEMBERS.map((member) => (
-                <option key={member} value={member}>
-                  {member}
+              {COMMERCIAL_OWNERS.map((unit) => (
+                <option key={unit} value={unit}>
+                  {unit}
                 </option>
               ))}
             </select>
@@ -461,9 +465,9 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
               disabled={busy}
               style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
             >
-              {PROPOSAL_DEVELOPERS.map((dev) => (
-                <option key={dev} value={dev}>
-                  {dev}
+              {TECHNICAL_TEAM_MEMBERS.map((member) => (
+                <option key={member} value={member}>
+                  {member}
                 </option>
               ))}
             </select>
