@@ -381,3 +381,30 @@ export const BUDGET_TIERS = [
   { id: 'TIER_3', label: 'Tier 3 (2M - 10M ETB)', min: 2000000, max: 10000000 },
   { id: 'TIER_4', label: 'Tier 4 (> 10M ETB Mega Deal)', min: 10000000, max: Infinity },
 ]
+// Base Supabase Storage Public URL for Avatars
+const SUPABASE_AVATAR_BASE =
+  'https://qljmgleaxfmrurrpmjkz.supabase.co/storage/v1/object/public/avatars'
+
+export const TEAM_AVATARS = {
+  'Atalay': `${SUPABASE_AVATAR_BASE}/atalay.png`,
+  'Lemlem': `${SUPABASE_AVATAR_BASE}/lemlem.png`,
+  'Raphael': `${SUPABASE_AVATAR_BASE}/raphael.png`,
+  'Seife': `${SUPABASE_AVATAR_BASE}/seife.png`,
+  'Tsegaab': `${SUPABASE_AVATAR_BASE}/tsegaab.png`,
+  'Yeabsira': `${SUPABASE_AVATAR_BASE}/yeabsira.png`,
+  // Placeholders for remaining members
+  'Ybeltal Semagn': `${SUPABASE_AVATAR_BASE}/ybeltal.png`,
+  'Dr. Daniel': `${SUPABASE_AVATAR_BASE}/daniel.png`,
+  'Dr. Abel': `${SUPABASE_AVATAR_BASE}/abel.png`,
+  'Aida': `${SUPABASE_AVATAR_BASE}/aida.png`,
+}
+
+// Helper to get image URL or initials fallback
+export function getTeamAvatar(name) {
+  if (!name) return null
+  // Match by exact name or first name
+  const match = Object.keys(TEAM_AVATARS).find(
+    (key) => name.toLowerCase().includes(key.toLowerCase())
+  )
+  return match ? TEAM_AVATARS[match] : null
+}
