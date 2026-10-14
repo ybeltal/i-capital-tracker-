@@ -1,8 +1,29 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 import FollowUpForm from './FollowUpForm'
 import FollowUpList from './FollowUpList'
 import ProposalDocumentEditor from './ProposalDocumentEditor'
+
+const TEAM_MEMBERS = [
+  'Ybeltal Semagn',
+  'Tsegaab',
+  'Seife',
+  'Yeabsira',
+  'Dr. Daniel',
+  'Dr. Abel',
+  'Raphael',
+  'Aida',
+  'Lemlem',
+  'Atalay',
+]
+
+const PROPOSAL_DEVELOPERS = [
+  'Ybeltal Semagn (DAS / BD Lead)',
+  'Institute SBU Technical Team',
+  'CBS SBU Technical Team',
+  'IIP SBU Technical Team',
+  'DAS SBU Technical Team',
+]
 
 // Stage-by-Stage Advisory Gates
 const STAGE_GATES = {
@@ -98,11 +119,32 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
   const [amount, setAmount] = useState(
     proposal.deal_value_etb == null ? '' : String(proposal.deal_value_etb)
   )
+
+  // Strict ownership accountability: never unassigned
+  const [bdOwner, setBdOwner] = useState(proposal.bd_owner || 'Ybeltal Semagn')
+  const [proposalDeveloper, setProposalDeveloper] = useState(
+    proposal.proposal_developer || 'Ybeltal Semagn (DAS / BD Lead)'
+  )
+
   const [notes, setNotes] = useState(proposal.notes || '')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [validationErrors, setValidationErrors] = useState([])
   const [activityVersion, setActivityVersion] = useState(0)
+
+  // Keep state synchronized if a different deal is selected
+  useEffect(() => {
+    setStatus(proposal.status)
+    setPreviousStatus(proposal.status)
+    setDeadline(proposal.submission_deadline || '')
+    setActualDate(proposal.actual_submission_date || '')
+    setAmount(proposal.deal_value_etb == null ? '' : String(proposal.deal_value_etb))
+    setBdOwner(proposal.bd_owner || 'Ybeltal Semagn')
+    setProposalDeveloper(proposal.proposal_developer || 'Ybeltal Semagn (DAS / BD Lead)')
+    setNotes(proposal.notes || '')
+    setValidationErrors([])
+    setMessage('')
+  }, [proposal])
 
   // Stage Checklist Gates State
   const initialGatesStr = parseTag(proposal.notes, 'GATES')
@@ -161,6 +203,14 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
   // Validate mandatory blockers
   function validateStageRules() {
     const errors = []
+
+    if (!bdOwner.trim()) {
+      errors.push('Commercial Owner (BD) is mandatory and cannot be unassigned.')
+    }
+
+    if (!proposalDeveloper.trim()) {
+      errors.push('Proposal Developer (Tech/Fin) is mandatory and cannot be unassigned.')
+    }
 
     if (amount !== '' && !/^\d+(\.\d{1,2})?$/.test(amount)) {
       errors.push('Enter a valid ETB amount with up to two decimal places.')
@@ -226,6 +276,8 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
         .from('proposals')
         .update({
           status,
+          bd_owner: bdOwner,
+          proposal_developer: proposalDeveloper,
           submission_deadline: deadline || null,
           actual_submission_date: actualDate || null,
           deal_value_etb: amount === '' ? null : amount,
@@ -235,6 +287,8 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
         .select(`
           id,
           status,
+          bd_owner,
+          proposal_developer,
           submission_deadline,
           actual_submission_date,
           deal_value_etb,
@@ -262,7 +316,7 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
         <div>
           <h3 style={{ margin: 0, color: '#0f172a' }}>Edit Proposal: {proposal.title}</h3>
           <p style={{ margin: '4px 0 0 0', fontSize: 13, color: '#64748b' }}>
-            Client: <strong style={{ color: '#0f172a' }}>{proposal.opportunities?.clients?.name || '—'}</strong> • 
+            Client: <strong style={{ color: '#0f172a' }}>{proposal.opportunities?.clients?.name || '—'}</strong> | 
             Linked Lead: <strong style={{ color: '#0f172a' }}>{proposal.opportunities?.title || '—'}</strong>
           </p>
         </div>
@@ -342,7 +396,7 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
                     onChange={() => toggleGate(gate.id)}
                     style={{ width: 15, height: 15, cursor: 'pointer', accentColor: '#0284c7' }}
                   />
-                  <span style={{ textDecoration: isChecked ? 'none' : 'none', fontWeight: isChecked ? 600 : 400 }}>
+                  <span style={{ fontWeight: isChecked ? 600 : 400 }}>
                     {gate.label}
                   </span>
                 </label>
@@ -371,6 +425,49 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* ACCOUNTABILITY FIELDS: Commercial Owner & Proposal Developer */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div>
+            <label htmlFor="edit-bd-owner" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+              Commercial Owner (BD) <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <select
+              id="edit-bd-owner"
+              value={bdOwner}
+              onChange={(e) => setBdOwner(e.target.value)}
+              required
+              disabled={busy}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+            >
+              {TEAM_MEMBERS.map((member) => (
+                <option key={member} value={member}>
+                  {member}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="edit-proposal-dev" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
+              Proposal Developer (Tech/Fin) <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            <select
+              id="edit-proposal-dev"
+              value={proposalDeveloper}
+              onChange={(e) => setProposalDeveloper(e.target.value)}
+              required
+              disabled={busy}
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+            >
+              {PROPOSAL_DEVELOPERS.map((dev) => (
+                <option key={dev} value={dev}>
+                  {dev}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -567,7 +664,7 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
                 type="button"
                 onClick={() => {
                   setShowCloseoutModal(false)
-                  setStatus(previousStatus) // Revert dropdown selection
+                  setStatus(previousStatus)
                 }}
                 style={{
                   flex: 1,
