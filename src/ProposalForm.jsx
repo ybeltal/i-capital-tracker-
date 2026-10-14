@@ -8,12 +8,25 @@ import {
   evaluateStageGate,
 } from './pipelineConfig'
 
+const TEAM_MEMBERS = [
+  'Ybeltal Semagn',
+  'Tsegaab',
+  'Seife',
+  'Yeabsira',
+  'Dr. Daniel',
+  'Dr. Abel',
+  'Raphael',
+  'Aida',
+  'Lemlem',
+  'Atalay',
+]
+
 const PROPOSAL_DEVELOPERS = [
-  { id: 'Ybeltal Semagn', name: 'Ybeltal Semagn (DAS / BD Lead)' },
-  { id: 'Institute SBU Team', name: 'Institute SBU Technical Team' },
-  { id: 'CBS SBU Team', name: 'CBS SBU Technical Team' },
-  { id: 'IIP SBU Team', name: 'IIP SBU Technical Team' },
-  { id: 'DAS SBU Team', name: 'DAS SBU Technical Team' },
+  'Ybeltal Semagn (DAS / BD Lead)',
+  'Institute SBU Technical Team',
+  'CBS SBU Technical Team',
+  'IIP SBU Technical Team',
+  'DAS SBU Technical Team',
 ]
 
 export default function ProposalForm({ leadVersion = 0, onSaved }) {
@@ -23,8 +36,11 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
   const [status, setStatus] = useState('Lead')
   const [productEngine, setProductEngine] = useState('')
   const [specificProduct, setSpecificProduct] = useState('')
-  const [bdOwner, setBdOwner] = useState('')
-  const [proposalDeveloper, setProposalDeveloper] = useState('Ybeltal Semagn')
+  
+  // Default to active members so it is NEVER unassigned
+  const [bdOwner, setBdOwner] = useState('Ybeltal Semagn')
+  const [proposalDeveloper, setProposalDeveloper] = useState('Ybeltal Semagn (DAS / BD Lead)')
+
   const [nextAction, setNextAction] = useState('')
   const [nextActionDate, setNextActionDate] = useState('')
   const [deadline, setDeadline] = useState('')
@@ -69,7 +85,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
     }
   }, [leadVersion])
 
-  // Resolve active SBU taxonomy for the selected lead
   const selectedLead = leads.find((l) => l.id === leadId)
   const sbuCodeRaw = (selectedLead?.sbus?.code || selectedLead?.sbus?.name || 'INST').toUpperCase()
 
@@ -144,10 +159,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
     submission_deadline: deadline,
   }
 
-  // 1. Live Tracker-Readiness evaluation
   const currentReadiness = checkTrackerReadiness(draftDealState)
-
-  // 2. Live Stage-Gate evaluation for the currently selected stage
   const stageGateStatus = evaluateStageGate(draftDealState, status)
 
   async function saveProposal(event) {
@@ -159,13 +171,11 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
       return
     }
 
-    // Warn if lead has not been screened yet
     if (selectedLead?.qualification_status === 'Unscreened') {
       setMessage('⚠️ Governance Gate: This lead is still "Unscreened". Please screen and qualify the lead in Lead Intake before registering a formal proposal.')
       return
     }
 
-    // Enforce Stage-Gate Exit Criteria before allowing save
     if (!stageGateStatus.isUnlocked) {
       setMessage(
         `🔒 Stage Gate Locked for "${status}": Please complete [${stageGateStatus.missingRequirements.join(', ')}] before saving at this stage.`
@@ -192,8 +202,8 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
           submission_deadline: deadline || null,
           product_engine: productEngine.trim() || null,
           specific_product: specificProduct.trim() || null,
-          bd_owner: bdOwner.trim() || null,
-          proposal_developer: proposalDeveloper.trim() || null,
+          bd_owner: bdOwner.trim(),
+          proposal_developer: proposalDeveloper.trim(),
           next_action: nextAction.trim() || null,
           next_action_date: nextActionDate || null,
           is_tracker_ready: currentReadiness.isReady,
@@ -209,8 +219,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
       setStatus('Lead')
       setProductEngine('')
       setSpecificProduct('')
-      setBdOwner('')
-      setProposalDeveloper('Ybeltal Semagn')
       setNextAction('')
       setNextActionDate('')
       setDeadline('')
@@ -218,7 +226,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
       setLossReason('')
       setNotes('')
       setAutoProposalCode('')
-      setMessage(`Proposal ${autoProposalCode} saved successfully.`)
+      setMessage(`Proposal ${autoProposalCode} saved successfully with assigned accountability!`)
       onSaved?.()
     } catch (error) {
       setMessage(error.message || 'Could not save the proposal.')
@@ -257,7 +265,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
         <p>Add a lead first before creating a proposal.</p>
       ) : (
         <form onSubmit={saveProposal}>
-          {/* Linked Lead with Screening Badge */}
           <label htmlFor="proposal-lead">Linked lead</label>
           <select
             id="proposal-lead"
@@ -284,7 +291,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             </div>
           )}
 
-          {/* Proposal Title */}
           <label htmlFor="proposal-title" style={{ marginTop: 12, display: 'block' }}>
             Proposal title / scope
           </label>
@@ -296,7 +302,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             disabled={busy}
           />
 
-          {/* 6-Stage Progression Selector with Live Lock Status */}
           <label htmlFor="proposal-status" style={{ marginTop: 12, display: 'block' }}>
             Pipeline Stage (Stage-Gated)
           </label>
@@ -317,7 +322,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             })}
           </select>
 
-          {/* Stage-Gate Alert Banner if user picks a locked stage */}
           {!stageGateStatus.isUnlocked && (
             <div
               style={{
@@ -335,7 +339,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             </div>
           )}
 
-          {/* Mandatory Loss Reason Selector when Stage = Lost */}
           {status === 'Lost' && (
             <div style={{ marginTop: 12, padding: 10, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6 }}>
               <label htmlFor="proposal-loss-reason" style={{ color: '#b91c1c', fontWeight: 700, fontSize: 12 }}>
@@ -356,7 +359,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             </div>
           )}
 
-          {/* Cascading Taxonomy: Product Engine & Specific Product */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
             <div>
               <label htmlFor="proposal-engine">
@@ -400,34 +402,40 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             </div>
           </div>
 
-          {/* Commercial Owner & Proposal Developer Accountability */}
+          {/* SEPARATE ACCOUNTABILITY FIELDS: Commercial Owner vs Proposal Developer */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
             <div>
-              <label htmlFor="proposal-owner">BD / Commercial Owner</label>
-              <input
+              <label htmlFor="proposal-owner">Commercial Owner (BD)</label>
+              <select
                 id="proposal-owner"
-                placeholder="e.g., Ybeltal Mekete"
                 value={bdOwner}
                 onChange={(event) => setBdOwner(event.target.value)}
+                required
                 disabled={busy}
-              />
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+              >
+                {TEAM_MEMBERS.map((member) => (
+                  <option key={member} value={member}>{member}</option>
+                ))}
+              </select>
             </div>
             <div>
-              <label htmlFor="proposal-developer">Assigned Proposal Developer (Tech/Fin)</label>
+              <label htmlFor="proposal-developer">Proposal Developer (Tech/Fin)</label>
               <select
                 id="proposal-developer"
                 value={proposalDeveloper}
                 onChange={(event) => setProposalDeveloper(event.target.value)}
+                required
                 disabled={busy}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
               >
                 {PROPOSAL_DEVELOPERS.map((dev) => (
-                  <option key={dev.id} value={dev.id}>{dev.name}</option>
+                  <option key={dev} value={dev}>{dev}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Action Date & Mandatory Next Action */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
             <div>
               <label htmlFor="proposal-action-date">Action Target Date</label>
@@ -451,7 +459,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             </div>
           </div>
 
-          {/* Live Governance Tracker-Readiness Status Card */}
           <div
             style={{
               marginTop: 14,
@@ -481,7 +488,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             )}
           </div>
 
-          {/* Financials & Deadline */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
               <label htmlFor="proposal-amount">Deal value (ETB)</label>
@@ -508,7 +514,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             </div>
           </div>
 
-          {/* Notes */}
           <label htmlFor="proposal-notes" style={{ marginTop: 12, display: 'block' }}>
             Remarks / notes
           </label>
