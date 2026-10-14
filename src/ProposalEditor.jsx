@@ -15,7 +15,7 @@ const COMMERCIAL_OWNERS = [
   'BD (IIP)',
 ]
 
-// Technical team developers (assigned avatars)
+// Technical Team individuals (strictly 1 individual assigned per proposal)
 const TECHNICAL_TEAM_MEMBERS = [
   'Lemlem',
   'Atalay',
@@ -124,10 +124,14 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
     proposal.deal_value_etb == null ? '' : String(proposal.deal_value_etb)
   )
 
-  // Commercial Owner defaults to first unit; Developer defaults to first technical team member
-  const [bdOwner, setBdOwner] = useState(proposal.bd_owner || COMMERCIAL_OWNERS[0])
+  // Single-individual rule: commercial owner unit & one dedicated technical lead
+  const [bdOwner, setBdOwner] = useState(
+    COMMERCIAL_OWNERS.includes(proposal.bd_owner) ? proposal.bd_owner : COMMERCIAL_OWNERS[0]
+  )
   const [proposalDeveloper, setProposalDeveloper] = useState(
-    proposal.proposal_developer || TECHNICAL_TEAM_MEMBERS[0]
+    TECHNICAL_TEAM_MEMBERS.includes(proposal.proposal_developer)
+      ? proposal.proposal_developer
+      : TECHNICAL_TEAM_MEMBERS[0]
   )
 
   const [notes, setNotes] = useState(proposal.notes || '')
@@ -136,15 +140,21 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
   const [validationErrors, setValidationErrors] = useState([])
   const [activityVersion, setActivityVersion] = useState(0)
 
-  // Keep state synchronized when opening different deals
+  // Keep state synchronized when selecting different proposals
   useEffect(() => {
     setStatus(proposal.status)
     setPreviousStatus(proposal.status)
     setDeadline(proposal.submission_deadline || '')
     setActualDate(proposal.actual_submission_date || '')
     setAmount(proposal.deal_value_etb == null ? '' : String(proposal.deal_value_etb))
-    setBdOwner(proposal.bd_owner || COMMERCIAL_OWNERS[0])
-    setProposalDeveloper(proposal.proposal_developer || TECHNICAL_TEAM_MEMBERS[0])
+    setBdOwner(
+      COMMERCIAL_OWNERS.includes(proposal.bd_owner) ? proposal.bd_owner : COMMERCIAL_OWNERS[0]
+    )
+    setProposalDeveloper(
+      TECHNICAL_TEAM_MEMBERS.includes(proposal.proposal_developer)
+        ? proposal.proposal_developer
+        : TECHNICAL_TEAM_MEMBERS[0]
+    )
     setNotes(proposal.notes || '')
     setValidationErrors([])
     setMessage('')
@@ -162,7 +172,6 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
   const [closeoutReason, setCloseoutReason] = useState('')
   const [closeoutDetail, setCloseoutDetail] = useState('')
 
-  // Handle stage dropdown change
   function handleStatusChange(e) {
     const nextStatus = e.target.value
     if (nextStatus === 'Lost' || nextStatus === 'Cancelled') {
@@ -177,7 +186,6 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
     }
   }
 
-  // Toggle advisory gate checkbox
   function toggleGate(gateId) {
     const updated = checkedGates.includes(gateId)
       ? checkedGates.filter((id) => id !== gateId)
@@ -188,7 +196,6 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
     setNotes(updatedNotes)
   }
 
-  // Confirm closeout modal
   function handleConfirmCloseout() {
     if (!closeoutReason) return
     const tagKey = pendingCloseStatus === 'Lost' ? 'LOSS_REASON' : 'CANCEL_REASON'
@@ -204,16 +211,17 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
     setValidationErrors([])
   }
 
-  // Validate mandatory blockers
+  // Validate mandatory governance blockers
   function validateStageRules() {
     const errors = []
 
-    if (!bdOwner.trim()) {
-      errors.push('Commercial Owner (BD) is mandatory.')
+    if (!bdOwner || !bdOwner.trim()) {
+      errors.push('Commercial Owner (BD Unit) is mandatory.')
     }
 
-    if (!proposalDeveloper.trim()) {
-      errors.push('Technical Team Lead (Tech/Fin) is mandatory.')
+    // Strict single individual rule
+    if (!proposalDeveloper || !proposalDeveloper.trim()) {
+      errors.push('Proposal Developer is mandatory: Exactly one individual technical lead must be assigned.')
     }
 
     if (amount !== '' && !/^\d+(\.\d{1,2})?$/.test(amount)) {
@@ -266,7 +274,6 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
     setMessage('')
     setValidationErrors([])
 
-    // Run mandatory validation checks
     const errors = validateStageRules()
     if (errors.length > 0) {
       setValidationErrors(errors)
@@ -323,6 +330,27 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
             Client: <strong style={{ color: '#0f172a' }}>{proposal.opportunities?.clients?.name || '—'}</strong> | 
             Linked Lead: <strong style={{ color: '#0f172a' }}>{proposal.opportunities?.title || '—'}</strong>
           </p>
+        </div>
+      </div>
+
+      {/* Mandatory Single-Individual Accountability Warning */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: 8,
+          padding: '10px 14px',
+          marginBottom: 16,
+          fontSize: 12,
+          color: '#1e40af',
+        }}
+      >
+        <span style={{ fontSize: 16 }}>🛡️</span>
+        <div>
+          <strong>Single Technical Lead Governance:</strong> Only <strong>one individual</strong> may be assigned as the Proposal Developer to preserve ownership integrity.
         </div>
       </div>
 
@@ -431,11 +459,11 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
           </select>
         </div>
 
-        {/* ACCOUNTABILITY FIELDS: Commercial Owner Unit & Technical Team Lead */}
+        {/* ACCOUNTABILITY FIELDS: Commercial Unit & Single Technical Lead */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
           <div>
             <label htmlFor="edit-bd-owner" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
-              Commercial Owner (BD) <span style={{ color: '#dc2626' }}>*</span>
+              Commercial Owner (BD Unit) <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <select
               id="edit-bd-owner"
@@ -455,7 +483,7 @@ export default function ProposalEditor({ proposal, onSaved, onClose }) {
 
           <div>
             <label htmlFor="edit-proposal-dev" style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
-              Proposal Developer (Tech/Fin) <span style={{ color: '#dc2626' }}>*</span>
+              Proposal Developer (1 Individual) <span style={{ color: '#dc2626' }}>*</span>
             </label>
             <select
               id="edit-proposal-dev"
