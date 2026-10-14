@@ -44,6 +44,17 @@ export const PIPELINE_STAGES = [
   },
 ]
 
+// Mandatory Loss Reasons for Stage = Lost
+export const LOSS_REASONS = [
+  'Price / Budget Mismatch',
+  'Competitor Awarded (Technical Score)',
+  'Competitor Awarded (Lower Financial Offer)',
+  'Client Internal Deprioritization / Cancelled Bid',
+  'Procurement Compliance Disqualification',
+  'Timeline / Delivery Window Mismatch',
+  'Other / Replaced by Direct Sole Source',
+]
+
 // Two-Tier Origination Channels (Playbook §9 Opportunity Types)
 export const OPPORTUNITY_CHANNELS = [
   { id: 'DIRECT', label: 'Direct Client Outreach / Relationship', tier: 'Pre-Tender' },
@@ -53,14 +64,12 @@ export const OPPORTUNITY_CHANNELS = [
 ]
 
 // FY 2026/27 Approved Annual & Quarterly Revenue and 3× Pipeline Targets
-// Source: FY 2026/27 SBU Pipeline Readiness Report (§3) + CBS Addition
 export const SBU_PIPELINE_TARGETS = {
   INSTITUTE: {
     name: 'The i-Capital Institute',
     code: 'INST',
     annualRevenueTarget: 63000000,
     requiredPipelineTarget: 189000000, // 3x coverage
-    // Stream distribution: ~60% Direct Outreach / ~40% Competitive Bids
     directPipelineTarget: 113400000,
     tenderPipelineTarget: 75600000,
     quarterly: {
@@ -110,8 +119,8 @@ export const SBU_PIPELINE_TARGETS = {
   },
   GROUP_TOTAL: {
     name: 'The i-Capital Africa Group',
-    annualRevenueTarget: 256595000, // 221.595M + 35M (CBS)
-    requiredPipelineTarget: 769785000, // 664.785M + 105M (CBS)
+    annualRevenueTarget: 256595000,
+    requiredPipelineTarget: 769785000,
   },
 }
 
@@ -141,17 +150,48 @@ export function checkTrackerReadiness(deal) {
   }
 }
 
+// Stage Gate Governance Evaluator
+export function evaluateStageGate(deal, targetStage) {
+  const missing = []
+
+  if (targetStage === 'Pre-Qualified') {
+    if (!deal.deal_value_etb && deal.deal_value_etb !== 0) {
+      missing.push('Estimated Deal Value (ETB)')
+    }
+  }
+
+  if (targetStage === 'Qualified Pipeline' || targetStage === 'Won') {
+    if (!deal.deal_value_etb && deal.deal_value_etb !== 0) {
+      missing.push('Deal Value (ETB)')
+    }
+    if (!deal.submission_deadline) {
+      missing.push('Submission / Target Date')
+    }
+  }
+
+  if (targetStage === 'Lost') {
+    if (!deal.notes || (!deal.notes.includes('[LOSS REASON:') && !deal.notes.trim())) {
+      missing.push('Mandatory Loss Reason / Notes')
+    }
+  }
+
+  return {
+    isUnlocked: missing.length === 0,
+    missingRequirements: missing,
+  }
+}
+
 // Real-Time 3x Pipeline Coverage Calculator
 export function calculatePipelineCoverage(activePipelineEtb, targetEtb) {
   if (!targetEtb || targetEtb === 0) return { ratio: 0, status: 'red', gap: 0, coveragePercent: 0 }
   const ratio = activePipelineEtb / (targetEtb / 3)
   const gap = Math.max(0, targetEtb - activePipelineEtb)
-  
-  let status = 'red' // Critical (< 1.5x)
+
+  let status = 'red'
   if (ratio >= 3.0) {
-    status = 'green' // Fully compliant (>= 3.0x target coverage)
+    status = 'green'
   } else if (ratio >= 1.5) {
-    status = 'amber' // Moderate (1.5x - 2.99x)
+    status = 'amber'
   }
 
   return {
@@ -161,6 +201,7 @@ export function calculatePipelineCoverage(activePipelineEtb, targetEtb) {
     coveragePercent: Math.min(100, Math.round((activePipelineEtb / targetEtb) * 100)),
   }
 }
+
 // Official SBU Product Engines & Service Taxonomy
 export const SBU_PRODUCT_TAXONOMY = {
   INSTITUTE: {
