@@ -5,6 +5,8 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
   const [clients, setClients] = useState([])
   const [sbus, setSbus] = useState([])
   const [clientId, setClientId] = useState('')
+  const [isCreatingNewClient, setIsCreatingNewClient] = useState(false)
+  const [newClientName, setNewClientName] = useState('')
   const [sbuId, setSbuId] = useState('')
   const [title, setTitle] = useState('')
   const [autoLeadCode, setAutoLeadCode] = useState('Generating…')
@@ -62,11 +64,33 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
     }
   }, [clientVersion])
 
+  function handleClientSelectChange(e) {
+    const val = e.target.value
+    if (val === 'NEW_CLIENT_OPTION') {
+      setIsCreatingNewClient(true)
+      setClientId('')
+    } else {
+      setIsCreatingNewClient(false)
+      setNewClientName('')
+      setClientId(val)
+    }
+  }
+
   async function handleSave(event) {
     event.preventDefault()
 
-    if (!clientId || !sbuId || !title.trim()) {
-      setMessage('Please select a client and SBU, and enter an opportunity.')
+    if (!sbuId || !title.trim()) {
+      setMessage('Please select an SBU and enter an opportunity title.')
+      return
+    }
+
+    if (!isCreatingNewClient && !clientId) {
+      setMessage('Please select a client or register a new one.')
+      return
+    }
+
+    if (isCreatingNewClient && !newClientName.trim()) {
+      setMessage('Please enter the name of the new client.')
       return
     }
 
@@ -74,11 +98,25 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
     setMessage('')
 
     try {
+      let targetClientId = clientId
+
+      // If user chose to create a new client inline, insert it first
+      if (isCreatingNewClient) {
+        const { data: newClientData, error: clientInsertError } = await supabase
+          .from('clients')
+          .insert({ name: newClientName.trim(), sector: 'Institutional' })
+          .select('id')
+          .single()
+
+        if (clientInsertError) throw clientInsertError
+        targetClientId = newClientData.id
+      }
+
       const { error } = await supabase
         .from('opportunities')
         .insert({
           lead_code: autoLeadCode,
-          client_id: clientId,
+          client_id: targetClientId,
           sbu_id: sbuId,
           title: title.trim(),
           owner_id: userId,
@@ -91,6 +129,9 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
       if (error) throw error
 
       setTitle('')
+      setNewClientName('')
+      setIsCreatingNewClient(false)
+      setClientId('')
       setMessage(`Lead ${autoLeadCode} saved successfully.`)
       onSaved?.()
     } catch (error) {
@@ -126,12 +167,15 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
         <label htmlFor="lead-client">Client</label>
         <select
           id="lead-client"
-          value={clientId}
-          onChange={(event) => setClientId(event.target.value)}
+          value={isCreatingNewClient ? 'NEW_CLIENT_OPTION' : clientId}
+          onChange={handleClientSelectChange}
           disabled={busy}
           required
         >
           <option value="">Select a client</option>
+          <option value="NEW_CLIENT_OPTION" style={{ fontWeight: 700, color: '#0284c7' }}>
+            ➕ [ Register a New Client... ]
+          </option>
           {clients.map((client) => (
             <option key={client.id} value={client.id}>
               {client.name}
@@ -139,7 +183,26 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
           ))}
         </select>
 
-        <label htmlFor="lead-sbu">SBU</label>
+        {/* Inline New Client Input */}
+        {isCreatingNewClient && (
+          <div style={{ marginTop: 8, padding: 10, background: '#f0f9ff', borderRadius: 6, border: '1px solid #bae6fd' }}>
+            <label htmlFor="new-client-name" style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', display: 'block', marginBottom: 4 }}>
+              New Client / Organization Name
+            </label>
+            <input
+              id="new-client-name"
+              type="text"
+              placeholder="e.g., Ethiopian Capital Market Authority"
+              value={newClientName}
+              onChange={(e) => setNewClientName(e.target.value)}
+              disabled={busy}
+              required
+              style={{ width: '100%', padding: '6px 8px', borderRadius: 4, border: '1px solid #cbd5e1', fontSize: 13 }}
+            />
+          </div>
+        )}
+
+        <label htmlFor="lead-sbu" style={{ marginTop: 12, display: 'block' }}>SBU</label>
         <select
           id="lead-sbu"
           value={sbuId}
@@ -155,20 +218,21 @@ export default function LeadForm({ userId, onSaved, clientVersion }) {
           ))}
         </select>
 
-        <label htmlFor="lead-title">Opportunity</label>
+        <label htmlFor="lead-title" style={{ marginTop: 12, display: 'block' }}>Opportunity</label>
         <input
           id="lead-title"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           disabled={busy}
           required
+          placeholder="e.g., Executive Leadership & Governance Program"
         />
 
-        <button type="submit" disabled={busy || clients.length === 0}>
+        <button type="submit" disabled={busy} style={{ marginTop: 16 }}>
           {busy ? 'Saving…' : `Save Lead (${autoLeadCode})`}
         </button>
 
-        {message && <p role="status">{message}</p>}
+        {message && <p role="status" style={{ marginTop: 10 }}>{message}</p>}
       </form>
     </section>
   )
