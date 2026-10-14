@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import { PIPELINE_STAGES, SBU_PRODUCT_TAXONOMY, checkTrackerReadiness } from './pipelineConfig'
+import {
+  PIPELINE_STAGES,
+  SBU_PRODUCT_TAXONOMY,
+  LOSS_REASONS,
+  checkTrackerReadiness,
+  evaluateStageGate,
+} from './pipelineConfig'
 
 export default function ProposalForm({ leadVersion = 0, onSaved }) {
   const [leads, setLeads] = useState([])
@@ -14,6 +20,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
   const [nextActionDate, setNextActionDate] = useState('')
   const [deadline, setDeadline] = useState('')
   const [amount, setAmount] = useState('')
+  const [lossReason, setLossReason] = useState('')
   const [notes, setNotes] = useState('')
   const [autoProposalCode, setAutoProposalCode] = useState('')
   const [loading, setLoading] = useState(true)
@@ -31,7 +38,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
       try {
         const { data, error } = await supabase
           .from('opportunities')
-          .select('id, title, clients(name), sbus(code, name)')
+          .select('id, title, qualification_status, clients(name), sbus(code, name)')
           .order('created_at', { ascending: false })
           .order('id', { ascending: false })
           .limit(100)
@@ -67,7 +74,6 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
   const activeEngineObj = availableEngines.find((e) => e.label === productEngine)
   const availableProducts = activeEngineObj?.products || []
 
-  // Generate the next sequential Proposal Code when a Lead is selected
   async function handleLeadChange(selectedId) {
     setLeadId(selectedId)
     setProductEngine('')
@@ -112,16 +118,27 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
     }
   }
 
-  // Live Tracker-Readiness evaluation against Governance rules
-  const currentReadiness = checkTrackerReadiness({
+  const combinedNotes = lossReason
+    ? `[LOSS REASON: ${lossReason}] ${notes}`.trim()
+    : notes.trim()
+
+  const draftDealState = {
     title: title.trim(),
     client_name: selectedLead?.clients?.name,
     product_engine: productEngine.trim() || specificProduct.trim(),
     bd_owner: bdOwner.trim(),
-    notes: notes,
+    notes: combinedNotes,
     next_action: nextAction.trim(),
     next_action_date: nextActionDate,
-  })
+    deal_value_etb: amount,
+    submission_deadline: deadline,
+  }
+
+  // 1. Live Tracker-Readiness evaluation
+  const currentReadiness = checkTrackerReadiness(draftDealState)
+
+  // 2. Live Stage-Gate evaluation for the currently selected stage
+  const stageGateStatus = evaluateStageGate(draftDealState, status)
 
   async function saveProposal(event) {
     event.preventDefault()
@@ -129,6 +146,20 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
 
     if (!leadId || !title.trim()) {
       setMessage('Please select a lead and enter a proposal title.')
+      return
+    }
+
+    // Warn if lead has not been screened yet
+    if (selectedLead?.qualification_status === 'Unscreened') {
+      setMessage('⚠️ Governance Gate: This lead is still "Unscreened". Please screen and qualify the lead in Lead Intake before registering a formal proposal.')
+      return
+    }
+
+    // Enforce Stage-Gate Exit Criteria before allowing save
+    if (!stageGateStatus.isUnlocked) {
+      setMessage(
+        `🔒 Stage Gate Locked for "${status}": Please complete [${stageGateStatus.missingRequirements.join(', ')}] before saving at this stage.`
+      )
       return
     }
 
@@ -155,7 +186,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
           next_action: nextAction.trim() || null,
           next_action_date: nextActionDate || null,
           is_tracker_ready: currentReadiness.isReady,
-          notes: notes.trim() || null,
+          notes: combinedNotes || null,
           follow_up_required: true,
         })
         .select('id')
@@ -172,6 +203,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
       setNextActionDate('')
       setDeadline('')
       setAmount('')
+      setLossReason('')
       setNotes('')
       setAutoProposalCode('')
       setMessage(`Proposal ${autoProposalCode} saved successfully.`)
@@ -207,13 +239,13 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
         )}
       </div>
 
-      <p>Select the lead that this proposal belongs to.</p>
+      <p>Select a screened & qualified lead that this proposal belongs to.</p>
 
       {leads.length === 0 ? (
         <p>Add a lead first before creating a proposal.</p>
       ) : (
         <form onSubmit={saveProposal}>
-          {/* Linked Lead */}
+          {/* Linked Lead with Screening Badge */}
           <label htmlFor="proposal-lead">Linked lead</label>
           <select
             id="proposal-lead"
@@ -223,13 +255,22 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             disabled={busy}
           >
             <option value="">Select a lead</option>
-            {leads.map((lead) => (
-              <option key={lead.id} value={lead.id}>
-                {lead.clients?.name || 'Unnamed client'} — {lead.title} ({lead.sbus?.code || 'No SBU'})
-              </option>
-            ))}
+            {leads.map((lead) => {
+              const qStatus = lead.qualification_status || 'Unscreened'
+              const badge = qStatus === 'Unscreened' ? '⚠️ [Unscreened]' : `✓ [${qStatus}]`
+              return (
+                <option key={lead.id} value={lead.id}>
+                  {badge} {lead.clients?.name || 'Unnamed client'} — {lead.title} ({lead.sbus?.code || 'No SBU'})
+                </option>
+              )
+            })}
           </select>
-          <small>Choices show the latest 100 leads.</small>
+
+          {selectedLead?.qualification_status === 'Unscreened' && (
+            <div style={{ marginTop: 6, padding: '8px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>
+              ⚠️ This lead is currently <strong>Unscreened</strong>. Please screen it in the Lead Intake tab before converting to a proposal.
+            </div>
+          )}
 
           {/* Proposal Title */}
           <label htmlFor="proposal-title" style={{ marginTop: 12, display: 'block' }}>
@@ -243,9 +284,9 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             disabled={busy}
           />
 
-          {/* 6-Stage Progression Selector */}
+          {/* 6-Stage Progression Selector with Live Lock Status */}
           <label htmlFor="proposal-status" style={{ marginTop: 12, display: 'block' }}>
-            Pipeline Stage
+            Pipeline Stage (Stage-Gated)
           </label>
           <select
             id="proposal-status"
@@ -253,12 +294,55 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             onChange={(event) => setStatus(event.target.value)}
             disabled={busy}
           >
-            {PIPELINE_STAGES.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label} — {s.description}
-              </option>
-            ))}
+            {PIPELINE_STAGES.map((s) => {
+              const check = evaluateStageGate(draftDealState, s.id)
+              const lockPrefix = check.isUnlocked ? '✓' : '🔒'
+              return (
+                <option key={s.id} value={s.id}>
+                  {lockPrefix} {s.label} {!check.isUnlocked ? `(Requires: ${check.missingRequirements.join(', ')})` : '— Unlocked'}
+                </option>
+              )
+            })}
           </select>
+
+          {/* Stage-Gate Alert Banner if user picks a locked stage */}
+          {!stageGateStatus.isUnlocked && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: '10px 12px',
+                borderRadius: 6,
+                background: '#fff1f2',
+                border: '1px solid #fecdd3',
+                color: '#be123c',
+                fontSize: 12,
+              }}
+            >
+              <strong>🔒 Stage Gate Requirement for "{status}":</strong> You must fill in{' '}
+              <u>{stageGateStatus.missingRequirements.join(', ')}</u> below to unlock this stage.
+            </div>
+          )}
+
+          {/* Mandatory Loss Reason Selector when Stage = Lost */}
+          {status === 'Lost' && (
+            <div style={{ marginTop: 12, padding: 10, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6 }}>
+              <label htmlFor="proposal-loss-reason" style={{ color: '#b91c1c', fontWeight: 700, fontSize: 12 }}>
+                Mandatory Loss Reason
+              </label>
+              <select
+                id="proposal-loss-reason"
+                value={lossReason}
+                onChange={(e) => setLossReason(e.target.value)}
+                required
+                disabled={busy}
+              >
+                <option value="">Select primary reason for loss...</option>
+                {LOSS_REASONS.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Cascading Taxonomy: Product Engine & Specific Product */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
@@ -382,7 +466,7 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
                 value={amount}
                 onChange={(event) => setAmount(event.target.value)}
                 disabled={busy}
-                placeholder="Optional"
+                placeholder="Required from Pre-Qualified onwards"
               />
             </div>
             <div>
@@ -407,11 +491,23 @@ export default function ProposalForm({ leadVersion = 0, onSaved }) {
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             disabled={busy}
-            placeholder="Context, referral details, or client constraints..."
+            placeholder="Context, shortlist score, contract award reference, or client constraints..."
           />
 
-          <button type="submit" disabled={busy} style={{ marginTop: 16 }}>
-            {busy ? 'Saving...' : `Save Proposal ${autoProposalCode ? `(${autoProposalCode})` : ''}`}
+          <button
+            type="submit"
+            disabled={busy || !stageGateStatus.isUnlocked}
+            style={{
+              marginTop: 16,
+              opacity: !stageGateStatus.isUnlocked ? 0.6 : 1,
+              cursor: !stageGateStatus.isUnlocked ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {busy
+              ? 'Saving...'
+              : !stageGateStatus.isUnlocked
+              ? `🔒 Complete Stage Gate Fields to Save (${status})`
+              : `Save Proposal ${autoProposalCode ? `(${autoProposalCode})` : ''}`}
           </button>
 
           {message && <p role="status" style={{ marginTop: 10 }}>{message}</p>}
