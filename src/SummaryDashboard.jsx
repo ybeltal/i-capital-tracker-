@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts'
 import PipelineCoverageGauge from './PipelineCoverageGauge'
 import { SBU_PIPELINE_TARGETS } from './pipelineConfig'
+import UserAvatar from './UserAvatar'
 
 const STAGE_WEIGHTS = {
   'Target': 0.05,
@@ -44,15 +45,13 @@ const SBU_DISPLAY_NAMES = {
   'DAS': 'Digital & AI Solutions (DAS)',
 }
 
-// Official Readiness Report Annual Revenue Targets (ETB)
 const OFFICIAL_DOCUMENT_TARGETS = {
-  'Institute': SBU_PIPELINE_TARGETS.INSTITUTE.annualRevenueTarget, // 63,000,000
-  'CBS': SBU_PIPELINE_TARGETS.CBS.annualRevenueTarget,             // 35,000,000
-  'IIP': SBU_PIPELINE_TARGETS.IIP.annualRevenueTarget,             // 140,300,000
-  'DAS': SBU_PIPELINE_TARGETS.DAS.annualRevenueTarget,             // 18,295,000
+  'Institute': SBU_PIPELINE_TARGETS.INSTITUTE.annualRevenueTarget,
+  'CBS': SBU_PIPELINE_TARGETS.CBS.annualRevenueTarget,
+  'IIP': SBU_PIPELINE_TARGETS.IIP.annualRevenueTarget,
+  'DAS': SBU_PIPELINE_TARGETS.DAS.annualRevenueTarget,
 }
 
-// Official Readiness Report Quarterly Phasing (ETB)
 const OFFICIAL_QUARTERLY_TARGETS = {
   'Institute': SBU_PIPELINE_TARGETS.INSTITUTE.quarterly,
   'CBS': SBU_PIPELINE_TARGETS.CBS.quarterly,
@@ -101,6 +100,12 @@ function formatMoney(value) {
   }).format(value ?? 0)}`
 }
 
+function parseTag(text, tag) {
+  if (!text) return ''
+  const match = text.match(new RegExp(`\\[${tag}:\\s*([^\\]]+)\\]`))
+  return match ? match[1].trim() : ''
+}
+
 function downloadCSV(filename, csvRows) {
   const csvContent = '\uFEFF' + csvRows.join('\r\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -114,63 +119,6 @@ function downloadCSV(filename, csvRows) {
   URL.revokeObjectURL(url)
 }
 
-function OwnerPhoto({ name }) {
-  const isYbeltal = !name || name.toLowerCase().includes('ybeltal') || name === 'Commercial Team'
-  const photoSrc = isYbeltal ? '/team/ybeltal.jpg' : null
-
-  if (photoSrc) {
-    return (
-      <img
-        src={photoSrc}
-        alt={name || 'Ybeltal'}
-        style={{
-          width: '36px',
-          height: '48px',
-          borderRadius: '6px',
-          objectFit: 'cover',
-          border: '2px solid #22c55e',
-          boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-          display: 'inline-block',
-          verticalAlign: 'middle',
-          flexShrink: 0,
-        }}
-        title={name || 'Ybeltal'}
-      />
-    )
-  }
-
-  return (
-    <div
-      style={{
-        width: '36px',
-        height: '48px',
-        borderRadius: '6px',
-        background: '#dcfce7',
-        border: '2px solid #86efac',
-        color: '#166534',
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '12px',
-        fontWeight: 700,
-        verticalAlign: 'middle',
-        flexShrink: 0,
-      }}
-      title={name || 'Commercial Lead'}
-    >
-      {name && name !== 'Unassigned' ? name.slice(0, 2).toUpperCase() : '🏆'}
-    </div>
-  )
-}
-
-function parseOwner(notes) {
-  if (!notes) return 'Ybeltal'
-  const match = notes.match(/\[OWNER:\s*([^\]]+)\]/)
-  if (!match) return 'Ybeltal'
-  const val = match[1].trim()
-  return (val === 'Commercial Team' || val === 'Unassigned') ? 'Ybeltal' : val
-}
-
 export default function SummaryDashboard() {
   const [data, setData] = useState(null)
   const [proposals, setProposals] = useState([])
@@ -182,7 +130,6 @@ export default function SummaryDashboard() {
 
   const [selectedQuarter, setSelectedQuarter] = useState('ALL')
 
-  // Load Official Document Targets by default (ignoring old unverified localStorage keys)
   const [sbuTargets, setSbuTargets] = useState(() => {
     try {
       const saved = localStorage.getItem('icapital_sbu_targets_official_v2')
@@ -202,7 +149,6 @@ export default function SummaryDashboard() {
       setLoading(true)
       setError('')
       try {
-        // Check if current logged-in user is Admin
         const { data: authData } = await supabase.auth.getUser()
         const email = authData?.user?.email?.toLowerCase() || ''
         const role = authData?.user?.user_metadata?.role?.toLowerCase() || ''
@@ -222,6 +168,8 @@ export default function SummaryDashboard() {
               deal_value_etb,
               submission_deadline,
               product_engine,
+              bd_owner,
+              proposal_developer,
               notes,
               created_at,
               opportunities (
@@ -281,21 +229,17 @@ export default function SummaryDashboard() {
     return dealQuarter === selectedQuarter
   })
 
-  // Two-Tier Segregation: Leads vs Proposals
   const leadProposalsList = filteredProposals.filter((p) => ['Initiated', 'Target', 'Lead'].includes(p.status))
   const formalProposalsList = filteredProposals.filter((p) => !['Initiated', 'Target', 'Lead'].includes(p.status))
 
-  // Formal Proposal Sub-Pipelines
   const openFormalProposalsList = formalProposalsList.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
   const wonProposalsList = formalProposalsList.filter((p) => p.status === 'Won' || p.status === 'Delivery & Repeat')
   const lostProposalsList = formalProposalsList.filter((p) => p.status === 'Lost')
 
-  // Financial Buckets
   const totalSpeculativeLeadValue = leadProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
   const totalActiveTenderValue = openFormalProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
   const totalWonValue = wonProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
 
-  // Probability-Weighted Forecast
   const totalFormalWeightedForecast = openFormalProposalsList.reduce((sum, p) => {
     const val = Number(p.deal_value_etb) || 0
     const prob = STAGE_WEIGHTS[p.status] ?? 0.30
@@ -311,10 +255,20 @@ export default function SummaryDashboard() {
     ? Math.round((formalProposalsList.length / filteredProposals.length) * 100)
     : 0
 
-  const latestWonDeal = wonProposalsList[0] || (selectedQuarter === 'ALL' ? proposals.find((p) => p.status === 'Won') : null)
-  const latestWonOwner = latestWonDeal ? parseOwner(latestWonDeal.notes) : 'Ybeltal'
+  // 30-Day Win Celebration Spotlight Check
+  const nowMs = new Date().getTime()
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
 
-  // SBU Performance Matrix for Selected Quarter using Official Document Phasing
+  const recentWonDeals = wonProposalsList.filter((p) => {
+    const wonDateStr = parseTag(p.notes, 'WON_DATE') || p.submission_deadline || p.created_at
+    if (!wonDateStr) return false
+    const wonTime = new Date(wonDateStr).getTime()
+    return !isNaN(wonTime) && (nowMs - wonTime <= thirtyDaysMs)
+  })
+
+  // Fallback to absolute latest won deal if none within 30 days
+  const activeCelebrationDeal = recentWonDeals[0] || wonProposalsList[0] || null
+
   const sbuMetrics = CORE_SBUS.map((sbuName) => {
     const sbuDeals = filteredProposals.filter((p) => p.opportunities?.sbus?.name === sbuName)
     const sbuLeads = sbuDeals.filter((p) => ['Initiated', 'Target', 'Lead'].includes(p.status))
@@ -333,8 +287,6 @@ export default function SummaryDashboard() {
     }, 0)
 
     const baseAnnualTarget = sbuTargets[sbuName] || OFFICIAL_DOCUMENT_TARGETS[sbuName]
-    
-    // Use exact Readiness Report quarterly phasing when a specific quarter is selected
     let target = baseAnnualTarget
     if (selectedQuarter !== 'ALL') {
       const qData = OFFICIAL_QUARTERLY_TARGETS[sbuName]?.[selectedQuarter]
@@ -357,6 +309,7 @@ export default function SummaryDashboard() {
       leadCount: sbuLeads.length,
       openCount: sbuFormalOpen.length,
       wonCount: sbuWon.length,
+      lostCount: sbuLost.length,
       leadValue: leadVal,
       openValue: openVal,
       wonValue: wonVal,
@@ -365,6 +318,7 @@ export default function SummaryDashboard() {
       required3xPipeline,
       attainmentPct,
       winRate,
+      lostDealsList: sbuLost,
     }
   })
 
@@ -424,28 +378,18 @@ export default function SummaryDashboard() {
       csvRows.push('THE i-CAPITAL AFRICA INSTITUTE — EXECUTIVE FORECAST & PIPELINE SUMMARY')
       csvRows.push(`Reporting Period,${activeQuarterObj.label} (${activeQuarterObj.range})`)
       csvRows.push(`Export Date,${today}`)
-      csvRows.push(`As of (Nairobi/Addis Ababa),${new Date(data.as_of).toLocaleString('en-GB', { timeZone: 'Africa/Nairobi' })}`)
       csvRows.push('')
 
       csvRows.push('COMMERCIAL PIPELINE TIERS,DEAL COUNT,VALUE (ETB)')
       csvRows.push(`"Speculative Pre-Tender Leads (Initiated)","${leadProposalsList.length}","${formatMoney(totalSpeculativeLeadValue)}"`)
-      csvRows.push(`"Active Formal Proposals (In Progress to Negotiation)","${openFormalProposalsList.length}","${formatMoney(totalActiveTenderValue)}"`)
-      csvRows.push(`"Probability-Weighted Tender Realization","—","${formatMoney(totalFormalWeightedForecast)}"`)
+      csvRows.push(`"Active Formal Proposals","${openFormalProposalsList.length}","${formatMoney(totalActiveTenderValue)}"`)
       csvRows.push(`"Contracted Won Revenue","${wonProposalsList.length}","${formatMoney(totalWonValue)}"`)
-      csvRows.push(`"True Proposal Win Rate (Decided Bids)","${decidedProposalsCount} decided","${trueProposalWinRate != null ? trueProposalWinRate + '%' : 'N/A'}"`)
-      csvRows.push(`"Lead Qualification Rate","${filteredProposals.length} total intake","${leadQualificationRate}%"`)
+      csvRows.push(`"True Proposal Win Rate","${decidedProposalsCount} decided","${trueProposalWinRate != null ? trueProposalWinRate + '%' : 'N/A'}"`)
       csvRows.push('')
 
-      csvRows.push('SBU PERFORMANCE MATRIX,PRE-TENDER LEADS,ACTIVE TENDERS,ACTIVE TENDER VALUE (ETB),WEIGHTED FORECAST (ETB),PERIOD TARGET (ETB),REQUIRED 3X PIPELINE (ETB),TARGET ATTAINMENT %')
+      csvRows.push('SBU PERFORMANCE MATRIX,WINS,LOSSES,WEIGHTED FORECAST (ETB),PERIOD TARGET (ETB),ATTAINMENT %')
       sbuMetrics.forEach((m) => {
-        csvRows.push(`"${m.displayName}","${m.leadCount}","${m.openCount}","${m.openValue}","${m.weightedForecast}","${m.target}","${m.required3xPipeline}","${m.attainmentPct}%"`)
-      })
-      csvRows.push('')
-
-      csvRows.push('STAGE,TIER,DEAL COUNT,NOMINAL VALUE (ETB),PROBABILITY %,WEIGHTED FORECAST (ETB)')
-      stageBreakdown.forEach((s) => {
-        const tier = s.isLead ? 'Lead Intake' : s.isOutcome ? 'Final Outcome' : 'Formal Tender'
-        csvRows.push(`"${s.status}","${tier}","${s.count}","${s.nominal}","${s.prob}%","${s.weighted}"`)
+        csvRows.push(`"${m.displayName}","${m.wonCount}","${m.lostCount}","${m.weightedForecast}","${m.target}","${m.attainmentPct}%"`)
       })
       csvRows.push('')
 
@@ -461,12 +405,12 @@ export default function SummaryDashboard() {
     ? [
         ['Total Clients', formatNumber(data.clients_total), '#client-directory', 'Institutional client directory'],
         ['Pre-Tender Leads', formatNumber(leadProposalsList.length), '#deals-and-proposals', 'Early inquiries in qualification'],
-        ['Formal Proposals', formatNumber(openFormalProposalsList.length), '#deals-and-proposals', 'Active tenders from In Progress to Negotiation'],
+        ['Formal Proposals', formatNumber(openFormalProposalsList.length), '#deals-and-proposals', 'Active tenders in pursuit'],
         ['Signed Won Deals', formatNumber(wonProposalsList.length), null, 'Contracted engagements'],
         ['True Win Rate', trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'No decided', null, `Won vs Lost (${decidedProposalsCount} bids decided)`],
-        ['Lead Conversion Rate', `${leadQualificationRate}%`, null, `${formalProposalsList.length} of ${filteredProposals.length} advanced to tenders`],
+        ['Lead Conversion Rate', `${leadQualificationRate}%`, null, `${formalProposalsList.length} of ${filteredProposals.length} advanced`],
         ['Pending Actions', formatNumber(data.pending_actions), '#follow-up-queue', 'Scheduled touchpoints'],
-        ['Overdue Actions', formatNumber(data.overdue_actions), '#follow-up-queue', 'Urgent SLA follow-ups needed'],
+        ['Overdue Actions', formatNumber(data.overdue_actions), '#follow-up-queue', 'Urgent follow-ups needed'],
       ]
     : []
 
@@ -474,33 +418,17 @@ export default function SummaryDashboard() {
     <section aria-label="Summary Dashboard" style={{ marginBottom: 36, paddingBottom: 28, borderBottom: '1px solid #dbe2ea' }}>
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          #printable-briefing-dossier, #printable-briefing-dossier * {
-            visibility: visible;
-          }
-          #printable-briefing-dossier {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            margin: 0;
-            padding: 10px;
-            background: #ffffff !important;
-            color: #0f172a !important;
-            box-shadow: none !important;
-          }
-          .no-print {
-            display: none !important;
-          }
+          body * { visibility: hidden; }
+          #printable-briefing-dossier, #printable-briefing-dossier * { visibility: visible; }
+          #printable-briefing-dossier { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 10px; background: #ffffff !important; color: #0f172a !important; }
+          .no-print { display: none !important; }
         }
       `}</style>
 
       {/* Top Header & Actions */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h2 style={{ margin: '0 0 4px 0', color: '#0f172a' }}>Executive Opportunity & Revenue Forecast Dashboard</h2>
+          <h2 style={{ margin: '0 0 4px 0', color: '#0f172a' }}>Executive Opportunity &amp; Revenue Forecast Dashboard</h2>
           <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
             Two-tier commercial intelligence: Pre-tender lead qualification and formal proposal revenue realization.
           </p>
@@ -527,7 +455,6 @@ export default function SummaryDashboard() {
             🖨️ Executive Briefing (PDF)
           </button>
 
-          {/* Admin-Locked Target Governance Button */}
           {isAdmin ? (
             <button
               type="button"
@@ -545,7 +472,6 @@ export default function SummaryDashboard() {
                 fontWeight: 600,
                 fontSize: 12,
               }}
-              title="Admin Only: View or Manage Official SBU Targets"
             >
               ⚙️ SBU Targets (Admin)
             </button>
@@ -559,11 +485,7 @@ export default function SummaryDashboard() {
                 borderRadius: 6,
                 fontWeight: 600,
                 fontSize: 11,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
               }}
-              title="Targets are locked to the Official Readiness Report by Admin"
             >
               🔒 Targets Locked
             </span>
@@ -607,7 +529,7 @@ export default function SummaryDashboard() {
         </div>
       </div>
 
-      {/* 4-QUARTER FISCAL REPORTING SELECTOR TOOLBAR */}
+      {/* Fiscal Period Selector Toolbar */}
       <div
         style={{
           marginTop: 18,
@@ -655,8 +577,6 @@ export default function SummaryDashboard() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
-                    transition: 'all 0.15s ease',
-                    boxShadow: isActive ? '0 2px 4px rgba(2, 132, 199, 0.25)' : 'none',
                   }}
                 >
                   <span>{q.label}</span>
@@ -680,29 +600,26 @@ export default function SummaryDashboard() {
 
         <div style={{ fontSize: 12, color: '#64748b' }}>
           Date Span: <strong style={{ color: '#0f172a' }}>{activeQuarterObj.range}</strong>
-          {selectedQuarter !== 'ALL' && (
-            <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 4, background: '#e0f2fe', color: '#0369a1', fontWeight: 600, fontSize: 11 }}>
-              Official Quarterly Target Phasing Applied
-            </span>
-          )}
         </div>
       </div>
 
       {error && <p role="alert" style={{ color: '#b91c1c', marginTop: 12 }}>{error}</p>}
-      {loading && <p role="status" style={{ color: '#64748b', marginTop: 16 }}>Calculating revenue forecast & SBU metrics…</p>}
+      {loading && <p role="status" style={{ color: '#64748b', marginTop: 16 }}>Calculating revenue forecast &amp; SBU metrics…</p>}
 
       {!loading && !error && data && (
         <>
-          {/* DEAL WON CONGRATULATIONS SHOWCASE */}
-          {latestWonDeal && (
+          {/* ======================================================== */}
+          {/* AUTOMATIC 30-DAY WIN CELEBRATION SPOTLIGHT BANNER        */}
+          {/* ======================================================== */}
+          {activeCelebrationDeal && (
             <div
               style={{
                 marginTop: 20,
-                padding: '16px 20px',
-                background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 60%, #e0f2fe 100%)',
+                padding: '18px 22px',
+                background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 50%, #eff6ff 100%)',
                 border: '2px solid #86efac',
                 borderRadius: 12,
-                boxShadow: '0 4px 14px rgba(22, 163, 74, 0.12)',
+                boxShadow: '0 6px 20px rgba(22, 163, 74, 0.15)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -710,10 +627,10 @@ export default function SummaryDashboard() {
                 gap: 16,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <OwnerPhoto name={latestWonOwner} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <UserAvatar name={activeCelebrationDeal.proposal_developer} size={48} />
                 <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <span
                       style={{
                         fontSize: 11,
@@ -721,52 +638,46 @@ export default function SummaryDashboard() {
                         textTransform: 'uppercase',
                         background: '#16a34a',
                         color: '#fff',
-                        padding: '2px 8px',
+                        padding: '3px 10px',
                         borderRadius: 12,
                         letterSpacing: '0.5px',
                       }}
                     >
-                      🎉 Deal Won Celebration
-                    </span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: '#166534' }}>
-                      Congratulations, {latestWonOwner}!
+                      🎉 Congratulations on Winning!
                     </span>
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-                    Contract Secured with {latestWonDeal.opportunities?.clients?.name || 'Institutional Client'}
+                  <div style={{ fontSize: 17, fontWeight: 800, color: '#0f172a' }}>
+                    {activeCelebrationDeal.title} ({activeCelebrationDeal.proposal_code || 'DEAL'})
                   </div>
-                  <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
-                    {latestWonDeal.title} ({latestWonDeal.proposal_code || 'DEAL'})
+                  <div style={{ fontSize: 12, color: '#475569', marginTop: 2, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <span>Client: <strong style={{ color: '#0f172a' }}>{activeCelebrationDeal.opportunities?.clients?.name || 'Institutional Client'}</strong></span>
+                    <span>• Commercial Owner: <strong style={{ color: '#0369a1' }}>{activeCelebrationDeal.bd_owner || 'Corporate RG'}</strong></span>
+                    <span>• Technical Lead: <strong style={{ color: '#166534' }}>{activeCelebrationDeal.proposal_developer || 'Assigned Lead'}</strong></span>
                   </div>
                 </div>
               </div>
 
               <div style={{ textAlign: 'right', minWidth: 160 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase' }}>
                   Contracted Won Revenue
                 </div>
-                <div style={{ fontSize: 22, fontWeight: 800, color: '#166534' }}>
-                  {formatMoney(latestWonDeal.deal_value_etb)}
+                <div style={{ fontSize: 24, fontWeight: 900, color: '#166534' }}>
+                  {formatMoney(activeCelebrationDeal.deal_value_etb)}
                 </div>
                 <div style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', marginTop: 2 }}>
-                  SBU: {latestWonDeal.opportunities?.sbus?.name || 'Institute'}
+                  SBU: {activeCelebrationDeal.opportunities?.sbus?.name || 'Institute'}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ======================================================== */}
-          {/* FEATURE 2: 3X REQUIRED PIPELINE COVERAGE & GAP GAUGE    */}
-          {/* ======================================================== */}
+          {/* 3X PIPELINE COVERAGE GAUGE */}
           <div style={{ marginTop: 20 }}>
             <PipelineCoverageGauge proposals={proposals} />
           </div>
 
-          {/* ======================================================== */}
-          {/* 4-PILLAR REVENUE & PIPELINE FORECAST GRID (TIERED)        */}
-          {/* ======================================================== */}
+          {/* 4-PILLAR REVENUE FORECAST GRID */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginTop: 20 }}>
-            {/* Pillar 1: Speculative Pre-Tender Leads */}
             <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 18, borderLeft: '4px solid #0284c7' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>
@@ -784,7 +695,6 @@ export default function SummaryDashboard() {
               </span>
             </div>
 
-            {/* Pillar 2: Active Formal Tender Pipeline */}
             <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: 18, borderLeft: '4px solid #f59e0b' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#b45309', textTransform: 'uppercase' }}>
@@ -798,11 +708,10 @@ export default function SummaryDashboard() {
                 {formatMoney(totalActiveTenderValue)}
               </div>
               <span style={{ fontSize: 12, color: '#92400e' }}>
-                {openFormalProposalsList.length} formal proposals in development & defense
+                {openFormalProposalsList.length} formal proposals in development &amp; defense
               </span>
             </div>
 
-            {/* Pillar 3: Weighted Proposal Realization */}
             <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: 18, borderLeft: '4px solid #16a34a' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#15803d', textTransform: 'uppercase' }}>
@@ -820,7 +729,6 @@ export default function SummaryDashboard() {
               </span>
             </div>
 
-            {/* Pillar 4: Contracted Won Revenue */}
             <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 10, padding: 18, borderLeft: '4px solid #8b5cf6' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: '#6b21a8', textTransform: 'uppercase' }}>
@@ -837,6 +745,81 @@ export default function SummaryDashboard() {
                 {wonProposalsList.length} closed won engagements in period
               </span>
             </div>
+          </div>
+
+          {/* ======================================================== */}
+          {/* QUARTERLY WIN / LOSS & POST-MORTEM LEARNING LEDGER       */}
+          {/* ======================================================== */}
+          <div style={{ marginTop: 28, background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: 12, padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
+              <div>
+                <h3 style={{ margin: '0 0 2px 0', color: '#0f172a' }}>
+                  📚 Quarterly Win / Loss &amp; Post-Mortem Learning Ledger ({activeQuarterObj.label})
+                </h3>
+                <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
+                  Track won vs. lost outcomes and analyze documented loss reasons for institutional learning.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: 12 }}>
+                  Won: {wonProposalsList.length}
+                </span>
+                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#fee2e2', color: '#b91c1c', fontWeight: 700, fontSize: 12 }}>
+                  Lost: {lostProposalsList.length}
+                </span>
+                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#e0f2fe', color: '#0369a1', fontWeight: 700, fontSize: 12 }}>
+                  Win Rate: {trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            {lostProposalsList.length === 0 ? (
+              <div style={{ padding: 20, textAlign: 'center', color: '#64748b', fontSize: 13, background: '#f8fafc', borderRadius: 8, fontStyle: 'italic' }}>
+                No lost proposals recorded for this period. Excellent performance!
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
+                      <th style={{ padding: '8px 12px', color: '#475569' }}>Proposal Code</th>
+                      <th style={{ padding: '8px 12px', color: '#475569' }}>Client &amp; Title</th>
+                      <th style={{ padding: '8px 12px', color: '#475569' }}>SBU</th>
+                      <th style={{ padding: '8px 12px', color: '#475569' }}>Commercial Unit</th>
+                      <th style={{ padding: '8px 12px', color: '#475569' }}>Technical Lead</th>
+                      <th style={{ padding: '8px 12px', color: '#475569' }}>Value (ETB)</th>
+                      <th style={{ padding: '8px 12px', color: '#b91c1c' }}>Documented Loss Reason (Learning Post-Mortem)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lostProposalsList.map((p) => {
+                      const lossReason = parseTag(p.notes, 'LOSS_REASON') || 'No formal loss reason tagged in audit notes.'
+                      return (
+                        <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '8px 12px', fontWeight: 700, color: '#0369a1' }}>{p.proposal_code || '—'}</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            <div style={{ fontWeight: 600, color: '#0f172a' }}>{p.opportunities?.clients?.name || '—'}</div>
+                            <div style={{ fontSize: 11, color: '#64748b' }}>{p.title}</div>
+                          </td>
+                          <td style={{ padding: '8px 12px', fontWeight: 600 }}>{p.opportunities?.sbus?.code || 'INST'}</td>
+                          <td style={{ padding: '8px 12px', color: '#334155' }}>{p.bd_owner || 'Corporate RG'}</td>
+                          <td style={{ padding: '8px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <UserAvatar name={p.proposal_developer} size={20} />
+                              <span>{p.proposal_developer || '—'}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '8px 12px', fontWeight: 700, color: '#166534' }}>{formatMoney(p.deal_value_etb)}</td>
+                          <td style={{ padding: '8px 12px', color: '#b91c1c', fontWeight: 600, background: '#fef2f2' }}>
+                            {lossReason}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* SBU Pipeline Targets */}
@@ -895,7 +878,7 @@ export default function SummaryDashboard() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: 6, marginTop: 4 }}>
                       <span>Portfolio Breakdown:</span>
-                      <span>{sbu.openCount} tenders • {sbu.leadCount} leads ({sbu.wonCount} won)</span>
+                      <span>{sbu.openCount} tenders • {sbu.wonCount} won ({sbu.lostCount} lost)</span>
                     </div>
                   </div>
                 </div>
@@ -951,9 +934,9 @@ export default function SummaryDashboard() {
             </div>
           </div>
 
-          {/* Operational KPIs with Dual Conversion Metrics */}
+          {/* Operational KPIs */}
           <h3 style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>
-            CRM Commercial & Operational Performance ({selectedQuarter})
+            CRM Commercial &amp; Operational Performance ({selectedQuarter})
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
             {operationalKpiCards.map(([label, value, href, description]) => (
@@ -986,256 +969,7 @@ export default function SummaryDashboard() {
               </div>
             ))}
           </div>
-
-          {/* Tiered Funnel Table */}
-          <h3 style={{ marginTop: 32, marginBottom: 12, color: '#0f172a' }}>
-            Two-Tier Funnel: Pre-Tender Leads vs. Formal Proposals ({selectedQuarter})
-          </h3>
-          <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Pipeline Tier</th>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Stage</th>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Deals</th>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Nominal Deal Value (ETB)</th>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Probability</th>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Weighted Forecast (ETB)</th>
-                  <th style={{ padding: '10px 14px', color: '#475569' }}>Tender Share</th>
-                </tr>
-              </thead>
-              <tbody>
-                {stageBreakdown.map((row) => (
-                  <tr key={row.status} style={{ borderBottom: '1px solid #f1f5f9', background: row.isLead ? '#f0f9ff' : row.isOutcome ? '#f8fafc' : '#ffffff' }}>
-                    <td style={{ padding: '10px 14px' }}>
-                      {row.isLead ? (
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#e0f2fe', color: '#0369a1' }}>
-                          🎯 Pre-Tender Lead
-                        </span>
-                      ) : row.isOutcome ? (
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#f1f5f9', color: '#475569' }}>
-                          🏁 Commercial Outcome
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#fef3c7', color: '#92400e' }}>
-                          📄 Formal Tender
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '10px 14px', fontWeight: 600, color: '#1e293b' }}>{row.status}</td>
-                    <td style={{ padding: '10px 14px', color: '#334155' }}>{row.count}</td>
-                    <td style={{ padding: '10px 14px', color: '#0f172a', fontWeight: 600 }}>{formatMoney(row.nominal)}</td>
-                    <td style={{ padding: '10px 14px' }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#f1f5f9', color: '#475569' }}>
-                        {row.prob}%
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 14px', color: '#15803d', fontWeight: 700 }}>{formatMoney(row.weighted)}</td>
-                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{row.share > 0 ? `${row.share}%` : '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         </>
-      )}
-
-      {/* PRINTABLE EXECUTIVE BRIEFING DOSSIER MODAL */}
-      {showBriefingModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.7)',
-            zIndex: 10000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-            overflowY: 'auto',
-          }}
-        >
-          <div
-            id="printable-briefing-dossier"
-            style={{
-              background: '#ffffff',
-              borderRadius: 12,
-              width: '100%',
-              maxWidth: 840,
-              padding: 32,
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-            }}
-          >
-            <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 16, marginBottom: 24 }}>
-              <div>
-                <h3 style={{ margin: 0, color: '#0f172a' }}>Executive Memorandum Preview</h3>
-                <span style={{ fontSize: 12, color: '#64748b' }}>
-                  Board-Ready 1-Page Briefing Sheet • {activeQuarterObj.label}
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 6,
-                    border: 'none',
-                    background: '#1e293b',
-                    color: '#fff',
-                    fontWeight: 700,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  🖨️ Print / Save as PDF
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowBriefingModal(false)}
-                  style={{
-                    padding: '8px 14px',
-                    borderRadius: 6,
-                    border: '1px solid #cbd5e1',
-                    background: '#fff',
-                    color: '#475569',
-                    fontWeight: 600,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-
-            <div style={{ fontFamily: 'Georgia, serif', color: '#0f172a' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: 14 }}>
-                <div>
-                  <h1 style={{ margin: 0, fontSize: 20, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#0f172a', fontWeight: 800 }}>
-                    The i-Capital Africa Institute
-                  </h1>
-                  <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#475569', fontFamily: 'sans-serif' }}>
-                    Executive Opportunity & Revenue Briefing — <strong>{activeQuarterObj.label}</strong>
-                  </p>
-                </div>
-                <div style={{ textAlign: 'right', fontFamily: 'sans-serif', fontSize: 11, color: '#64748b' }}>
-                  <div><strong>Date:</strong> {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-                  <div><strong>Period:</strong> {activeQuarterObj.range}</div>
-                  <div><strong>Classification:</strong> Confidential / Leadership Review</div>
-                </div>
-              </div>
-
-              {/* Tiered Financial Snapshot */}
-              <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
-                  1. Executive Financial Summary ({selectedQuarter})
-                </h4>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                  <div style={{ padding: 10, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 4 }}>
-                    <div style={{ fontSize: 10, color: '#0369a1', fontWeight: 700 }}>PRE-TENDER LEADS</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#0369a1', marginTop: 4 }}>{formatMoney(totalSpeculativeLeadValue)}</div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>{leadProposalsList.length} In Qualification</div>
-                  </div>
-                  <div style={{ padding: 10, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 4 }}>
-                    <div style={{ fontSize: 10, color: '#92400e', fontWeight: 700 }}>ACTIVE FORMAL TENDERS</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#92400e', marginTop: 4 }}>{formatMoney(totalActiveTenderValue)}</div>
-                    <div style={{ fontSize: 10, color: '#92400e' }}>{openFormalProposalsList.length} Bids in Pursuit</div>
-                  </div>
-                  <div style={{ padding: 10, background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 4 }}>
-                    <div style={{ fontSize: 10, color: '#166534', fontWeight: 700 }}>WEIGHTED TENDER FORECAST</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#166534', marginTop: 4 }}>{formatMoney(totalFormalWeightedForecast)}</div>
-                    <div style={{ fontSize: 10, color: '#166534' }}>Probability Realization</div>
-                  </div>
-                  <div style={{ padding: 10, background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 4 }}>
-                    <div style={{ fontSize: 10, color: '#6b21a8', fontWeight: 700 }}>CONTRACTED WON</div>
-                    <div style={{ fontSize: 15, fontWeight: 800, color: '#7c3aed', marginTop: 4 }}>{formatMoney(totalWonValue)}</div>
-                    <div style={{ fontSize: 10, color: '#6b21a8' }}>{wonProposalsList.length} Closed Deals</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* SBU Performance Table */}
-              <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
-                  2. SBU Target Attainment & Performance Matrix ({selectedQuarter})
-                </h4>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, border: '1px solid #cbd5e1' }}>
-                  <thead>
-                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
-                      <th style={{ padding: '6px 10px', textAlign: 'left' }}>SBU</th>
-                      <th style={{ padding: '6px 10px', textAlign: 'center' }}>Leads</th>
-                      <th style={{ padding: '6px 10px', textAlign: 'center' }}>Tenders</th>
-                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Active Tenders (ETB)</th>
-                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Weighted Forecast (ETB)</th>
-                      <th style={{ padding: '6px 10px', textAlign: 'right' }}>Target (ETB)</th>
-                      <th style={{ padding: '6px 10px', textAlign: 'center' }}>Attainment %</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sbuMetrics.map((m) => (
-                      <tr key={m.name} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '6px 10px', fontWeight: 700 }}>{m.displayName}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'center', color: '#0369a1' }}>{m.leadCount}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 600 }}>{m.openCount}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'right' }}>{formatMoney(m.openValue)}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'right', fontWeight: 700, color: '#166534' }}>{formatMoney(m.weightedForecast)}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'right' }}>{formatMoney(m.target)}</td>
-                        <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700 }}>{m.attainmentPct}%</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Key Active Pursuits */}
-              <div style={{ margin: '20px 0', fontFamily: 'sans-serif' }}>
-                <h4 style={{ margin: '0 0 8px 0', fontSize: 12, textTransform: 'uppercase', color: '#64748b', letterSpacing: '0.5px' }}>
-                  3. Key Open Formal Tender Pursuits ({selectedQuarter})
-                </h4>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '1px solid #cbd5e1' }}>
-                  <thead>
-                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
-                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>Code</th>
-                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>Client</th>
-                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>Scope / Program</th>
-                      <th style={{ padding: '5px 8px', textAlign: 'center' }}>SBU</th>
-                      <th style={{ padding: '5px 8px', textAlign: 'center' }}>Stage</th>
-                      <th style={{ padding: '5px 8px', textAlign: 'right' }}>Contract Value (ETB)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {topPursuits.map((p) => (
-                      <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{ padding: '5px 8px', fontWeight: 700, color: '#0369a1' }}>{p.proposal_code || '—'}</td>
-                        <td style={{ padding: '5px 8px', fontWeight: 600 }}>{p.opportunities?.clients?.name || '—'}</td>
-                        <td style={{ padding: '5px 8px', maxWidth: 280, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.title}</td>
-                        <td style={{ padding: '5px 8px', textAlign: 'center' }}>{p.opportunities?.sbus?.name || '—'}</td>
-                        <td style={{ padding: '5px 8px', textAlign: 'center' }}>{p.status}</td>
-                        <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700 }}>{formatMoney(p.deal_value_etb)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Governance & Win Rate Footer */}
-              <div style={{ margin: '20px 0 0 0', display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #cbd5e1', paddingTop: 12, fontSize: 11, fontFamily: 'sans-serif' }}>
-                <div>
-                  <strong>Bidding Performance:</strong> True Proposal Win Rate: {trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'N/A'} • Lead Qualification Rate: {leadQualificationRate}%
-                </div>
-                <div style={{ color: '#64748b' }}>
-                  Verified by Master CRM Pipeline • Addis Ababa, Ethiopia
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* ADMIN-ONLY SBU Target Setting Modal */}
