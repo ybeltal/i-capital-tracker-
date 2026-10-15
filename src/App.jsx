@@ -5,7 +5,7 @@ import { supabase } from './supabase'
 import SummaryDashboard from './SummaryDashboard'
 import ProposalList from './ProposalList'
 import LeadList from './LeadList'
-import ClientDetails from './ClientDetails'
+import ClientDirectory from './ClientDirectory'
 import FollowUpQueue from './FollowUpQueue'
 
 // Creation Modals
@@ -28,6 +28,7 @@ export default function App() {
   const [showProposalModal, setShowProposalModal] = useState(false)
   const [showLeadModal, setShowLeadModal] = useState(false)
   const [showClientModal, setShowClientModal] = useState(false)
+  const [prefilledClientName, setPrefilledClientName] = useState('')
 
   useEffect(() => {
     async function loadUser() {
@@ -50,6 +51,16 @@ export default function App() {
     window.location.reload()
   }
 
+  function handleConvertTargetToLead(clientName) {
+    setPrefilledClientName(clientName)
+    setShowLeadModal(true)
+  }
+
+  function handleConvertTargetToProposal(clientName) {
+    setPrefilledClientName(clientName)
+    setShowProposalModal(true)
+  }
+
   const navTabs = [
     { id: 'dashboard', label: 'Summary Dashboard', icon: '📊' },
     { id: 'proposals', label: 'Deals & Proposals', icon: '📋' },
@@ -61,9 +72,7 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
       
-      {/* ======================================================== */}
-      {/* 1. TOP EXECUTIVE BRANDING & GOVERNANCE BAR               */}
-      {/* ======================================================== */}
+      {/* 1. TOP EXECUTIVE BRANDING & GOVERNANCE BAR */}
       <header
         style={{
           background: 'linear-gradient(90deg, #070d1e 0%, #0f172a 60%, #1e293b 100%)',
@@ -78,7 +87,6 @@ export default function App() {
           zIndex: 100,
         }}
       >
-        {/* Left: Logo & Organization Title */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <div
             style={{
@@ -127,7 +135,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Right: User Profile & Sign Out */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <UserAvatar name={userName} size={34} />
@@ -164,9 +171,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* ======================================================== */}
-      {/* 2. COMMAND HEADER: WELCOME, CTAs & INTERACTIVE TABS     */}
-      {/* ======================================================== */}
+      {/* 2. COMMAND HEADER: DEVELOPER ATTRIBUTION & ACTIONS */}
       <div style={{ padding: '20px 28px 0 28px', maxWidth: '1600px', margin: '0 auto' }}>
         <div
           style={{
@@ -183,21 +188,39 @@ export default function App() {
             marginBottom: 20,
           }}
         >
-          {/* Welcome Title */}
+          {/* Welcome Title with Developer Credit */}
           <div>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-              Welcome back, {userName}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+                Welcome back, {userName}
+              </span>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  background: '#f1f5f9',
+                  color: '#0284c7',
+                  border: '1px solid #bae6fd',
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                }}
+              >
+                Developed by Ybeltal Semagn
+              </span>
             </div>
-            <div style={{ fontSize: '12px', color: '#64748b', marginTop: 2 }}>
-              FY 2026/27 Playbook: 6-Stage Gate Progression &amp; 3× Required Pipeline Realization
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: 3 }}>
+              The i-Capital Africa Group • Commercial Governance &amp; Revenue Operations Platform
             </div>
           </div>
 
-          {/* Glowing High-Impact CTAs */}
+          {/* Action CTAs */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => setShowProposalModal(true)}
+              onClick={() => {
+                setPrefilledClientName('')
+                setShowProposalModal(true)
+              }}
               style={{
                 padding: '9px 16px',
                 borderRadius: 8,
@@ -213,12 +236,15 @@ export default function App() {
                 gap: 6,
               }}
             >
-              <span style={{ fontSize: '14px' }}>+</span> New Proposal
+              <span>+</span> New Proposal
             </button>
 
             <button
               type="button"
-              onClick={() => setShowLeadModal(true)}
+              onClick={() => {
+                setPrefilledClientName('')
+                setShowLeadModal(true)
+              }}
               style={{
                 padding: '9px 16px',
                 borderRadius: 8,
@@ -234,7 +260,7 @@ export default function App() {
                 gap: 6,
               }}
             >
-              <span style={{ fontSize: '14px' }}>+</span> New Lead
+              <span>+</span> New Lead
             </button>
 
             <button
@@ -255,12 +281,12 @@ export default function App() {
                 gap: 6,
               }}
             >
-              <span style={{ fontSize: '14px' }}>+</span> New Client
+              <span>+</span> New Client
             </button>
           </div>
         </div>
 
-        {/* Modern Segmented Tab Bar */}
+        {/* Tab Navigation */}
         <div
           style={{
             background: '#ffffff',
@@ -304,9 +330,7 @@ export default function App() {
           })}
         </div>
 
-        {/* ======================================================== */}
-        {/* 3. ACTIVE TAB CONTENT VIEW                               */}
-        {/* ======================================================== */}
+        {/* 3. ACTIVE TAB CONTENT VIEW */}
         <main style={{ paddingBottom: '40px' }}>
           {activeTab === 'dashboard' && <SummaryDashboard />}
 
@@ -325,9 +349,11 @@ export default function App() {
           )}
 
           {activeTab === 'clients' && (
-            <ClientDetails
+            <ClientDirectory
               refreshVersion={refreshVersion}
               onRefresh={triggerGlobalRefresh}
+              onConvertToLead={handleConvertTargetToLead}
+              onConvertToProposal={handleConvertTargetToProposal}
             />
           )}
 
@@ -340,9 +366,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* ======================================================== */}
-      {/* 4. MODALS (NEW PROPOSAL, NEW LEAD, NEW CLIENT)           */}
-      {/* ======================================================== */}
+      {/* 4. MODALS */}
       {showProposalModal && (
         <div
           style={{
@@ -371,7 +395,9 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, color: '#0f172a' }}>Create New Proposal</h3>
+              <h3 style={{ margin: 0, color: '#0f172a' }}>
+                {prefilledClientName ? `Create Proposal for: ${prefilledClientName}` : 'Create New Proposal'}
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowProposalModal(false)}
@@ -381,6 +407,7 @@ export default function App() {
               </button>
             </div>
             <ProposalForm
+              initialClientName={prefilledClientName}
               onSaved={() => {
                 setShowProposalModal(false)
                 triggerGlobalRefresh()
@@ -419,7 +446,9 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, color: '#0f172a' }}>Capture Pre-Tender Lead</h3>
+              <h3 style={{ margin: 0, color: '#0f172a' }}>
+                {prefilledClientName ? `Capture Lead for: ${prefilledClientName}` : 'Capture Pre-Tender Lead'}
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowLeadModal(false)}
@@ -429,6 +458,7 @@ export default function App() {
               </button>
             </div>
             <LeadForm
+              initialClientName={prefilledClientName}
               onSaved={() => {
                 setShowLeadModal(false)
                 triggerGlobalRefresh()
