@@ -5,7 +5,7 @@ import { supabase } from './supabase'
 import SummaryDashboard from './SummaryDashboard'
 import ProposalList from './ProposalList'
 import LeadList from './LeadList'
-import ClientList from './ClientList'
+import ClientDetails from './ClientDetails'
 import FollowUpQueue from './FollowUpQueue'
 
 // Creation Modals
@@ -16,15 +16,11 @@ import ClientForm from './ClientForm'
 // Team Avatar Component
 import UserAvatar from './UserAvatar'
 
-// Company Logo
-import companyLogo from './logo.png'
-
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const [isCollapsed, setIsCollapsed] = useState(false)
   const [refreshVersion, setRefreshVersion] = useState(0)
 
-  // User Profile State
+  // User State
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('Ybeltal')
 
@@ -54,346 +50,264 @@ export default function App() {
     window.location.reload()
   }
 
-  const navItems = [
-    { id: 'dashboard', label: 'Summary Dashboard', icon: '📊', desc: 'Forecast & Targets' },
-    { id: 'proposals', label: 'Deals & Proposals', icon: '📋', desc: '6-Stage Kanban Board' },
-    { id: 'leads', label: 'Lead Intake', icon: '🎯', desc: 'Pre-Tender Opportunities' },
-    { id: 'clients', label: 'Client Directory', icon: '🏢', desc: 'Institutional Accounts' },
-    { id: 'queue', label: 'Follow-up Queue', icon: '⏰', desc: 'Touchpoints & SLAs' },
+  const navTabs = [
+    { id: 'dashboard', label: 'Summary Dashboard', icon: '📊' },
+    { id: 'proposals', label: 'Deals & Proposals', icon: '📋' },
+    { id: 'leads', label: 'Lead Intake', icon: '🎯' },
+    { id: 'clients', label: 'Client Directory', icon: '🏢' },
+    { id: 'queue', label: 'Follow-up Queue', icon: '⏰' },
   ]
 
-  const activeNavItem = navItems.find((n) => n.id === activeTab) || navItems[0]
-
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#f1f5f9', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
       
       {/* ======================================================== */}
-      {/* 1. EXECUTIVE COLLAPSIBLE SIDEBAR                         */}
+      {/* 1. TOP EXECUTIVE BRANDING & GOVERNANCE BAR               */}
       {/* ======================================================== */}
-      <aside
+      <header
         style={{
-          width: isCollapsed ? '78px' : '265px',
-          backgroundColor: '#0b1329',
-          color: '#f8fafc',
-          transition: 'all 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+          background: 'linear-gradient(90deg, #070d1e 0%, #0f172a 60%, #1e293b 100%)',
+          borderBottom: '1px solid #1e293b',
+          padding: '12px 28px',
           display: 'flex',
-          flexDirection: 'column',
-          borderRight: '1px solid #1e293b',
-          zIndex: 100,
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.25)',
           position: 'sticky',
           top: 0,
-          height: '100vh',
-          boxSizing: 'border-box',
-          boxShadow: '4px 0 20px rgba(0, 0, 0, 0.15)',
+          zIndex: 100,
         }}
       >
-        {/* Brand & Logo Header */}
-        <div
-          style={{
-            padding: isCollapsed ? '16px 12px' : '18px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: isCollapsed ? 'center' : 'space-between',
-            borderBottom: '1px solid #1e293b',
-            background: 'linear-gradient(180deg, #0f172a 0%, #0b1329 100%)',
-          }}
-        >
-          {!isCollapsed ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, overflow: 'hidden' }}>
-              <div
+        {/* Left: Logo & Organization Title */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            style={{
+              background: '#ffffff',
+              padding: '4px 10px',
+              borderRadius: 8,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <img
+              src="/logo.png"
+              alt="i-Capital Africa Logo"
+              style={{ height: '32px', width: 'auto', display: 'block', objectFit: 'contain' }}
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '15px', fontWeight: 900, color: '#f8fafc', letterSpacing: '0.6px' }}>
+                THE i-CAPITAL CRM
+              </span>
+              <span
                 style={{
-                  background: '#ffffff',
-                  padding: '4px 8px',
-                  borderRadius: 8,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                  flexShrink: 0,
+                  fontSize: '10px',
+                  fontWeight: 800,
+                  background: '#10b981',
+                  color: '#ffffff',
+                  padding: '2px 7px',
+                  borderRadius: 12,
+                  letterSpacing: '0.5px',
+                  textTransform: 'uppercase',
                 }}
               >
-                <img
-                  src={companyLogo}
-                  alt="i-Capital Logo"
-                  style={{ height: '26px', width: 'auto', display: 'block', objectFit: 'contain' }}
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-              </div>
-              <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.6px' }}>
-                  THE i-CAPITAL CRM
-                </div>
-                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>
-                  Commercial Governance
-                </div>
-              </div>
+                ● Live Governance
+              </span>
             </div>
-          ) : (
-            <div
-              style={{
-                background: '#ffffff',
-                padding: '4px 6px',
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <img
-                src={companyLogo}
-                alt="Logo"
-                style={{ height: '22px', width: 'auto', display: 'block' }}
-                onError={(e) => (e.currentTarget.style.display = 'none')}
-              />
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: 1 }}>
+              Group Commercial Intelligence &amp; Multi-SBU Pipeline Tracker
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Right: User Profile & Sign Out */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <UserAvatar name={userName} size={34} />
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#f8fafc' }}>{userName}</span>
+                <span style={{ fontSize: '9px', fontWeight: 800, background: '#f59e0b', color: '#000', padding: '1px 5px', borderRadius: 4 }}>
+                  ADMIN
+                </span>
+              </div>
+              <div style={{ fontSize: '10px', color: '#64748b' }}>{userEmail || 'Addis Ababa, ET'}</div>
+            </div>
+          </div>
 
           <button
             type="button"
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={handleSignOut}
             style={{
-              background: '#1e293b',
-              border: '1px solid #334155',
-              color: '#94a3b8',
-              width: 26,
-              height: 26,
+              padding: '6px 12px',
               borderRadius: 6,
+              border: '1px solid #334155',
+              background: '#0f172a',
+              color: '#f87171',
+              fontSize: '11px',
+              fontWeight: 700,
               cursor: 'pointer',
-              display: isCollapsed ? 'none' : 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 11,
-              transition: 'background 0.15s ease',
+              transition: 'all 0.15s ease',
             }}
-            title={isCollapsed ? 'Expand Menu' : 'Collapse Menu'}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0f172a')}
           >
-            ◀
+            Sign out
           </button>
         </div>
+      </header>
 
-        {/* Expand button when collapsed */}
-        {isCollapsed && (
-          <div style={{ textAlign: 'center', padding: '10px 0 0 0' }}>
-            <button
-              type="button"
-              onClick={() => setIsCollapsed(false)}
-              style={{
-                background: '#1e293b',
-                border: '1px solid #334155',
-                color: '#38bdf8',
-                width: 32,
-                height: 26,
-                borderRadius: 6,
-                cursor: 'pointer',
-                fontSize: 11,
-              }}
-              title="Expand Sidebar"
-            >
-              ▶
-            </button>
-          </div>
-        )}
-
-        {/* Navigation Section */}
-        <div style={{ padding: '16px 10px 6px 14px', fontSize: '10px', fontWeight: 800, color: '#475569', letterSpacing: '1px', textTransform: 'uppercase' }}>
-          {!isCollapsed && 'Navigation'}
-        </div>
-
-        <nav style={{ padding: '4px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {navItems.map((item) => {
-            const isActive = activeTab === item.id
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveTab(item.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  width: '100%',
-                  padding: isCollapsed ? '12px 0' : '10px 14px',
-                  justifyContent: isCollapsed ? 'center' : 'flex-start',
-                  borderRadius: 8,
-                  border: 'none',
-                  backgroundColor: isActive ? '#0284c7' : 'transparent',
-                  color: isActive ? '#ffffff' : '#94a3b8',
-                  cursor: 'pointer',
-                  fontWeight: isActive ? 700 : 500,
-                  fontSize: 13,
-                  textAlign: 'left',
-                  boxShadow: isActive ? '0 4px 12px rgba(2, 132, 199, 0.35)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
-                title={isCollapsed ? `${item.label} (${item.desc})` : ''}
-              >
-                <span style={{ fontSize: 18, minWidth: 24, textAlign: 'center' }}>{item.icon}</span>
-                {!isCollapsed && (
-                  <div style={{ overflow: 'hidden' }}>
-                    <div style={{ color: isActive ? '#ffffff' : '#e2e8f0', whiteSpace: 'nowrap' }}>{item.label}</div>
-                    <div style={{ fontSize: '10px', color: isActive ? '#bae6fd' : '#64748b' }}>{item.desc}</div>
-                  </div>
-                )}
-              </button>
-            )
-          })}
-        </nav>
-
-        {/* User Card & Sign Out Footer */}
+      {/* ======================================================== */}
+      {/* 2. COMMAND HEADER: WELCOME, CTAs & INTERACTIVE TABS     */}
+      {/* ======================================================== */}
+      <div style={{ padding: '20px 28px 0 28px', maxWidth: '1600px', margin: '0 auto' }}>
         <div
           style={{
-            padding: isCollapsed ? '14px 6px' : '14px 16px',
-            borderTop: '1px solid #1e293b',
-            background: '#070c1a',
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: 12,
+            padding: '16px 20px',
+            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
             display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
-            <UserAvatar name={userName} size={32} />
-            {!isCollapsed && (
-              <div style={{ overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: '#f8fafc' }}>{userName}</span>
-                  <span style={{ fontSize: 9, fontWeight: 800, background: '#f59e0b', color: '#000', padding: '1px 5px', borderRadius: 4 }}>
-                    ADMIN
-                  </span>
-                </div>
-                <div style={{ fontSize: 10, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
-                  {userEmail}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {!isCollapsed && (
-            <button
-              type="button"
-              onClick={handleSignOut}
-              style={{
-                padding: '6px 10px',
-                borderRadius: 6,
-                border: '1px solid #334155',
-                background: '#0f172a',
-                color: '#f87171',
-                fontSize: 11,
-                fontWeight: 700,
-                cursor: 'pointer',
-                textAlign: 'center',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0f172a')}
-            >
-              Sign out
-            </button>
-          )}
-        </div>
-      </aside>
-
-      {/* ======================================================== */}
-      {/* 2. MAIN WORKSPACE WITH REINSTATED TOP ACTION BAR         */}
-      {/* ======================================================== */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflowX: 'hidden' }}>
-        
-        {/* Top Header Bar */}
-        <header
-          style={{
-            height: '66px',
-            backgroundColor: '#ffffff',
-            borderBottom: '1px solid #e2e8f0',
-            padding: '0 28px',
-            display: 'flex',
-            alignItems: 'center',
             justifyContent: 'space-between',
-            position: 'sticky',
-            top: 0,
-            zIndex: 90,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+            alignItems: 'center',
             flexWrap: 'wrap',
-            gap: 12,
+            gap: 16,
+            marginBottom: 20,
           }}
         >
-          {/* Active Breadcrumb */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 18 }}>{activeNavItem.icon}</span>
-            <div>
-              <span style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{activeNavItem.label}</span>
-              <span style={{ fontSize: 12, color: '#64748b', marginLeft: 8 }}>• {activeNavItem.desc}</span>
+          {/* Welcome Title */}
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
+              Welcome back, {userName}
+            </div>
+            <div style={{ fontSize: '12px', color: '#64748b', marginTop: 2 }}>
+              FY 2026/27 Playbook: 6-Stage Gate Progression &amp; 3× Required Pipeline Realization
             </div>
           </div>
 
-          {/* Reinstated 3 Essential CTA Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Glowing High-Impact CTAs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => setShowProposalModal(true)}
               style={{
-                padding: '8px 14px',
-                borderRadius: 6,
+                padding: '9px 16px',
+                borderRadius: 8,
                 border: 'none',
-                background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+                background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
                 color: '#ffffff',
                 fontWeight: 700,
-                fontSize: 12,
+                fontSize: '12px',
                 cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(234, 88, 12, 0.3)',
+                boxShadow: '0 4px 12px rgba(234, 88, 12, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 5,
+                gap: 6,
               }}
             >
-              <span>+</span> New Proposal
+              <span style={{ fontSize: '14px' }}>+</span> New Proposal
             </button>
 
             <button
               type="button"
               onClick={() => setShowLeadModal(true)}
               style={{
-                padding: '8px 14px',
-                borderRadius: 6,
+                padding: '9px 16px',
+                borderRadius: 8,
                 border: 'none',
                 background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                 color: '#ffffff',
                 fontWeight: 700,
-                fontSize: 12,
+                fontSize: '12px',
                 cursor: 'pointer',
-                boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 5,
+                gap: 6,
               }}
             >
-              <span>+</span> New Lead
+              <span style={{ fontSize: '14px' }}>+</span> New Lead
             </button>
 
             <button
               type="button"
               onClick={() => setShowClientModal(true)}
               style={{
-                padding: '8px 14px',
-                borderRadius: 6,
+                padding: '9px 16px',
+                borderRadius: 8,
                 border: '1px solid #cbd5e1',
                 background: '#ffffff',
-                color: '#334155',
+                color: '#1e293b',
                 fontWeight: 700,
-                fontSize: 12,
+                fontSize: '12px',
                 cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 5,
+                gap: 6,
               }}
             >
-              <span>+</span> New Client
+              <span style={{ fontSize: '14px' }}>+</span> New Client
             </button>
           </div>
-        </header>
+        </div>
 
-        {/* Main Component Canvas */}
-        <main style={{ flex: 1, padding: '24px 28px', boxSizing: 'border-box' }}>
+        {/* Modern Segmented Tab Bar */}
+        <div
+          style={{
+            background: '#ffffff',
+            padding: '6px',
+            borderRadius: 10,
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
+            display: 'inline-flex',
+            flexWrap: 'wrap',
+            gap: 6,
+            marginBottom: 20,
+          }}
+        >
+          {navTabs.map((tab) => {
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '8px 18px',
+                  borderRadius: 8,
+                  border: 'none',
+                  backgroundColor: isActive ? '#0284c7' : 'transparent',
+                  color: isActive ? '#ffffff' : '#475569',
+                  fontWeight: isActive ? 800 : 600,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: isActive ? '0 3px 10px rgba(2, 132, 199, 0.3)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ======================================================== */}
+        {/* 3. ACTIVE TAB CONTENT VIEW                               */}
+        {/* ======================================================== */}
+        <main style={{ paddingBottom: '40px' }}>
           {activeTab === 'dashboard' && <SummaryDashboard />}
 
           {activeTab === 'proposals' && (
@@ -411,7 +325,7 @@ export default function App() {
           )}
 
           {activeTab === 'clients' && (
-            <ClientList
+            <ClientDetails
               refreshVersion={refreshVersion}
               onRefresh={triggerGlobalRefresh}
             />
@@ -427,7 +341,7 @@ export default function App() {
       </div>
 
       {/* ======================================================== */}
-      {/* 3. MODALS FOR CREATING PROPOSALS, LEADS & CLIENTS        */}
+      {/* 4. MODALS (NEW PROPOSAL, NEW LEAD, NEW CLIENT)           */}
       {/* ======================================================== */}
       {showProposalModal && (
         <div
