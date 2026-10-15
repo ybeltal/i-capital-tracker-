@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-// Master Target Client Pathway extracted from FY 2026/27 SBU Pipeline Readiness Report (§4.2, §5.2, §6.2)
+// Master Target Client Pathway from FY 2026/27 SBU Pipeline Readiness Report (§4.2, §5.2, §6.2)
 const MASTER_TARGET_CLIENTS = [
   // =========================================================================
   // 1. THE i-CAPITAL INSTITUTE (§4.2)
@@ -235,7 +235,7 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
   const [selectedQuarter, setSelectedQuarter] = useState('ALL')
   const [selectedSbu, setSelectedSbu] = useState('ALL')
   const [searchTerm, setSearchTerm] = useState('')
-  const [viewMode, setViewMode] = useState('cards') // 'cards' vs 'table'
+  const [viewMode, setViewMode] = useState('cards')
 
   const filteredClients = MASTER_TARGET_CLIENTS.filter((item) => {
     const matchesQuarter = selectedQuarter === 'ALL' || item.quarter === selectedQuarter
@@ -249,7 +249,6 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
     return matchesQuarter && matchesSbu && matchesSearch
   })
 
-  // Exact SBU Counts
   const sbuCounts = {
     ALL: MASTER_TARGET_CLIENTS.length,
     Institute: MASTER_TARGET_CLIENTS.filter((c) => c.sbu === 'Institute').length,
@@ -258,7 +257,6 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
     CBS: MASTER_TARGET_CLIENTS.filter((c) => c.sbu === 'CBS').length,
   }
 
-  // Exact Quarter Counts for current selected SBU
   const currentSbuPool = MASTER_TARGET_CLIENTS.filter(
     (c) => selectedSbu === 'ALL' || c.sbu === selectedSbu
   )
@@ -272,7 +270,6 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      
       {/* 1. Header & Governance Baseline */}
       <div
         style={{
@@ -311,7 +308,6 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
           </p>
         </div>
 
-        {/* View Toggle */}
         <div style={{ display: 'flex', background: '#e2e8f0', padding: 3, borderRadius: 8 }}>
           <button
             type="button"
@@ -421,7 +417,6 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
           gap: 14,
         }}
       >
-        {/* Quarter Selector Pills */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <span style={{ fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase', marginRight: 4 }}>
             Quarter:
@@ -450,7 +445,6 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
           })}
         </div>
 
-        {/* Search Field */}
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
           <input
             type="text"
@@ -462,7 +456,7 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
         </div>
       </div>
 
-      {/* 4. View Mode 1: Directory Cards */}
+      {/* 4. Directory Cards */}
       {viewMode === 'cards' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16 }}>
           {filteredClients.map((item) => (
@@ -516,11 +510,11 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
                 </div>
               </div>
 
-              {/* Conversion Buttons */}
+              {/* Pass the complete object */}
               <div style={{ display: 'flex', gap: 8, marginTop: 14, paddingTop: 10, borderTop: '1px solid #f1f5f9' }}>
                 <button
                   type="button"
-                  onClick={() => onConvertToLead?.(item.client)}
+                  onClick={() => onConvertToLead?.(item)}
                   style={{
                     flex: 1,
                     padding: '6px 10px',
@@ -537,7 +531,7 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
                 </button>
                 <button
                   type="button"
-                  onClick={() => onConvertToProposal?.(item.client)}
+                  onClick={() => onConvertToProposal?.(item)}
                   style={{
                     flex: 1,
                     padding: '6px 10px',
@@ -557,7 +551,7 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
           ))}
         </div>
       ) : (
-        /* View Mode 2: Pathway Table */
+        /* Pathway Table */
         <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
             <thead>
@@ -594,7 +588,7 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
                   <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                     <button
                       type="button"
-                      onClick={() => onConvertToLead?.(c.client)}
+                      onClick={() => onConvertToLead?.(c)}
                       style={{
                         padding: '4px 8px',
                         marginRight: 6,
@@ -611,7 +605,7 @@ export default function ClientDirectory({ onConvertToLead, onConvertToProposal }
                     </button>
                     <button
                       type="button"
-                      onClick={() => onConvertToProposal?.(c.client)}
+                      onClick={() => onConvertToProposal?.(c)}
                       style={{
                         padding: '4px 8px',
                         borderRadius: 4,

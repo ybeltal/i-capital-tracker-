@@ -24,11 +24,11 @@ export default function App() {
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('Ybeltal')
 
-  // Top Action Modals
+  // Top Action Modals & Pre-fill State
   const [showProposalModal, setShowProposalModal] = useState(false)
   const [showLeadModal, setShowLeadModal] = useState(false)
   const [showClientModal, setShowClientModal] = useState(false)
-  const [prefilledClientName, setPrefilledClientName] = useState('')
+  const [targetContext, setTargetContext] = useState(null)
 
   useEffect(() => {
     async function loadUser() {
@@ -51,13 +51,15 @@ export default function App() {
     window.location.reload()
   }
 
-  function handleConvertTargetToLead(clientName) {
-    setPrefilledClientName(clientName)
+  function handleConvertTargetToLead(targetData) {
+    const ctx = typeof targetData === 'string' ? { client: targetData } : targetData
+    setTargetContext(ctx)
     setShowLeadModal(true)
   }
 
-  function handleConvertTargetToProposal(clientName) {
-    setPrefilledClientName(clientName)
+  function handleConvertTargetToProposal(targetData) {
+    const ctx = typeof targetData === 'string' ? { client: targetData } : targetData
+    setTargetContext(ctx)
     setShowProposalModal(true)
   }
 
@@ -171,7 +173,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. COMMAND HEADER: DEVELOPER ATTRIBUTION & ACTIONS */}
+      {/* 2. COMMAND HEADER: ATTRIBUTION & CTAs */}
       <div style={{ padding: '20px 28px 0 28px', maxWidth: '1600px', margin: '0 auto' }}>
         <div
           style={{
@@ -188,7 +190,6 @@ export default function App() {
             marginBottom: 20,
           }}
         >
-          {/* Welcome Title with Developer Credit */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
@@ -213,12 +214,11 @@ export default function App() {
             </div>
           </div>
 
-          {/* Action CTAs */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => {
-                setPrefilledClientName('')
+                setTargetContext(null)
                 setShowProposalModal(true)
               }}
               style={{
@@ -236,13 +236,13 @@ export default function App() {
                 gap: 6,
               }}
             >
-              <span>+</span> New Proposal
+              <span style={{ fontSize: '14px' }}>+</span> New Proposal
             </button>
 
             <button
               type="button"
               onClick={() => {
-                setPrefilledClientName('')
+                setTargetContext(null)
                 setShowLeadModal(true)
               }}
               style={{
@@ -260,7 +260,7 @@ export default function App() {
                 gap: 6,
               }}
             >
-              <span>+</span> New Lead
+              <span style={{ fontSize: '14px' }}>+</span> New Lead
             </button>
 
             <button
@@ -281,7 +281,7 @@ export default function App() {
                 gap: 6,
               }}
             >
-              <span>+</span> New Client
+              <span style={{ fontSize: '14px' }}>+</span> New Client
             </button>
           </div>
         </div>
@@ -386,7 +386,7 @@ export default function App() {
               background: '#fff',
               borderRadius: 12,
               width: '100%',
-              maxWidth: 620,
+              maxWidth: 640,
               padding: 24,
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
               maxHeight: '90vh',
@@ -396,7 +396,7 @@ export default function App() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, color: '#0f172a' }}>
-                {prefilledClientName ? `Create Proposal for: ${prefilledClientName}` : 'Create New Proposal'}
+                {targetContext ? `Convert to Proposal: ${targetContext.client}` : 'Create Formal Proposal'}
               </h3>
               <button
                 type="button"
@@ -407,7 +407,8 @@ export default function App() {
               </button>
             </div>
             <ProposalForm
-              initialClientName={prefilledClientName}
+              targetContext={targetContext}
+              currentUser={userName}
               onSaved={() => {
                 setShowProposalModal(false)
                 triggerGlobalRefresh()
@@ -437,7 +438,7 @@ export default function App() {
               background: '#fff',
               borderRadius: 12,
               width: '100%',
-              maxWidth: 600,
+              maxWidth: 620,
               padding: 24,
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
               maxHeight: '90vh',
@@ -447,7 +448,7 @@ export default function App() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, color: '#0f172a' }}>
-                {prefilledClientName ? `Capture Lead for: ${prefilledClientName}` : 'Capture Pre-Tender Lead'}
+                {targetContext ? `Capture Pre-Tender Lead: ${targetContext.client}` : 'Log New Pre-Tender Lead'}
               </h3>
               <button
                 type="button"
@@ -458,7 +459,8 @@ export default function App() {
               </button>
             </div>
             <LeadForm
-              initialClientName={prefilledClientName}
+              targetContext={targetContext}
+              currentUser={userName}
               onSaved={() => {
                 setShowLeadModal(false)
                 triggerGlobalRefresh()

@@ -1,550 +1,383 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
-import {
-  PIPELINE_STAGES,
-  SBU_PRODUCT_TAXONOMY,
-  LOSS_REASONS,
-  checkTrackerReadiness,
-  evaluateStageGate,
-} from './pipelineConfig'
 
-const TEAM_MEMBERS = [
-  'Ybeltal Semagn',
-  'Tsegaab',
-  'Seife',
-  'Yeabsira',
-  'Dr. Daniel',
-  'Dr. Abel',
-  'Raphael',
-  'Aida',
+const COMMERCIAL_OWNERS = [
+  'Corporate RG',
+  'CEO OFFICE',
+  'SBU (Institute)',
+  'SBU (IIP)',
+  'SBU (DAS)',
+  'BD (Institute)',
+  'BD (IIP)',
+]
+
+const TECHNICAL_TEAM_MEMBERS = [
   'Lemlem',
   'Atalay',
+  'Raphael',
+  'Yeabsira',
+  'Seife',
+  'Tsegaab',
+  'Ybeltal Semagn',
+  'Dr. Daniel',
+  'Dr. Abel',
+  'Aida',
 ]
 
-const PROPOSAL_DEVELOPERS = [
-  'Ybeltal Semagn (DAS / BD Lead)',
-  'Institute SBU Technical Team',
-  'CBS SBU Technical Team',
-  'IIP SBU Technical Team',
-  'DAS SBU Technical Team',
+const SBUS = [
+  { id: 'Institute', code: 'INST', label: 'The i-Capital Institute' },
+  { id: 'CBS', code: 'CBS', label: 'Cross Border Solutions (CBS)' },
+  { id: 'IIP', code: 'IIP', label: 'i-Capital Investment Partners (IIP)' },
+  { id: 'DAS', code: 'DAS', label: 'Digital & AI Solutions (DAS)' },
 ]
 
-export default function ProposalForm({ leadVersion = 0, onSaved }) {
-  const [leads, setLeads] = useState([])
-  const [leadId, setLeadId] = useState('')
-  const [title, setTitle] = useState('')
-  const [status, setStatus] = useState('Lead')
-  const [productEngine, setProductEngine] = useState('')
-  const [specificProduct, setSpecificProduct] = useState('')
+const ORIGINATION_CHANNELS = [
+  { id: 'DIRECT', label: 'Direct Client Outreach / Relationship' },
+  { id: 'TENDER', label: 'Competitive Open Bid / Tender Portal' },
+  { id: 'RESTRICTED', label: 'Restricted RFP / Direct Invitation' },
+  { id: 'REPEAT', label: 'Repeat Business / Cross-Sell' },
+]
 
-  // Default to active members so it is NEVER unassigned
-  const [bdOwner, setBdOwner] = useState('Ybeltal Semagn')
-  const [proposalDeveloper, setProposalDeveloper] = useState('Ybeltal Semagn (DAS / BD Lead)')
+export default function ProposalForm({ targetContext, onSaved, onClose }) {
+  const [sbu, setSbu] = useState(targetContext?.sbu || 'Institute')
 
-  const [nextAction, setNextAction] = useState('')
-  const [nextActionDate, setNextActionDate] = useState('')
-  const [deadline, setDeadline] = useState('')
-  const [amount, setAmount] = useState('')
-  const [lossReason, setLossReason] = useState('')
-  const [notes, setNotes] = useState('')
-  const [autoProposalCode, setAutoProposalCode] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
+  // Helper to generate SBU-prefixed proposal code
+  function generateProposalCode(selectedSbu) {
+    const sbuObj = SBUS.find((s) => s.id === selectedSbu) || SBUS[0]
+    return `${sbuObj.code}-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
+  }
+
+  const [proposalCode, setProposalCode] = useState(generateProposalCode(targetContext?.sbu || 'Institute'))
+  const [clientName, setClientName] = useState(targetContext?.client || '')
+  const [title, setTitle] = useState(targetContext?.product ? `${targetContext.product} Formal Proposal` : '')
+  const [channel, setChannel] = useState('DIRECT')
+  const [bdOwner, setBdOwner] = useState(COMMERCIAL_OWNERS[0])
+  const [proposalDeveloper, setProposalDeveloper] = useState(TECHNICAL_TEAM_MEMBERS[0])
+  const [dealValue, setDealValue] = useState('')
+  const [deadline, setDeadline] = useState(
+    new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  )
+  const [status, setStatus] = useState('Pre-Qualified Opportunity')
+  const [notes, setNotes] = useState(targetContext ? `Originated from Target Directory: ${targetContext.quarter}` : '')
+
   const [busy, setBusy] = useState(false)
-  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadLeads() {
-      setLoading(true)
-      setLoadError('')
-
-      try {
-        const { data, error } = await supabase
-          .from('opportunities')
-          .select('id, title, qualification_status, clients(name), sbus(code, name)')
-          .order('created_at', { ascending: false })
-          .order('id', { ascending: false })
-          .limit(100)
-
-        if (error) throw error
-        if (!cancelled) setLeads(data || [])
-      } catch (error) {
-        if (!cancelled) {
-          setLoadError(error.message || 'Could not load leads.')
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    loadLeads()
-    return () => {
-      cancelled = true
-    }
-  }, [leadVersion])
-
-  const selectedLead = leads.find((l) => l.id === leadId)
-  const sbuCodeRaw = (selectedLead?.sbus?.code || selectedLead?.sbus?.name || 'INST').toUpperCase()
-
-  let activeSbuKey = 'INST'
-  if (sbuCodeRaw.includes('CBS') || sbuCodeRaw.includes('CROSS')) activeSbuKey = 'CBS'
-  else if (sbuCodeRaw.includes('IIP') || sbuCodeRaw.includes('INVEST')) activeSbuKey = 'IIP'
-  else if (sbuCodeRaw.includes('DAS') || sbuCodeRaw.includes('DIGITAL') || sbuCodeRaw.includes('AI')) activeSbuKey = 'DAS'
-  else activeSbuKey = 'INST'
-
-  const availableEngines = SBU_PRODUCT_TAXONOMY[activeSbuKey]?.engines || []
-  const activeEngineObj = availableEngines.find((e) => e.label === productEngine)
-  const availableProducts = activeEngineObj?.products || []
-
-  async function handleLeadChange(selectedId) {
-    setLeadId(selectedId)
-    setProductEngine('')
-    setSpecificProduct('')
-
-    if (!selectedId) {
-      setAutoProposalCode('')
-      return
-    }
-
-    const lead = leads.find((l) => l.id === selectedId)
-    const sbuCode = lead?.sbus?.code || 'INST'
-    const currentYear = new Date().getFullYear()
-    const prefix = `${sbuCode}-${currentYear}-`
-
-    try {
-      const { data } = await supabase
-        .from('proposals')
-        .select('proposal_code')
-        .ilike('proposal_code', `${prefix}%`)
-
-      let maxSeq = 0
-      if (data) {
-        data.forEach((p) => {
-          if (p.proposal_code) {
-            const match = p.proposal_code.match(/(\d+)$/)
-            if (match) {
-              const num = parseInt(match[1], 10)
-              if (num > maxSeq) maxSeq = num
-            }
-          }
-        })
-      }
-      const nextCode = `${prefix}${String(maxSeq + 1).padStart(3, '0')}`
-      setAutoProposalCode(nextCode)
-
-      if (!title && lead?.title) {
-        setTitle(lead.title)
-      }
-    } catch {
-      setAutoProposalCode(`${prefix}001`)
-    }
+  // Update proposal code prefix if SBU changes
+  function handleSbuChange(newSbu) {
+    setSbu(newSbu)
+    setProposalCode(generateProposalCode(newSbu))
   }
 
-  const combinedNotes = lossReason
-    ? `[LOSS REASON: ${lossReason}] ${notes}`.trim()
-    : notes.trim()
-
-  const draftDealState = {
-    title: title.trim(),
-    client_name: selectedLead?.clients?.name,
-    product_engine: productEngine.trim() || specificProduct.trim(),
-    bd_owner: bdOwner.trim(),
-    proposal_developer: proposalDeveloper.trim(),
-    notes: combinedNotes,
-    next_action: nextAction.trim(),
-    next_action_date: nextActionDate,
-    deal_value_etb: amount,
-    submission_deadline: deadline,
-  }
-
-  const currentReadiness = checkTrackerReadiness(draftDealState)
-  const stageGateStatus = evaluateStageGate(draftDealState, status)
-
-  async function saveProposal(event) {
-    event.preventDefault()
-    setMessage('')
-
-    if (!leadId || !title.trim()) {
-      setMessage('Please select a lead and enter a proposal title.')
-      return
-    }
-
-    if (selectedLead?.qualification_status === 'Unscreened') {
-      setMessage('⚠️ Governance Gate: This lead is still "Unscreened". Please screen and qualify the lead in Lead Intake before registering a formal proposal.')
-      return
-    }
-
-    if (!stageGateStatus.isUnlocked) {
-      setMessage(
-        `🔒 Stage Gate Locked for "${status}": Please complete [${stageGateStatus.missingRequirements.join(', ')}] before saving at this stage.`
-      )
-      return
-    }
-
-    if (amount !== '' && !/^\d+(\.\d{1,2})?$/.test(amount)) {
-      setMessage('Enter a valid ETB amount with up to two decimal places.')
-      return
-    }
-
+  async function handleSubmit(e) {
+    e.preventDefault()
     setBusy(true)
+    setError('')
 
     try {
-      const { error } = await supabase
-        .from('proposals')
-        .insert({
-          opportunity_id: leadId,
-          proposal_code: autoProposalCode,
-          title: title.trim(),
-          status: status,
-          deal_value_etb: amount === '' ? null : amount,
-          submission_deadline: deadline || null,
-          product_engine: productEngine.trim() || null,
-          specific_product: specificProduct.trim() || null,
-          bd_owner: bdOwner.trim(),
-          proposal_developer: proposalDeveloper.trim(),
-          next_action: nextAction.trim() || null,
-          next_action_date: nextActionDate || null,
-          is_tracker_ready: currentReadiness.isReady,
-          notes: combinedNotes || null,
-          follow_up_required: true,
-        })
+      // 1. Resolve or Create Client
+      let clientId = null
+      if (clientName.trim()) {
+        const { data: existingClient } = await supabase
+          .from('clients')
+          .select('id')
+          .ilike('name', clientName.trim())
+          .maybeSingle()
+
+        if (existingClient) {
+          clientId = existingClient.id
+        } else {
+          const { data: newClient, error: clientErr } = await supabase
+            .from('clients')
+            .insert({ name: clientName.trim() })
+            .select('id')
+            .single()
+          if (!clientErr && newClient) clientId = newClient.id
+        }
+      }
+
+      // 2. Fetch SBU ID
+      const { data: sbuData } = await supabase
+        .from('sbus')
         .select('id')
+        .ilike('name', `%${sbu}%`)
+        .maybeSingle()
+
+      // 3. Create Linked Opportunity
+      const { data: opportunity, error: oppErr } = await supabase
+        .from('opportunities')
+        .insert({
+          lead_code: `LD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+          client_id: clientId,
+          sbu_id: sbuData ? sbuData.id : null,
+          title: title || `${clientName} Proposal Pursuit`,
+          status: 'Qualified Pipeline',
+          notes: `[CHANNEL: ${channel}] ${notes}`,
+        })
+        .select()
         .single()
 
-      if (error) throw error
+      if (oppErr) throw oppErr
 
-      setTitle('')
-      setStatus('Lead')
-      setProductEngine('')
-      setSpecificProduct('')
-      setNextAction('')
-      setNextActionDate('')
-      setDeadline('')
-      setAmount('')
-      setLossReason('')
-      setNotes('')
-      setAutoProposalCode('')
-      setMessage(`Proposal ${autoProposalCode} saved successfully with assigned accountability!`)
+      // 4. Create Formal Proposal Record
+      const { error: propErr } = await supabase.from('proposals').insert({
+        opportunity_id: opportunity.id,
+        proposal_code: proposalCode,
+        title: title || `${clientName} Proposal Pursuit`,
+        status: status,
+        bd_owner: bdOwner,
+        proposal_developer: proposalDeveloper,
+        deal_value_etb: dealValue ? parseFloat(dealValue) : null,
+        submission_deadline: deadline || null,
+        product_engine: targetContext?.product || 'Strategic Advisory',
+        notes: `[CHANNEL: ${channel}] ${notes}`,
+      })
+
+      if (propErr) throw propErr
+
       onSaved?.()
-    } catch (error) {
-      setMessage(error.message || 'Could not save the proposal.')
+    } catch (err) {
+      setError(err.message || 'Could not save proposal.')
     } finally {
       setBusy(false)
     }
   }
 
-  if (loading) return <p>Loading leads for proposals...</p>
-  if (loadError) return <p role="alert">{loadError}</p>
-
   return (
-    <section>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Add Proposal</h2>
-        {autoProposalCode && (
-          <span
-            style={{
-              fontSize: 12,
-              fontWeight: 700,
-              background: '#ecfdf5',
-              color: '#047857',
-              padding: '4px 10px',
-              borderRadius: 6,
-              border: '1px solid #a7f3d0',
-            }}
-          >
-            Auto Proposal ID: {autoProposalCode}
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Auto Proposal ID & Governance Notice */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)',
+          border: '1px solid #bfdbfe',
+          borderRadius: 8,
+          padding: '12px 14px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 10,
+        }}
+      >
+        <div>
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>
+            AUTO-GENERATED PROPOSAL CODE
           </span>
-        )}
+          <div style={{ fontSize: 15, fontWeight: 800, color: '#0f172a' }}>{proposalCode}</div>
+        </div>
+        <div style={{ fontSize: 11, color: '#166534', fontWeight: 600 }}>
+          🛡️ Dual Governance: 1 Commercial Unit + 1 Technical Lead
+        </div>
       </div>
 
-      <p>Select a screened & qualified lead that this proposal belongs to.</p>
+      {error && (
+        <div style={{ padding: 10, borderRadius: 6, background: '#fef2f2', border: '1px solid #fecdd3', color: '#b91c1c', fontSize: 12 }}>
+          {error}
+        </div>
+      )}
 
-      {leads.length === 0 ? (
-        <p>Add a lead first before creating a proposal.</p>
-      ) : (
-        <form onSubmit={saveProposal}>
-          <label htmlFor="proposal-lead">Linked lead</label>
-          <select
-            id="proposal-lead"
-            value={leadId}
-            onChange={(event) => handleLeadChange(event.target.value)}
-            required
-            disabled={busy}
-          >
-            <option value="">Select a lead</option>
-            {leads.map((lead) => {
-              const qStatus = lead.qualification_status || 'Unscreened'
-              const badge = qStatus === 'Unscreened' ? '⚠️ [Unscreened]' : `✓ [${qStatus}]`
-              return (
-                <option key={lead.id} value={lead.id}>
-                  {badge} {lead.clients?.name || 'Unnamed client'} — {lead.title} ({lead.sbus?.code || 'No SBU'})
-                </option>
-              )
-            })}
-          </select>
-
-          {selectedLead?.qualification_status === 'Unscreened' && (
-            <div style={{ marginTop: 6, padding: '8px 10px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6, color: '#b91c1c', fontSize: 12, fontWeight: 600 }}>
-              ⚠️ This lead is currently <strong>Unscreened</strong>. Please screen it in the Lead Intake tab before converting to a proposal.
-            </div>
-          )}
-
-          <label htmlFor="proposal-title" style={{ marginTop: 12, display: 'block' }}>
-            Proposal title / scope
+      {/* Client Name & Strategic SBU */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Client / Organization Name <span style={{ color: '#dc2626' }}>*</span>
           </label>
           <input
-            id="proposal-title"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            type="text"
             required
-            disabled={busy}
+            value={clientName}
+            placeholder="e.g. Dashen Bank, Ethio telecom"
+            onChange={(e) => setClientName(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
           />
+        </div>
 
-          <label htmlFor="proposal-status" style={{ marginTop: 12, display: 'block' }}>
-            Pipeline Stage (Stage-Gated)
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Strategic SBU <span style={{ color: '#dc2626' }}>*</span>
           </label>
           <select
-            id="proposal-status"
-            value={status}
-            onChange={(event) => setStatus(event.target.value)}
-            disabled={busy}
+            value={sbu}
+            onChange={(e) => handleSbuChange(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
           >
-            {PIPELINE_STAGES.map((s) => {
-              const check = evaluateStageGate(draftDealState, s.id)
-              const lockPrefix = check.isUnlocked ? '✓' : '🔒'
-              return (
-                <option key={s.id} value={s.id}>
-                  {lockPrefix} {s.label} {!check.isUnlocked ? `(Requires: ${check.missingRequirements.join(', ')})` : '— Unlocked'}
-                </option>
-              )
-            })}
+            {SBUS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.label}
+              </option>
+            ))}
           </select>
+        </div>
+      </div>
 
-          {!stageGateStatus.isUnlocked && (
-            <div
-              style={{
-                marginTop: 8,
-                padding: '10px 12px',
-                borderRadius: 6,
-                background: '#fff1f2',
-                border: '1px solid #fecdd3',
-                color: '#be123c',
-                fontSize: 12,
-              }}
-            >
-              <strong>🔒 Stage Gate Requirement for "{status}":</strong> You must fill in{' '}
-              <u>{stageGateStatus.missingRequirements.join(', ')}</u> below to unlock this stage.
-            </div>
-          )}
-
-          {status === 'Lost' && (
-            <div style={{ marginTop: 12, padding: 10, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6 }}>
-              <label htmlFor="proposal-loss-reason" style={{ color: '#b91c1c', fontWeight: 700, fontSize: 12 }}>
-                Mandatory Loss Reason
-              </label>
-              <select
-                id="proposal-loss-reason"
-                value={lossReason}
-                onChange={(e) => setLossReason(e.target.value)}
-                required
-                disabled={busy}
-              >
-                <option value="">Select primary reason for loss...</option>
-                {LOSS_REASONS.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-            <div>
-              <label htmlFor="proposal-engine">
-                Product Engine / Service Line ({SBU_PRODUCT_TAXONOMY[activeSbuKey]?.name || 'SBU'})
-              </label>
-              <select
-                id="proposal-engine"
-                value={productEngine}
-                onChange={(e) => {
-                  setProductEngine(e.target.value)
-                  setSpecificProduct('')
-                }}
-                disabled={busy}
-              >
-                <option value="">Select Product Engine / Route</option>
-                {availableEngines.map((eng) => (
-                  <option key={eng.id} value={eng.label}>
-                    {eng.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="proposal-product">Specific Product / Offer</label>
-              <select
-                id="proposal-product"
-                value={specificProduct}
-                onChange={(e) => setSpecificProduct(e.target.value)}
-                disabled={busy || !productEngine}
-              >
-                <option value="">
-                  {productEngine ? 'Select specific offer' : 'Choose Engine first'}
-                </option>
-                {availableProducts.map((prod) => (
-                  <option key={prod} value={prod}>
-                    {prod}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* SEPARATE ACCOUNTABILITY FIELDS: Commercial Owner vs Proposal Developer */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-            <div>
-              <label htmlFor="proposal-owner">Commercial Owner (BD)</label>
-              <select
-                id="proposal-owner"
-                value={bdOwner}
-                onChange={(event) => setBdOwner(event.target.value)}
-                required
-                disabled={busy}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
-              >
-                {TEAM_MEMBERS.map((member) => (
-                  <option key={member} value={member}>{member}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="proposal-developer">Proposal Developer (Tech/Fin)</label>
-              <select
-                id="proposal-developer"
-                value={proposalDeveloper}
-                onChange={(event) => setProposalDeveloper(event.target.value)}
-                required
-                disabled={busy}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
-              >
-                {PROPOSAL_DEVELOPERS.map((dev) => (
-                  <option key={dev} value={dev}>{dev}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
-            <div>
-              <label htmlFor="proposal-action-date">Action Target Date</label>
-              <input
-                id="proposal-action-date"
-                type="date"
-                value={nextActionDate}
-                onChange={(event) => setNextActionDate(event.target.value)}
-                disabled={busy}
-              />
-            </div>
-            <div>
-              <label htmlFor="proposal-action">Mandatory Next Action</label>
-              <input
-                id="proposal-action"
-                placeholder="e.g., Submit technical offer"
-                value={nextAction}
-                onChange={(event) => setNextAction(event.target.value)}
-                disabled={busy}
-              />
-            </div>
-          </div>
-
-          <div
-            style={{
-              marginTop: 14,
-              marginBottom: 14,
-              padding: '10px 14px',
-              borderRadius: 6,
-              fontSize: 12,
-              border: currentReadiness.isReady ? '1px solid #bbf7d0' : '1px solid #fed7aa',
-              background: currentReadiness.isReady ? '#f0fdf4' : '#fffbeb',
-              color: currentReadiness.isReady ? '#166534' : '#9a3412',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-              <span>
-                {currentReadiness.isReady
-                  ? '✓ Opportunity is Tracker-Ready'
-                  : '⚠️ Not Yet Tracker-Ready (Draft Only)'}
-              </span>
-              <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                Governance Standard
-              </span>
-            </div>
-            {!currentReadiness.isReady && (
-              <div style={{ marginTop: 4, fontSize: 11 }}>
-                Missing required fields: <strong>{currentReadiness.missingFields.join(', ')}</strong>
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label htmlFor="proposal-amount">Deal value (ETB)</label>
-              <input
-                id="proposal-amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                disabled={busy}
-                placeholder="Required from Pre-Qualified onwards"
-              />
-            </div>
-            <div>
-              <label htmlFor="proposal-deadline">Submission deadline</label>
-              <input
-                id="proposal-deadline"
-                type="date"
-                value={deadline}
-                onChange={(event) => setDeadline(event.target.value)}
-                disabled={busy}
-              />
-            </div>
-          </div>
-
-          <label htmlFor="proposal-notes" style={{ marginTop: 12, display: 'block' }}>
-            Remarks / notes
+      {/* Scope / Title & Origination Channel */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Proposal Scope / Title <span style={{ color: '#dc2626' }}>*</span>
           </label>
-          <textarea
-            id="proposal-notes"
-            rows={3}
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            disabled={busy}
-            placeholder="Context, shortlist score, contract award reference, or client constraints..."
+          <input
+            type="text"
+            required
+            value={title}
+            placeholder="e.g., Executive Leadership Immersion in Thailand"
+            onChange={(e) => setTitle(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
           />
+        </div>
 
-          <button
-            type="submit"
-            disabled={busy || !stageGateStatus.isUnlocked}
-            style={{
-              marginTop: 16,
-              opacity: !stageGateStatus.isUnlocked ? 0.6 : 1,
-              cursor: !stageGateStatus.isUnlocked ? 'not-allowed' : 'pointer',
-            }}
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Origination Channel <span style={{ color: '#dc2626' }}>*</span>
+          </label>
+          <select
+            value={channel}
+            onChange={(e) => setChannel(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
           >
-            {busy
-              ? 'Saving...'
-              : !stageGateStatus.isUnlocked
-              ? `🔒 Complete Stage Gate Fields to Save (${status})`
-              : `Save Proposal ${autoProposalCode ? `(${autoProposalCode})` : ''}`}
-          </button>
+            {ORIGINATION_CHANNELS.map((ch) => (
+              <option key={ch.id} value={ch.id}>
+                {ch.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-          {message && <p role="status" style={{ marginTop: 10 }}>{message}</p>}
-        </form>
-      )}
-    </section>
+      {/* Accountability: Commercial Owner Unit vs 1 Technical Lead */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Commercial Owner (BD Unit) <span style={{ color: '#dc2626' }}>*</span>
+          </label>
+          <select
+            value={bdOwner}
+            onChange={(e) => setBdOwner(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+          >
+            {COMMERCIAL_OWNERS.map((unit) => (
+              <option key={unit} value={unit}>
+                {unit}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Proposal Developer (1 Individual) <span style={{ color: '#dc2626' }}>*</span>
+          </label>
+          <select
+            value={proposalDeveloper}
+            onChange={(e) => setProposalDeveloper(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+          >
+            {TECHNICAL_TEAM_MEMBERS.map((member) => (
+              <option key={member} value={member}>
+                {member}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Deal Value (ETB) & Submission Deadline */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Estimated Deal Value (ETB) <span style={{ color: '#dc2626' }}>*</span>
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            required
+            placeholder="e.g., 4500000"
+            value={dealValue}
+            onChange={(e) => setDealValue(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+          />
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Submission Deadline Date <span style={{ color: '#dc2626' }}>*</span>
+          </label>
+          <input
+            type="date"
+            required
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+          />
+        </div>
+      </div>
+
+      {/* Initial Stage */}
+      <div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+          Initial Pipeline Stage
+        </label>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+        >
+          <option value="Pre-Qualified Opportunity">3. Pre-Qualified Opportunity (Tested Discovery)</option>
+          <option value="Lead">2. Lead (Initiated Pursuit)</option>
+          <option value="Qualified Pipeline">4. Qualified Pipeline (Submitted Bid / Proposal)</option>
+        </select>
+      </div>
+
+      {/* Proposal Notes */}
+      <div>
+        <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+          Commercial &amp; Compliance Notes
+        </label>
+        <textarea
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Tender reference numbers, consortium partners, submission requirements..."
+          style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
+        />
+      </div>
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={busy}
+          style={{
+            flex: 1,
+            padding: '10px',
+            borderRadius: 6,
+            border: '1px solid #cbd5e1',
+            background: '#fff',
+            cursor: 'pointer',
+            fontWeight: 600,
+            color: '#475569',
+          }}
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={busy}
+          style={{
+            flex: 2,
+            padding: '10px',
+            borderRadius: 6,
+            border: 'none',
+            background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+            color: '#fff',
+            cursor: 'pointer',
+            fontWeight: 700,
+          }}
+        >
+          {busy ? 'Creating Proposal…' : '✓ Create Proposal & Add to Kanban'}
+        </button>
+      </div>
+    </form>
   )
 }
