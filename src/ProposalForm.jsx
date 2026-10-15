@@ -38,7 +38,17 @@ const ORIGINATION_CHANNELS = [
   { id: 'REPEAT', label: 'Repeat Business / Cross-Sell' },
 ]
 
-export default function ProposalForm({ targetContext, onSaved, onClose }) {
+// Database-enforced valid statuses for proposals_status_check
+const VALID_PIPELINE_STAGES = [
+  { id: 'In Progress', label: 'In Progress (Methodology Drafting & Review)' },
+  { id: 'Initiated', label: 'Initiated (Pre-Tender Pursuit)' },
+  { id: 'Submitted', label: 'Submitted (Formal Bid Filed with Client)' },
+  { id: 'Under Review', label: 'Under Review (Client Evaluation)' },
+  { id: 'Shortlisted', label: 'Shortlisted (Technical Defense & Pitch)' },
+  { id: 'Negotiation', label: 'Negotiation (Commercial Refinement & Award)' },
+]
+
+export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Semagn', onSaved, onClose }) {
   const [sbu, setSbu] = useState(targetContext?.sbu || 'Institute')
 
   function generateProposalCode(selectedSbu) {
@@ -56,7 +66,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
   const [deadline, setDeadline] = useState(
     new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   )
-  const [status, setStatus] = useState('Pre-Qualified Opportunity')
+  const [status, setStatus] = useState('In Progress')
   const [notes, setNotes] = useState(targetContext ? `Originated from Target Directory: ${targetContext.quarter}` : '')
 
   const [busy, setBusy] = useState(false)
@@ -84,7 +94,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
     setError('')
 
     try {
-      // 1. Resolve or Insert Client
+      // 1. Resolve or Create Client
       let clientId = null
       if (clientName.trim()) {
         const { data: existingClient } = await supabase
@@ -105,14 +115,14 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         }
       }
 
-      // 2. Resolve SBU ID
+      // 2. Fetch SBU ID
       const { data: sbuData } = await supabase
         .from('sbus')
         .select('id')
         .ilike('name', `%${sbu}%`)
         .maybeSingle()
 
-      // 3. Create Linked Opportunity (status omitted - not on opportunities table)
+      // 3. Create Linked Opportunity (status omitted - opportunities does not have a status column)
       const { data: opportunity, error: oppErr } = await supabase
         .from('opportunities')
         .insert({
@@ -127,7 +137,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
 
       if (oppErr) throw oppErr
 
-      // 4. Create Proposal Record (status applied here)
+      // 4. Create Formal Proposal Record using validated status
       const { error: propErr } = await supabase.from('proposals').insert({
         opportunity_id: opportunity.id,
         proposal_code: proposalCode,
@@ -153,6 +163,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Auto Proposal ID & Governance Banner */}
       <div
         style={{
           background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)',
@@ -183,6 +194,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       )}
 
+      {/* Client Name & Strategic SBU */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -216,6 +228,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       </div>
 
+      {/* Scope / Title & Origination Channel */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -249,6 +262,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       </div>
 
+      {/* Accountability: Commercial Owner Unit vs 1 Technical Lead */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -285,6 +299,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       </div>
 
+      {/* Deal Value (ETB) & Submission Deadline */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -315,18 +330,21 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       </div>
 
+      {/* Initial Stage: Standard Database Constraint Compliant */}
       <div>
         <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
-          Initial Pipeline Stage
+          Initial Pipeline Stage <span style={{ color: '#dc2626' }}>*</span>
         </label>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
           style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
         >
-          <option value="Pre-Qualified Opportunity">3. Pre-Qualified Opportunity (Tested Discovery)</option>
-          <option value="Lead">2. Lead (Initiated Pursuit)</option>
-          <option value="Qualified Pipeline">4. Qualified Pipeline (Submitted Bid / Proposal)</option>
+          {VALID_PIPELINE_STAGES.map((st) => (
+            <option key={st.id} value={st.id}>
+              {st.label}
+            </option>
+          ))}
         </select>
       </div>
 

@@ -19,10 +19,14 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
   const todayStr = new Date().toISOString().split('T')[0]
   const autoLeadCode = `LD-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
 
+  // 1. LEAD IDENTITY
   const [leadCode] = useState(autoLeadCode)
-  const [initiatedDate] = useState(todayStr)
-  const [initiatedBy] = useState(currentUser)
+  
+  // 2. MANUALLY EDITABLE INITIATED DATE & INITIATED BY (USER REQUEST)
+  const [initiatedDate, setInitiatedDate] = useState(todayStr)
+  const [initiatedBy, setInitiatedBy] = useState(currentUser || 'Ybeltal Semagn')
 
+  // 3. LEAD METADATA
   const [clientName, setClientName] = useState(targetContext?.client || '')
   const [sbu, setSbu] = useState(targetContext?.sbu || 'Institute')
   const [title, setTitle] = useState(
@@ -43,7 +47,7 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
 
   useEffect(() => {
     if (targetContext) {
-      setClientName(targetContext.client || '')
+      if (targetContext.client) setClientName(targetContext.client)
       if (targetContext.sbu) setSbu(targetContext.sbu)
       if (targetContext.product) setTitle(`${targetContext.product} Engagement`)
     }
@@ -55,7 +59,7 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
     setError('')
 
     try {
-      // 1. Resolve Client
+      // 1. Resolve or Create Client in clients table
       let clientId = null
       if (clientName.trim()) {
         const { data: existingClient } = await supabase
@@ -76,15 +80,15 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
         }
       }
 
-      // 2. Resolve SBU ID
+      // 2. Fetch SBU ID
       const { data: sbuData } = await supabase
         .from('sbus')
         .select('id')
         .ilike('name', `%${sbu}%`)
         .maybeSingle()
 
-      // 3. Create Linked Opportunity (status omitted - not on opportunities table)
-      const leadNotes = `[INITIATED_BY: ${initiatedBy}] [CHANNEL: ${channel}] [NEXT_ACTION: ${nextAction}] [ACTION_DATE: ${nextActionDate}] ${notes}`.trim()
+      // 3. Insert Lead Opportunity (status omitted - opportunities does not have a status column)
+      const leadNotes = `[INITIATED_DATE: ${initiatedDate}] [INITIATED_BY: ${initiatedBy}] [CHANNEL: ${channel}] [NEXT_ACTION: ${nextAction}] [ACTION_DATE: ${nextActionDate}] ${notes}`.trim()
       const payload = {
         lead_code: leadCode,
         client_id: clientId,
@@ -101,7 +105,7 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
 
       if (oppErr) throw oppErr
 
-      // 4. Create Pre-Tender Proposal record (status applied here)
+      // 4. Create Pre-Tender Proposal record with status = 'Initiated' (database constraint safe)
       const sbuObj = SBUS.find((s) => s.id === sbu) || SBUS[0]
       const autoProposalCode = `${sbuObj.code}-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
 
@@ -109,10 +113,10 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
         opportunity_id: insertedOpportunity.id,
         proposal_code: autoProposalCode,
         title: title || `${clientName} Engagement`,
-        status: 'Lead',
+        status: 'Initiated',
         bd_owner: `BD (${sbuObj.code})`,
         deal_value_etb: estimatedValue ? parseFloat(estimatedValue) : null,
-        notes: `[INITIATED_BY: ${initiatedBy}] [LEAD_REF: ${leadCode}] ${notes}`.trim(),
+        notes: `[INITIATED_DATE: ${initiatedDate}] [INITIATED_BY: ${initiatedBy}] [LEAD_REF: ${leadCode}] ${notes}`.trim(),
       })
 
       if (propErr) throw propErr
@@ -127,30 +131,27 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* Auto Lead ID Banner */}
       <div
         style={{
           background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
           border: '1px solid #bae6fd',
           borderRadius: 8,
-          padding: '12px 14px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: 10,
-          fontSize: 11,
+          padding: '10px 14px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
         }}
       >
         <div>
-          <span style={{ color: '#0369a1', fontWeight: 700, display: 'block' }}>AUTO LEAD ID</span>
-          <strong style={{ fontSize: 13, color: '#0f172a' }}>{leadCode}</strong>
+          <span style={{ color: '#0369a1', fontWeight: 700, fontSize: 11, display: 'block' }}>
+            AUTO-GENERATED LEAD IDENTIFIER
+          </span>
+          <strong style={{ fontSize: 15, color: '#0f172a' }}>{leadCode}</strong>
         </div>
-        <div>
-          <span style={{ color: '#0369a1', fontWeight: 700, display: 'block' }}>INITIATED DATE</span>
-          <strong style={{ fontSize: 13, color: '#0f172a' }}>{initiatedDate}</strong>
-        </div>
-        <div>
-          <span style={{ color: '#0369a1', fontWeight: 700, display: 'block' }}>INITIATED BY</span>
-          <strong style={{ fontSize: 13, color: '#0f172a' }}>{initiatedBy}</strong>
-        </div>
+        <span style={{ fontSize: 11, color: '#0369a1', fontWeight: 600 }}>
+          ⚡ Initial Qualification Pathway
+        </span>
       </div>
 
       {error && (
@@ -159,6 +160,37 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
         </div>
       )}
 
+      {/* MANUALLY EDITABLE: Initiated Date & Initiated By */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Initiated Date (Manual) <span style={{ color: '#dc2626' }}>*</span>
+          </label>
+          <input
+            type="date"
+            required
+            value={initiatedDate}
+            onChange={(e) => setInitiatedDate(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13, background: '#fff' }}
+          />
+        </div>
+
+        <div>
+          <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
+            Initiated By (Manual) <span style={{ color: '#dc2626' }}>*</span>
+          </label>
+          <input
+            type="text"
+            required
+            value={initiatedBy}
+            placeholder="e.g. Ybeltal Semagn"
+            onChange={(e) => setInitiatedBy(e.target.value)}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13, background: '#fff' }}
+          />
+        </div>
+      </div>
+
+      {/* Client Name & Strategic SBU */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -168,7 +200,7 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
             type="text"
             required
             value={clientName}
-            placeholder="e.g., Awash Bank, Ministry of Finance"
+            placeholder="e.g. Awash Bank, Ministry of Finance"
             onChange={(e) => setClientName(e.target.value)}
             style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13 }}
           />
@@ -192,6 +224,7 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
         </div>
       </div>
 
+      {/* Scope / Title & Origination Channel */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -225,6 +258,7 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
         </div>
       </div>
 
+      {/* Estimated Value & Action Target Date */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -254,6 +288,7 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
         </div>
       </div>
 
+      {/* Playbook Next Action */}
       <div>
         <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
           Playbook Next Action (§3 Tracker-Readiness) <span style={{ color: '#dc2626' }}>*</span>
@@ -268,6 +303,7 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
         />
       </div>
 
+      {/* Notes */}
       <div>
         <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
           Strategic Intelligence / Context Notes
@@ -281,6 +317,7 @@ export default function LeadForm({ targetContext, currentUser = 'Ybeltal Semagn'
         />
       </div>
 
+      {/* Form Buttons */}
       <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
         <button
           type="button"
