@@ -41,7 +41,6 @@ const ORIGINATION_CHANNELS = [
 export default function ProposalForm({ targetContext, onSaved, onClose }) {
   const [sbu, setSbu] = useState(targetContext?.sbu || 'Institute')
 
-  // Helper to generate SBU-prefixed proposal code
   function generateProposalCode(selectedSbu) {
     const sbuObj = SBUS.find((s) => s.id === selectedSbu) || SBUS[0]
     return `${sbuObj.code}-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`
@@ -63,7 +62,17 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
-  // Update proposal code prefix if SBU changes
+  useEffect(() => {
+    if (targetContext) {
+      if (targetContext.client) setClientName(targetContext.client)
+      if (targetContext.sbu) {
+        setSbu(targetContext.sbu)
+        setProposalCode(generateProposalCode(targetContext.sbu))
+      }
+      if (targetContext.product) setTitle(`${targetContext.product} Formal Proposal`)
+    }
+  }, [targetContext])
+
   function handleSbuChange(newSbu) {
     setSbu(newSbu)
     setProposalCode(generateProposalCode(newSbu))
@@ -75,7 +84,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
     setError('')
 
     try {
-      // 1. Resolve or Create Client
+      // 1. Resolve or Insert Client
       let clientId = null
       if (clientName.trim()) {
         const { data: existingClient } = await supabase
@@ -96,14 +105,14 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         }
       }
 
-      // 2. Fetch SBU ID
+      // 2. Resolve SBU ID
       const { data: sbuData } = await supabase
         .from('sbus')
         .select('id')
         .ilike('name', `%${sbu}%`)
         .maybeSingle()
 
-      // 3. Create Linked Opportunity
+      // 3. Create Linked Opportunity (status omitted - not on opportunities table)
       const { data: opportunity, error: oppErr } = await supabase
         .from('opportunities')
         .insert({
@@ -111,15 +120,14 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
           client_id: clientId,
           sbu_id: sbuData ? sbuData.id : null,
           title: title || `${clientName} Proposal Pursuit`,
-          status: 'Qualified Pipeline',
-          notes: `[CHANNEL: ${channel}] ${notes}`,
+          notes: `[CHANNEL: ${channel}] ${notes}`.trim(),
         })
-        .select()
+        .select('id')
         .single()
 
       if (oppErr) throw oppErr
 
-      // 4. Create Formal Proposal Record
+      // 4. Create Proposal Record (status applied here)
       const { error: propErr } = await supabase.from('proposals').insert({
         opportunity_id: opportunity.id,
         proposal_code: proposalCode,
@@ -130,7 +138,7 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         deal_value_etb: dealValue ? parseFloat(dealValue) : null,
         submission_deadline: deadline || null,
         product_engine: targetContext?.product || 'Strategic Advisory',
-        notes: `[CHANNEL: ${channel}] ${notes}`,
+        notes: `[CHANNEL: ${channel}] ${notes}`.trim(),
       })
 
       if (propErr) throw propErr
@@ -145,7 +153,6 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* Auto Proposal ID & Governance Notice */}
       <div
         style={{
           background: 'linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%)',
@@ -176,7 +183,6 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       )}
 
-      {/* Client Name & Strategic SBU */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -210,7 +216,6 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       </div>
 
-      {/* Scope / Title & Origination Channel */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -244,7 +249,6 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       </div>
 
-      {/* Accountability: Commercial Owner Unit vs 1 Technical Lead */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -281,7 +285,6 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       </div>
 
-      {/* Deal Value (ETB) & Submission Deadline */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
@@ -312,7 +315,6 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </div>
       </div>
 
-      {/* Initial Stage */}
       <div>
         <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
           Initial Pipeline Stage
@@ -328,7 +330,6 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         </select>
       </div>
 
-      {/* Proposal Notes */}
       <div>
         <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
           Commercial &amp; Compliance Notes
@@ -342,7 +343,6 @@ export default function ProposalForm({ targetContext, onSaved, onClose }) {
         />
       </div>
 
-      {/* Actions */}
       <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
         <button
           type="button"
