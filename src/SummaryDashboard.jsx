@@ -266,7 +266,6 @@ export default function SummaryDashboard() {
     return !isNaN(wonTime) && (nowMs - wonTime <= thirtyDaysMs)
   })
 
-  // Fallback to absolute latest won deal if none within 30 days
   const activeCelebrationDeal = recentWonDeals[0] || wonProposalsList[0] || null
 
   const sbuMetrics = CORE_SBUS.map((sbuName) => {
@@ -318,7 +317,6 @@ export default function SummaryDashboard() {
       required3xPipeline,
       attainmentPct,
       winRate,
-      lostDealsList: sbuLost,
     }
   })
 
@@ -362,9 +360,10 @@ export default function SummaryDashboard() {
     }
   })
 
+  // Limit pursuits to top 6 so PDF memo strictly fits on 1 single page
   const topPursuits = [...openFormalProposalsList]
     .sort((a, b) => (Number(b.deal_value_etb) || 0) - (Number(a.deal_value_etb) || 0))
-    .slice(0, 8)
+    .slice(0, 6)
 
   const activeQuarterObj = QUARTERS.find((q) => q.id === selectedQuarter) || QUARTERS[0]
 
@@ -375,7 +374,7 @@ export default function SummaryDashboard() {
       const today = new Date().toISOString().slice(0, 10)
       const csvRows = []
 
-      csvRows.push('THE i-CAPITAL AFRICA INSTITUTE — EXECUTIVE FORECAST & PIPELINE SUMMARY')
+      csvRows.push('THE i-CAPITAL AFRICA GROUP — EXECUTIVE FORECAST & PIPELINE SUMMARY')
       csvRows.push(`Reporting Period,${activeQuarterObj.label} (${activeQuarterObj.range})`)
       csvRows.push(`Export Date,${today}`)
       csvRows.push('')
@@ -416,12 +415,47 @@ export default function SummaryDashboard() {
 
   return (
     <section aria-label="Summary Dashboard" style={{ marginBottom: 36, paddingBottom: 28, borderBottom: '1px solid #dbe2ea' }}>
+      
+      {/* STRICT 1-PAGE A4 PRINT STYLES */}
       <style>{`
         @media print {
-          body * { visibility: hidden; }
-          #printable-briefing-dossier, #printable-briefing-dossier * { visibility: visible; }
-          #printable-briefing-dossier { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 10px; background: #ffffff !important; color: #0f172a !important; }
-          .no-print { display: none !important; }
+          @page {
+            size: A4 portrait;
+            margin: 6mm 10mm;
+          }
+          html, body {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+          }
+          /* Hide app chrome */
+          header, aside, nav, .no-print, button, select, input {
+            display: none !important;
+          }
+          body * {
+            visibility: hidden;
+          }
+          #printable-briefing-dossier, #printable-briefing-dossier * {
+            visibility: visible;
+          }
+          #printable-briefing-dossier {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 4px 6px !important;
+            background: #ffffff !important;
+            box-shadow: none !important;
+            border: none !important;
+            page-break-after: avoid !important;
+            page-break-inside: avoid !important;
+          }
+          table {
+            page-break-inside: avoid !important;
+          }
         }
       `}</style>
 
@@ -434,22 +468,24 @@ export default function SummaryDashboard() {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', position: 'relative', zIndex: 10 }}>
+          {/* Executive Briefing PDF Button */}
           <button
             type="button"
             onClick={() => setShowBriefingModal(true)}
             style={{
               padding: '8px 14px',
-              backgroundColor: '#1e293b',
-              color: '#fff',
-              border: 'none',
+              backgroundColor: '#0f172a',
+              color: '#ffffff',
+              border: '1px solid #1e293b',
               borderRadius: 6,
               cursor: 'pointer',
-              fontWeight: 600,
+              fontWeight: 700,
               fontSize: 12,
               display: 'flex',
               alignItems: 'center',
               gap: 6,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
             }}
           >
             🖨️ Executive Briefing (PDF)
@@ -608,9 +644,7 @@ export default function SummaryDashboard() {
 
       {!loading && !error && data && (
         <>
-          {/* ======================================================== */}
-          {/* AUTOMATIC 30-DAY WIN CELEBRATION SPOTLIGHT BANNER        */}
-          {/* ======================================================== */}
+          {/* WIN CELEBRATION SPOTLIGHT */}
           {activeCelebrationDeal && (
             <div
               style={{
@@ -747,82 +781,7 @@ export default function SummaryDashboard() {
             </div>
           </div>
 
-          {/* ======================================================== */}
-          {/* QUARTERLY WIN / LOSS & POST-MORTEM LEARNING LEDGER       */}
-          {/* ======================================================== */}
-          <div style={{ marginTop: 28, background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: 12, padding: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-              <div>
-                <h3 style={{ margin: '0 0 2px 0', color: '#0f172a' }}>
-                  📚 Quarterly Win / Loss &amp; Post-Mortem Learning Ledger ({activeQuarterObj.label})
-                </h3>
-                <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>
-                  Track won vs. lost outcomes and analyze documented loss reasons for institutional learning.
-                </p>
-              </div>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#dcfce7', color: '#166534', fontWeight: 700, fontSize: 12 }}>
-                  Won: {wonProposalsList.length}
-                </span>
-                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#fee2e2', color: '#b91c1c', fontWeight: 700, fontSize: 12 }}>
-                  Lost: {lostProposalsList.length}
-                </span>
-                <span style={{ padding: '4px 10px', borderRadius: 6, background: '#e0f2fe', color: '#0369a1', fontWeight: 700, fontSize: 12 }}>
-                  Win Rate: {trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'N/A'}
-                </span>
-              </div>
-            </div>
-
-            {lostProposalsList.length === 0 ? (
-              <div style={{ padding: 20, textAlign: 'center', color: '#64748b', fontSize: 13, background: '#f8fafc', borderRadius: 8, fontStyle: 'italic' }}>
-                No lost proposals recorded for this period. Excellent performance!
-              </div>
-            ) : (
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
-                  <thead>
-                    <tr style={{ background: '#f8fafc', borderBottom: '2px solid #cbd5e1' }}>
-                      <th style={{ padding: '8px 12px', color: '#475569' }}>Proposal Code</th>
-                      <th style={{ padding: '8px 12px', color: '#475569' }}>Client &amp; Title</th>
-                      <th style={{ padding: '8px 12px', color: '#475569' }}>SBU</th>
-                      <th style={{ padding: '8px 12px', color: '#475569' }}>Commercial Unit</th>
-                      <th style={{ padding: '8px 12px', color: '#475569' }}>Technical Lead</th>
-                      <th style={{ padding: '8px 12px', color: '#475569' }}>Value (ETB)</th>
-                      <th style={{ padding: '8px 12px', color: '#b91c1c' }}>Documented Loss Reason (Learning Post-Mortem)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lostProposalsList.map((p) => {
-                      const lossReason = parseTag(p.notes, 'LOSS_REASON') || 'No formal loss reason tagged in audit notes.'
-                      return (
-                        <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                          <td style={{ padding: '8px 12px', fontWeight: 700, color: '#0369a1' }}>{p.proposal_code || '—'}</td>
-                          <td style={{ padding: '8px 12px' }}>
-                            <div style={{ fontWeight: 600, color: '#0f172a' }}>{p.opportunities?.clients?.name || '—'}</div>
-                            <div style={{ fontSize: 11, color: '#64748b' }}>{p.title}</div>
-                          </td>
-                          <td style={{ padding: '8px 12px', fontWeight: 600 }}>{p.opportunities?.sbus?.code || 'INST'}</td>
-                          <td style={{ padding: '8px 12px', color: '#334155' }}>{p.bd_owner || 'Corporate RG'}</td>
-                          <td style={{ padding: '8px 12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <UserAvatar name={p.proposal_developer} size={20} />
-                              <span>{p.proposal_developer || '—'}</span>
-                            </div>
-                          </td>
-                          <td style={{ padding: '8px 12px', fontWeight: 700, color: '#166534' }}>{formatMoney(p.deal_value_etb)}</td>
-                          <td style={{ padding: '8px 12px', color: '#b91c1c', fontWeight: 600, background: '#fef2f2' }}>
-                            {lossReason}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* SBU Pipeline Targets */}
+          {/* SBU Attainment Cards */}
           <div style={{ marginTop: 28 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
               <h3 style={{ margin: 0, color: '#0f172a' }}>
@@ -876,61 +835,9 @@ export default function SummaryDashboard() {
                       <span>Required 3× Pipeline:</span>
                       <span>{formatMoney(sbu.required3xPipeline)}</span>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: 6, marginTop: 4 }}>
-                      <span>Portfolio Breakdown:</span>
-                      <span>{sbu.openCount} tenders • {sbu.wonCount} won ({sbu.lostCount} lost)</span>
-                    </div>
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-
-          {/* Visual Analytics: Bar Chart & Pie Chart */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '20px', margin: '24px 0' }}>
-            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
-                📊 SBU Target Quota vs. Weighted Tender Forecast (ETB) — {selectedQuarter}
-              </h3>
-              <div style={{ width: '100%', height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dynamicBarData} margin={{ top: 10, right: 15, left: 10, bottom: 5 }}>
-                    <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                    <YAxis stroke="#64748b" fontSize={11} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
-                    <Tooltip formatter={(val) => `ETB ${Number(val).toLocaleString()}`} />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                    <Bar dataKey="Target" fill="#cbd5e1" name="Target Quota" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Forecast" fill="#0284c7" name="Weighted Forecast" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div style={{ background: '#ffffff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-              <h3 style={{ margin: '0 0 16px 0', fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>
-                🍩 SBU Weighted Tender Realization Share — {selectedQuarter}
-              </h3>
-              <div style={{ width: '100%', height: 280 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={finalPieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={65}
-                      outerRadius={95}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {finalPieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip formatter={(val) => `ETB ${Number(val).toLocaleString()}`} />
-                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
             </div>
           </div>
 
@@ -972,14 +879,241 @@ export default function SummaryDashboard() {
         </>
       )}
 
-      {/* ADMIN-ONLY SBU Target Setting Modal */}
+      {/* ======================================================== */}
+      {/* 1-PAGE PRINTABLE EXECUTIVE BRIEFING DOSSIER MODAL        */}
+      {/* ======================================================== */}
+      {showBriefingModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            overflowY: 'auto',
+          }}
+          onClick={() => setShowBriefingModal(false)}
+        >
+          <div
+            id="printable-briefing-dossier"
+            style={{
+              background: '#ffffff',
+              borderRadius: 12,
+              width: '100%',
+              maxWidth: 820,
+              padding: '24px 28px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+              maxHeight: '94vh',
+              overflowY: 'auto',
+              color: '#0f172a',
+              boxSizing: 'border-box',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Actions (Hidden in Print) */}
+            <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 12, marginBottom: 16 }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#0f172a', fontSize: 16 }}>Board-Ready 1-Page Executive Dossier</h3>
+                <span style={{ fontSize: 11, color: '#64748b' }}>
+                  Formatted to export strictly on 1 A4 page with zero cut-off.
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 6,
+                    border: 'none',
+                    background: '#0284c7',
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  🖨️ Print / Save as PDF
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowBriefingModal(false)}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: 6,
+                    border: '1px solid #cbd5e1',
+                    background: '#fff',
+                    color: '#475569',
+                    fontWeight: 600,
+                    fontSize: 12,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+
+            {/* DOCUMENT CANVAS (STRICT 1-PAGE A4 FORMAT) */}
+            <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+              
+              {/* Header Banner */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0f172a', paddingBottom: 10, marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <img
+                    src="/logo.png"
+                    alt="Logo"
+                    style={{ height: 28, width: 'auto' }}
+                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                  />
+                  <div>
+                    <h1 style={{ margin: 0, fontSize: 15, letterSpacing: '0.5px', textTransform: 'uppercase', color: '#0f172a', fontWeight: 900 }}>
+                      The i-Capital Africa Group
+                    </h1>
+                    <div style={{ fontSize: 11, color: '#475569' }}>
+                      Executive Opportunity &amp; Revenue Briefing • <strong>{activeQuarterObj.label}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right', fontSize: 10, color: '#64748b' }}>
+                  <div><strong>Date:</strong> {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                  <div><strong>Classification:</strong> Confidential / Board Review</div>
+                  <div><strong>Period:</strong> {activeQuarterObj.range}</div>
+                </div>
+              </div>
+
+              {/* 1. Executive Financial Summary */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                  1. Executive Financial Realization Snapshot
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+                  <div style={{ padding: '8px 10px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6 }}>
+                    <div style={{ fontSize: 9, color: '#0369a1', fontWeight: 800 }}>PRE-TENDER LEADS</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: '#0369a1', marginTop: 2 }}>{formatMoney(totalSpeculativeLeadValue)}</div>
+                    <div style={{ fontSize: 9, color: '#64748b' }}>{leadProposalsList.length} In Qualification</div>
+                  </div>
+                  <div style={{ padding: '8px 10px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 6 }}>
+                    <div style={{ fontSize: 9, color: '#92400e', fontWeight: 800 }}>ACTIVE FORMAL TENDERS</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: '#92400e', marginTop: 2 }}>{formatMoney(totalActiveTenderValue)}</div>
+                    <div style={{ fontSize: 9, color: '#92400e' }}>{openFormalProposalsList.length} In Development</div>
+                  </div>
+                  <div style={{ padding: '8px 10px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 6 }}>
+                    <div style={{ fontSize: 9, color: '#166534', fontWeight: 800 }}>WEIGHTED FORECAST</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: '#166534', marginTop: 2 }}>{formatMoney(totalFormalWeightedForecast)}</div>
+                    <div style={{ fontSize: 9, color: '#166534' }}>Probability-Adjusted</div>
+                  </div>
+                  <div style={{ padding: '8px 10px', background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: 6 }}>
+                    <div style={{ fontSize: 9, color: '#6b21a8', fontWeight: 800 }}>CONTRACTED WON</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: '#7c3aed', marginTop: 2 }}>{formatMoney(totalWonValue)}</div>
+                    <div style={{ fontSize: 9, color: '#6b21a8' }}>{wonProposalsList.length} Closed Deals</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. SBU Target Attainment & Performance Matrix */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                  2. SBU Target Attainment &amp; 3× Pipeline Matrix
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '1px solid #cbd5e1' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                      <th style={{ padding: '5px 8px', textAlign: 'left' }}>Strategic Business Unit</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'center' }}>Leads</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'center' }}>Tenders</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'right' }}>Active Value (ETB)</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'right' }}>Weighted (ETB)</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'right' }}>Quota Target (ETB)</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'right' }}>3× Required (ETB)</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'center' }}>Attainment %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sbuMetrics.map((m) => (
+                      <tr key={m.name} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '4px 8px', fontWeight: 700 }}>{m.displayName}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center', color: '#0369a1' }}>{m.leadCount}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600 }}>{m.openCount}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>{formatMoney(m.openValue)}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#166534' }}>{formatMoney(m.weightedForecast)}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>{formatMoney(m.target)}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right', color: '#475569' }}>{formatMoney(m.required3xPipeline)}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 800 }}>{m.attainmentPct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 3. Top Active Pursuits Table */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+                  3. Key Active Formal Tender Pursuits ({selectedQuarter})
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10, border: '1px solid #cbd5e1' }}>
+                  <thead>
+                    <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
+                      <th style={{ padding: '4px 6px', textAlign: 'left' }}>Proposal Code</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'left' }}>Client</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'left' }}>Scope / Title</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'center' }}>SBU</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'left' }}>Commercial / Tech Lead</th>
+                      <th style={{ padding: '4px 6px', textAlign: 'right' }}>Contract Value (ETB)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {topPursuits.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} style={{ padding: '8px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                          No active formal proposals currently in pursuit.
+                        </td>
+                      </tr>
+                    ) : (
+                      topPursuits.map((p) => (
+                        <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '4px 6px', fontWeight: 800, color: '#0369a1' }}>{p.proposal_code || '—'}</td>
+                          <td style={{ padding: '4px 6px', fontWeight: 700 }}>{p.opportunities?.clients?.name || '—'}</td>
+                          <td style={{ padding: '4px 6px', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</td>
+                          <td style={{ padding: '4px 6px', textAlign: 'center', fontWeight: 600 }}>{p.opportunities?.sbus?.name || '—'}</td>
+                          <td style={{ padding: '4px 6px' }}>{p.bd_owner || 'Corporate RG'} / {p.proposal_developer || 'Unassigned'}</td>
+                          <td style={{ padding: '4px 6px', textAlign: 'right', fontWeight: 800, color: '#166534' }}>{formatMoney(p.deal_value_etb)}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 4. Governance Sign-off & Verification Footer */}
+              <div style={{ borderTop: '1px solid #cbd5e1', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10, color: '#64748b' }}>
+                <div>
+                  <strong>Bidding Intelligence:</strong> Win Rate: <strong>{trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'N/A'}</strong> | Lead Conversion: <strong>{leadQualificationRate}%</strong>
+                </div>
+                <div>
+                  Verified by Master CRM Pipeline • Addis Ababa, Ethiopia
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADMIN TARGET MODAL */}
       {editingTargets && isAdmin && (
         <div
           style={{
             position: 'fixed',
             inset: 0,
             backgroundColor: 'rgba(15, 23, 42, 0.45)',
-            zIndex: 9999,
+            zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -994,7 +1128,7 @@ export default function SummaryDashboard() {
               </span>
             </div>
             <p style={{ margin: '0 0 14px 0', fontSize: 12, color: '#64748b' }}>
-              Targets are locked to the SBU Pipeline Readiness Report baseline (Annual Revenue Target in ETB; 3× Pipeline Coverage is calculated automatically).
+              Targets are locked to the SBU Pipeline Readiness Report baseline.
             </p>
 
             <form onSubmit={handleSaveTargets} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
