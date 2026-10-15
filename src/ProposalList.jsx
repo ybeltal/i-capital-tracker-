@@ -75,6 +75,27 @@ function formatETB(value) {
   return `ETB ${new Intl.NumberFormat('en-US').format(value)}`
 }
 
+function getMandateBadge(notes) {
+  if (!notes) return null
+  const match = notes.match(/\[MANDATE_TYPE:\s*([^\]]+)\]/)
+  const type = match ? match[1].trim() : null
+  if (!type) return null
+
+  switch (type) {
+    case 'ORAL':
+      return { label: '🗣️ Oral Mandate', bg: '#fef3c7', color: '#92400e' }
+    case 'RFP':
+      return { label: '📜 Formal RFP', bg: '#e0f2fe', color: '#0369a1' }
+    case 'LETTER':
+      return { label: '✉️ Official Letter', bg: '#f3e8ff', color: '#6b21a8' }
+    case 'EMAIL':
+      return { label: '📧 Email Invitation', bg: '#ecfeff', color: '#0e7490' }
+    case 'TOR':
+    default:
+      return { label: '📑 Official TOR', bg: '#dcfce7', color: '#166534' }
+  }
+}
+
 export default function ProposalList({ refreshVersion, onRefresh }) {
   const [proposals, setProposals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -159,7 +180,6 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
       if (pipelineFilter === 'leads') {
         if (stage !== '2. Lead' && p.status !== 'Lead') return false
       } else if (pipelineFilter === 'formal') {
-        // Exclude standalone leads from formal proposals
         if (p.status === 'Lead' && !p.deal_value_etb) return false
       }
 
@@ -187,7 +207,6 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
     })
   }, [proposals, pipelineFilter, sbuFilter, searchTerm])
 
-  // Count tallies for header tabs
   const allCount = proposals.length
   const leadsCount = proposals.filter((p) => p.status === 'Lead').length
   const formalCount = allCount - leadsCount
@@ -341,7 +360,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
       {!loading && !error && (
         <>
           {/* ======================================================== */}
-          {/* 1. KANBAN BOARD VIEW (ALL 7 STAGES DISPLAYED)           */}
+          {/* 1. KANBAN BOARD VIEW (ALL 7 STAGES + MANDATE BADGES)     */}
           {/* ======================================================== */}
           {viewMode === 'board' ? (
             <div
@@ -402,6 +421,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                       ) : (
                         stageDeals.map((deal) => {
                           const sbuCode = deal.opportunities?.sbus?.code || 'INST'
+                          const mandateBadge = getMandateBadge(deal.notes)
 
                           return (
                             <div
@@ -427,6 +447,24 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                                   {sbuCode}
                                 </span>
                               </div>
+
+                              {/* Mandate Evidence Badge */}
+                              {mandateBadge && (
+                                <div style={{ marginBottom: 4 }}>
+                                  <span
+                                    style={{
+                                      fontSize: 9,
+                                      fontWeight: 800,
+                                      padding: '1px 5px',
+                                      borderRadius: 4,
+                                      background: mandateBadge.bg,
+                                      color: mandateBadge.color,
+                                    }}
+                                  >
+                                    {mandateBadge.label}
+                                  </span>
+                                </div>
+                              )}
 
                               <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>
                                 {deal.opportunities?.clients?.name || 'Institutional Client'}
@@ -486,7 +524,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
             </div>
           ) : (
             /* ======================================================== */
-            /* 2. TABLE VIEW (CONSISTENT WITH ALL 7 STAGES)             */
+            /* 2. TABLE VIEW (ALL 7 STAGES + MANDATE EVIDENCE)          */
             /* ======================================================== */
             <div style={{ overflowX: 'auto', background: '#fff', borderRadius: 10, border: '1px solid #e2e8f0' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
@@ -494,7 +532,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                   <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
                     <th style={{ padding: '10px 14px', color: '#475569' }}>Proposal Code</th>
                     <th style={{ padding: '10px 14px', color: '#475569' }}>Client</th>
-                    <th style={{ padding: '10px 14px', color: '#475569' }}>Scope / Title</th>
+                    <th style={{ padding: '10px 14px', color: '#475569' }}>Scope / Title &amp; Mandate</th>
                     <th style={{ padding: '10px 14px', color: '#475569' }}>SBU &amp; Engine</th>
                     <th style={{ padding: '10px 14px', color: '#475569' }}>Accountability (BD / Dev)</th>
                     <th style={{ padding: '10px 14px', color: '#475569' }}>Deal Value (ETB)</th>
@@ -505,6 +543,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                   {filteredDeals.map((deal) => {
                     const currentStage = normalizeStage(deal.status)
                     const sbuCode = deal.opportunities?.sbus?.code || 'INST'
+                    const mandateBadge = getMandateBadge(deal.notes)
 
                     return (
                       <tr
@@ -520,8 +559,26 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                         <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a' }}>
                           {deal.opportunities?.clients?.name || '—'}
                         </td>
-                        <td style={{ padding: '10px 14px', color: '#334155', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {deal.title}
+                        <td style={{ padding: '10px 14px', color: '#334155', maxWidth: 260 }}>
+                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {deal.title}
+                          </div>
+                          {mandateBadge && (
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 800,
+                                padding: '1px 5px',
+                                borderRadius: 4,
+                                background: mandateBadge.bg,
+                                color: mandateBadge.color,
+                                marginTop: 3,
+                                display: 'inline-block',
+                              }}
+                            >
+                              {mandateBadge.label}
+                            </span>
+                          )}
                         </td>
                         <td style={{ padding: '10px 14px' }}>
                           <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: '#f1f5f9', color: '#334155' }}>
