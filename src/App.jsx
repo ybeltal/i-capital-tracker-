@@ -1,123 +1,176 @@
 import { useEffect, useState } from 'react'
-import AccessCheck from './AccessCheck'
-import './App.css'
-import Login from './Login'
 import { supabase } from './supabase'
+import SummaryDashboard from './SummaryDashboard'
+import ProposalList from './ProposalList'
+// Import other views as needed in your app
+// import LeadIntake from './LeadIntake'
+// import ClientDirectory from './ClientDirectory'
+// import FollowUpQueue from './FollowUpQueue'
 
-function App() {
-  const [session, setSession] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [signingOut, setSigningOut] = useState(false)
-  const [message, setMessage] = useState('')
+export default function App() {
+  const [activeTab, setActiveTab] = useState('dashboard')
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const [userEmail, setUserEmail] = useState('')
 
   useEffect(() => {
-    // 1. Check existing session on load
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession)
-      setLoading(false)
-    })
-
-    // 2. Listen for sign-in / sign-out events
-    const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, currentSession) => {
-        setSession(currentSession)
-        setLoading(false)
+    async function checkUser() {
+      const { data } = await supabase.auth.getUser()
+      if (data?.user?.email) {
+        setUserEmail(data.user.email)
       }
-    )
-
-    return () => authListener.subscription.unsubscribe()
+    }
+    checkUser()
   }, [])
 
+  const navItems = [
+    { id: 'dashboard', label: 'Summary Dashboard', icon: '📊' },
+    { id: 'proposals', label: 'Deals & Proposals', icon: '📋' },
+    { id: 'leads', label: 'Lead Intake', icon: '🎯' },
+    { id: 'clients', label: 'Client Directory', icon: '🏢' },
+    { id: 'queue', label: 'Follow-up Queue', icon: '⏰' },
+  ]
+
   async function handleSignOut() {
-    setSigningOut(true)
-    setMessage('')
-    try {
-      const { error } = await supabase.auth.signOut({ scope: 'local' })
-      if (error) throw error
-    } catch (error) {
-      setMessage(error.message || 'Unable to sign out. Please try again.')
-    } finally {
-      setSigningOut(false)
-    }
+    await supabase.auth.signOut()
+    window.location.reload()
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#f8fafc', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* HubSpot Top Enterprise Bar */}
-      <header style={{ height: 60, backgroundColor: '#0f172a', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: '1px solid #1e293b' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          {/* Official Company Logo Badge */}
-          <div
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', fontFamily: 'sans-serif' }}>
+      
+      {/* SIDEBAR NAVIGATION */}
+      <aside
+        style={{
+          width: isCollapsed ? '72px' : '260px',
+          backgroundColor: '#0f172a',
+          color: '#f8fafc',
+          transition: 'width 0.25s ease',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRight: '1px solid #1e293b',
+          zIndex: 100,
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          boxSizing: 'border-box',
+        }}
+      >
+        {/* Sidebar Header / Logo */}
+        <div style={{ padding: '20px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #1e293b' }}>
+          {!isCollapsed && (
+            <div style={{ overflow: 'hidden', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.5px' }}>THE i-CAPITAL CRM</div>
+              <div style={{ fontSize: '10px', color: '#94a3b8' }}>Executive Governance</div>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
             style={{
-              backgroundColor: '#ffffff',
-              padding: '4px 10px',
+              background: '#1e293b',
+              border: 'none',
+              color: '#cbd5e1',
+              width: 28,
+              height: 28,
               borderRadius: 6,
+              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              fontSize: 12,
             }}
+            title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
-            <img
-              src="/logo.png"
-              alt="The i-Capital Institute"
-              style={{
-                height: 36,
-                width: 'auto',
-                display: 'block',
-                objectFit: 'contain',
-              }}
-            />
-          </div>
-          <div>
-            <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.02em', display: 'block' }}>The i-Capital CRM</span>
-            <span style={{ fontSize: 11, color: '#94a3b8' }}>Lead & Proposal CRM</span>
-          </div>
+            {isCollapsed ? '➡' : '⬅'}
+          </button>
         </div>
 
-        {session && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <span style={{ fontSize: 13, color: '#cbd5e1' }}>{session.user.email}</span>
+        {/* Navigation Links */}
+        <nav style={{ padding: '16px 10px', flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {navItems.map((item) => {
+            const isActive = activeTab === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveTab(item.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: 'none',
+                  backgroundColor: isActive ? '#0284c7' : 'transparent',
+                  color: isActive ? '#ffffff' : '#94a3b8',
+                  cursor: 'pointer',
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: 13,
+                  textAlign: 'left',
+                  transition: 'background 0.15s ease, color 0.15s ease',
+                }}
+                title={isCollapsed ? item.label : ''}
+              >
+                <span style={{ fontSize: 18, minWidth: 24, textAlign: 'center' }}>{item.icon}</span>
+                {!isCollapsed && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.label}</span>}
+              </button>
+            )
+          })}
+        </nav>
+
+        {/* Sidebar Footer / User Info & Sign Out */}
+        {!isCollapsed && (
+          <div style={{ padding: '16px', borderTop: '1px solid #1e293b', fontSize: '11px', color: '#64748b' }}>
+            <div style={{ marginBottom: 4 }}>Logged in as:</div>
+            <div style={{ fontWeight: 600, color: '#cbd5e1', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 10 }}>
+              {userEmail || 'Ybeltal Semagn'}
+            </div>
             <button
               type="button"
               onClick={handleSignOut}
-              disabled={signingOut}
               style={{
-                backgroundColor: 'transparent',
+                width: '100%',
+                padding: '6px 10px',
+                borderRadius: 6,
                 border: '1px solid #334155',
-                color: '#e2e8f0',
-                padding: '6px 12px',
-                borderRadius: 4,
+                background: 'transparent',
+                color: '#f87171',
+                fontSize: 11,
+                fontWeight: 700,
                 cursor: 'pointer',
-                fontSize: 12,
               }}
             >
-              {signingOut ? 'Signing out…' : 'Sign out'}
+              Sign out
             </button>
           </div>
         )}
-      </header>
+      </aside>
 
-      {/* Main Workspace Area */}
-      <main style={{ flex: 1, padding: session ? '20px 32px' : 0 }}>
-        {loading ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>
-            Verifying your workspace credentials…
+      {/* MAIN CONTENT AREA */}
+      <main style={{ flex: 1, padding: '24px 32px', overflowY: 'auto', boxSizing: 'border-box' }}>
+        {activeTab === 'dashboard' && <SummaryDashboard />}
+        {activeTab === 'proposals' && <ProposalList />}
+        {activeTab === 'leads' && (
+          <div style={{ padding: 24, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <h2>Lead Intake View</h2>
+            <p style={{ color: '#64748b' }}>Manage exploratory client inquiries and lead qualification stages.</p>
           </div>
-        ) : session ? (
-          <div>
-            {message && <p role="alert" style={{ color: '#b91c1c' }}>{message}</p>}
-            {/* AccessCheck handles the verified user and workspace views */}
-            <AccessCheck key={session.user.id} userId={session.user.id} />
+        )}
+        {activeTab === 'clients' && (
+          <div style={{ padding: 24, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <h2>Client Directory</h2>
+            <p style={{ color: '#64748b' }}>Institutional client directory and organization profiles.</p>
           </div>
-        ) : (
-          <div style={{ maxWidth: 440, margin: '80px auto', padding: 24, background: '#fff', borderRadius: 8, boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-            <Login />
+        )}
+        {activeTab === 'queue' && (
+          <div style={{ padding: 24, background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <h2>Follow-up Queue</h2>
+            <p style={{ color: '#64748b' }}>Scheduled touchpoints and CRM action items.</p>
           </div>
         )}
       </main>
+
     </div>
   )
 }
-
-export default App
