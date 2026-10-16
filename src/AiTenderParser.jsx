@@ -1,7 +1,14 @@
 import { useState, useRef } from 'react'
 
+// Automatic fallback models if Google's primary cluster experiences high-demand spikes
+const CANDIDATE_MODELS = [
+  'gemini-3.8-flash',
+  'gemini-3.5-flash',
+  'gemini-3.1-flash-lite',
+]
+
 export default function AiTenderParser({ onApplyToProposal, onClose }) {
-  const [activeMode, setActiveMode] = useState('upload') // 'upload' or 'text'
+  const [activeMode, setActiveMode] = useState('upload') // 'upload' | 'text'
   const [file, setFile] = useState(null)
   const [rawText, setRawText] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
@@ -13,7 +20,7 @@ export default function AiTenderParser({ onApplyToProposal, onClose }) {
   const fileInputRef = useRef(null)
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
 
-  // Helper to load Mammoth.js dynamically for .docx parsing without breaking Vite builds
+  // Helper to load Mammoth.js dynamically for .docx parsing
   async function loadMammoth() {
     if (window.mammoth) return window.mammoth
     return new Promise((resolve, reject) => {
@@ -31,12 +38,12 @@ export default function AiTenderParser({ onApplyToProposal, onClose }) {
     const hasValidExt = validExtensions.some((ext) => selectedFile.name.toLowerCase().endsWith(ext))
 
     if (!hasValidExt) {
-      setError('Please upload a PDF (.pdf), Word document (.docx), or plain text file (.txt).')
+      setError('Please upload a PDF (.pdf), Word document (.docx), or text file (.txt).')
       return
     }
 
-    if (selectedFile.size > 20 * 1024 * 1024) {
-      setError('File size exceeds 20MB limit.')
+    if (selectedFile.size > 25 * 1024 * 1024) {
+      setError('File size exceeds the 25MB limit.')
       return
     }
 
@@ -63,7 +70,7 @@ export default function AiTenderParser({ onApplyToProposal, onClose }) {
 
     setAnalyzing(true)
     setError('')
-    setStatusMessage('Reading document structure…')
+    setStatusMessage('Reading document content…')
 
     const systemPrompt = `
 You are the Chief Commercial Analyst at The i-Capital Africa Group in Addis Ababa, Ethiopia.
@@ -73,7 +80,7 @@ The i-Capital Africa Group has 4 Strategic Business Units (SBUs):
 1. 'The i-Capital Institute' (code: 'Institute'): Executive Leadership (MBL), S-OJT, PRIME Staff Development, Strategize Transformation, Knowledge Management (KMS), BDS, Afro Data.
 2. 'i-Capital Investment Partners' (code: 'IIP'): Rights Issues, Corporate Bonds, Commercial Paper, Capital Market Readiness/Training, Public Listings, Wealth/Asset Advisory.
 3. 'Digital & AI Solutions' (code: 'DAS'): SHOFER Parking/Auto platform, Investify ET, Enterprise ERP, Micro-Credit.
-4. 'Cross Border Solutions' (code: 'CBS'): Global Board Study Tours (Thailand, Singapore, Dubai), Regional Interoperability & Payments Missions.
+4. 'Cross Border Solutions' (code: 'CBS'): Global Board Study Tours (Thailand, Singapore, Dubai), Overseas Training, Regional Interoperability & Payments Missions.
 
 Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, NO backticks, and NO extra text) with these exact keys:
 {
@@ -99,7 +106,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
         const isDocx = file.name.toLowerCase().endsWith('.docx')
 
         if (isPdf) {
-          setStatusMessage('Processing PDF pages with Gemini multimodal intelligence…')
+          setStatusMessage('Processing PDF pages…')
           const base64Data = await new Promise((resolve, reject) => {
             const reader = new FileReader()
             reader.onload = () => resolve(reader.result.split(',')[1])
@@ -125,46 +132,87 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
 
           if (!docText.trim()) throw new Error('Word document contains no readable text.')
 
-          setStatusMessage('Analyzing extracted Word content with Gemini…')
+          setStatusMessage('Document extracted. Preparing AI analysis…')
           parts.push({
             text: `DOCUMENT CONTENT (FROM WORD FILE: ${file.name}):\n\n${docText}`,
           })
         } else {
-          // Plain text file
           const textContent = await file.text()
           parts.push({
             text: `DOCUMENT CONTENT (FROM FILE: ${file.name}):\n\n${textContent}`,
           })
         }
       } else {
-        // Manual Text Mode
-        setStatusMessage('Analyzing pasted text with Gemini…')
         parts.push({
           text: `RAW TENDER / TOR TEXT TO ANALYZE:\n\n${rawText}`,
         })
       }
 
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts }],
-            generationConfig: {
-              temperature: 0.1,
-              responseMimeType: 'application/json',
-            },
-          }),
-        }
-      )
+      // Multi-model resilience loop: iterates through models and retries if a capacity spike occurs
+      let resData = null
+      let lastErrorMessage = ''
 
-      if (!response.ok) {
-        const errData = await response.json()
-        throw new Error(errData.error?.message || 'Gemini API call failed.')
+      for (const modelName of CANDIDATE_MODELS) {
+        let modelSuccess = false
+
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            if (attempt > 0) {
+              setStatusMessage(`Server busy. Retrying in 2 seconds…`)
+              await new Promise((r) => setTimeout(r, 2000))
+            } else {
+              setStatusMessage(`Analyzing with ${modelName}…`)
+            }
+
+            const response = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`,
+              {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  contents: [{ parts }],
+                  generationConfig: {
+                    temperature: 0.1,
+                    responseMimeType: 'application/json',
+                  },
+                }),
+              }
+            )
+
+            if (!response.ok) {
+              const errJson = await response.json().catch(() => ({}))
+              const msg = errJson.error?.message || `HTTP ${response.status}`
+              lastErrorMessage = msg
+
+              // If it's a temporary spike or model unavailability, try backoff or next model
+              if (
+                response.status === 503 ||
+                response.status === 429 ||
+                response.status === 404 ||
+                msg.toLowerCase().includes('demand') ||
+                msg.toLowerCase().includes('temporarily') ||
+                msg.toLowerCase().includes('not found')
+              ) {
+                continue
+              }
+              throw new Error(msg)
+            }
+
+            resData = await response.json()
+            modelSuccess = true
+            break
+          } catch (err) {
+            lastErrorMessage = err.message
+          }
+        }
+
+        if (modelSuccess && resData) break
       }
 
-      const resData = await response.json()
+      if (!resData) {
+        throw new Error(lastErrorMessage || 'All AI model endpoints are currently busy. Please retry shortly.')
+      }
+
       const rawJson = resData.candidates?.[0]?.content?.parts?.[0]?.text || ''
       const cleanedJson = rawJson.replace(/```json/g, '').replace(/```/g, '').trim()
       const parsed = JSON.parse(cleanedJson)
@@ -216,7 +264,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
               borderRadius: 6,
             }}
           >
-            Gemini Multimodal Document Engine
+            Gemini Multimodal Engine
           </span>
         </div>
         <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b' }}>
@@ -224,7 +272,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
         </p>
       </div>
 
-      {/* Mode Switcher Tabs */}
+      {/* Mode Switcher */}
       <div style={{ display: 'flex', gap: 8, background: '#f1f5f9', padding: 4, borderRadius: 8 }}>
         <button
           type="button"
@@ -285,7 +333,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
         </div>
       )}
 
-      {/* MODE 1: FILE DRAG AND DROP ZONE */}
+      {/* Upload Zone */}
       {activeMode === 'upload' && (
         <div>
           <input
@@ -335,7 +383,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
                   Click to browse or drag &amp; drop RFP/TOR file here
                 </strong>
                 <span style={{ fontSize: 11, color: '#64748b' }}>
-                  Supports official <strong>PDF (.pdf)</strong> and <strong>Word (.docx)</strong> documents up to 20MB
+                  Supports official <strong>PDF (.pdf)</strong> and <strong>Word (.docx)</strong> documents up to 25MB
                 </span>
               </div>
             )}
@@ -343,7 +391,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
         </div>
       )}
 
-      {/* MODE 2: MANUAL TEXTAREA */}
+      {/* Textarea Zone */}
       {activeMode === 'text' && (
         <div>
           <textarea
@@ -364,9 +412,9 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
         </div>
       )}
 
-      {/* Action Buttons */}
+      {/* Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
+        <span style={{ fontSize: 11, color: '#0284c7', fontWeight: 600 }}>
           {statusMessage || (activeMode === 'upload' && file ? 'Ready to analyze document' : '')}
         </span>
 
@@ -391,7 +439,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
         >
           {analyzing ? (
             <>
-              <span className="spinner" style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
+              <span style={{ display: 'inline-block' }}>⏳</span>
               Analyzing Document…
             </>
           ) : (
@@ -400,7 +448,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
         </button>
       </div>
 
-      {/* Parsed Result Display */}
+      {/* Results */}
       {parsedResult && (
         <div
           style={{
@@ -441,7 +489,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
             </div>
 
             <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, display: 'block' }}>BUDGET / ESTIMATED VALUE</span>
+              <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, display: 'block' }}>ESTIMATED DEAL VALUE</span>
               <strong style={{ fontSize: 13, color: '#166534' }}>
                 {parsedResult.estimated_value_etb ? `ETB ${new Intl.NumberFormat('en-US').format(parsedResult.estimated_value_etb)}` : 'Competitive Quote'}
               </strong>
