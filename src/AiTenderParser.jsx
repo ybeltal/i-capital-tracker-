@@ -1,29 +1,73 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 
 export default function AiTenderParser({ onApplyToProposal, onClose }) {
+  const [activeMode, setActiveMode] = useState('upload') // 'upload' or 'text'
+  const [file, setFile] = useState(null)
   const [rawText, setRawText] = useState('')
   const [analyzing, setAnalyzing] = useState(false)
+  const [statusMessage, setStatusMessage] = useState('')
   const [error, setError] = useState('')
   const [parsedResult, setParsedResult] = useState(null)
+  const [dragOver, setDragOver] = useState(false)
 
+  const fileInputRef = useRef(null)
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY
 
-  async function handleAnalyze() {
-    if (!rawText.trim()) {
-      setError('Please paste the tender notice, TOR scope, or RFP text first.')
+  // Helper to load Mammoth.js dynamically for .docx parsing without breaking Vite builds
+  async function loadMammoth() {
+    if (window.mammoth) return window.mammoth
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js'
+      script.onload = () => resolve(window.mammoth)
+      script.onerror = () => reject(new Error('Could not load Word document reader library.'))
+      document.head.appendChild(script)
+    })
+  }
+
+  function handleFileSelect(selectedFile) {
+    if (!selectedFile) return
+    const validExtensions = ['.pdf', '.docx', '.txt']
+    const hasValidExt = validExtensions.some((ext) => selectedFile.name.toLowerCase().endsWith(ext))
+
+    if (!hasValidExt) {
+      setError('Please upload a PDF (.pdf), Word document (.docx), or plain text file (.txt).')
       return
     }
+
+    if (selectedFile.size > 20 * 1024 * 1024) {
+      setError('File size exceeds 20MB limit.')
+      return
+    }
+
+    setError('')
+    setFile(selectedFile)
+    setParsedResult(null)
+  }
+
+  async function handleAnalyze() {
     if (!apiKey) {
       setError('Gemini API Key missing. Please ensure VITE_GEMINI_API_KEY is configured in Vercel.')
       return
     }
 
+    if (activeMode === 'upload' && !file) {
+      setError('Please choose or drop a PDF or Word file to analyze.')
+      return
+    }
+
+    if (activeMode === 'text' && !rawText.trim()) {
+      setError('Please paste the tender notice, TOR scope, or RFP text first.')
+      return
+    }
+
     setAnalyzing(true)
     setError('')
+    setStatusMessage('Reading document structure…')
 
     const systemPrompt = `
 You are the Chief Commercial Analyst at The i-Capital Africa Group in Addis Ababa, Ethiopia.
-Your job is to read raw Tender / RFP / Terms of Reference (TOR) / Expression of Interest (EOI) text and extract commercial data into a strict JSON object.
+Your job is to read raw Tender / RFP / Terms of Reference (TOR) / Expression of Interest (EOI) documents and extract commercial data into a strict JSON object.
 
 The i-Capital Africa Group has 4 Strategic Business Units (SBUs):
 1. 'The i-Capital Institute' (code: 'Institute'): Executive Leadership (MBL), S-OJT, PRIME Staff Development, Strategize Transformation, Knowledge Management (KMS), BDS, Afro Data.
@@ -48,20 +92,65 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
 `
 
     try {
+      let parts = [{ text: systemPrompt }]
+
+      if (activeMode === 'upload') {
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+        const isDocx = file.name.toLowerCase().endsWith('.docx')
+
+        if (isPdf) {
+          setStatusMessage('Processing PDF pages with Gemini multimodal intelligence…')
+          const base64Data = await new Promise((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => resolve(reader.result.split(',')[1])
+            reader.onerror = reject
+            reader.readAsDataURL(file)
+          })
+
+          parts.push({
+            inline_data: {
+              mime_type: 'application/pdf',
+              data: base64Data,
+            },
+          })
+          parts.push({
+            text: 'Analyze the attached PDF document thoroughly. Extract all commercial intelligence into the requested JSON schema.',
+          })
+        } else if (isDocx) {
+          setStatusMessage('Extracting Word document text…')
+          const mammoth = await loadMammoth()
+          const arrayBuffer = await file.arrayBuffer()
+          const result = await mammoth.extractRawText({ arrayBuffer })
+          const docText = result.value || ''
+
+          if (!docText.trim()) throw new Error('Word document contains no readable text.')
+
+          setStatusMessage('Analyzing extracted Word content with Gemini…')
+          parts.push({
+            text: `DOCUMENT CONTENT (FROM WORD FILE: ${file.name}):\n\n${docText}`,
+          })
+        } else {
+          // Plain text file
+          const textContent = await file.text()
+          parts.push({
+            text: `DOCUMENT CONTENT (FROM FILE: ${file.name}):\n\n${textContent}`,
+          })
+        }
+      } else {
+        // Manual Text Mode
+        setStatusMessage('Analyzing pasted text with Gemini…')
+        parts.push({
+          text: `RAW TENDER / TOR TEXT TO ANALYZE:\n\n${rawText}`,
+        })
+      }
+
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  { text: systemPrompt },
-                  { text: `RAW TENDER / TOR TEXT TO ANALYZE:\n\n${rawText}` },
-                ],
-              },
-            ],
+            contents: [{ parts }],
             generationConfig: {
               temperature: 0.1,
               responseMimeType: 'application/json',
@@ -81,8 +170,10 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
       const parsed = JSON.parse(cleanedJson)
 
       setParsedResult(parsed)
+      setStatusMessage('')
     } catch (err) {
       setError(err.message || 'Could not parse the document.')
+      setStatusMessage('')
     } finally {
       setAnalyzing(false)
     }
@@ -100,7 +191,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
       deadline: parsedResult.submission_deadline || '',
       refNumber: parsedResult.tender_ref_no || '',
       mandateType: parsedResult.invitation_type || 'TOR',
-      notes: `[AI_EXTRACTED: TRUE] [TENDER_REF: ${parsedResult.tender_ref_no || 'N/A'}] [DELIVERABLES: ${(parsedResult.key_deliverables || []).join('; ')}] ${parsedResult.executive_summary || ''}`,
+      notes: `[AI_EXTRACTED: TRUE] [TENDER_REF: ${parsedResult.tender_ref_no || 'N/A'}] [FILE_SOURCE: ${file ? file.name : 'Pasted Text'}] [DELIVERABLES: ${(parsedResult.key_deliverables || []).join('; ')}] ${parsedResult.executive_summary || ''}`,
     }
 
     onApplyToProposal?.(proposalPayload)
@@ -108,6 +199,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Header */}
       <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 20 }}>✨</span>
@@ -124,12 +216,67 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
               borderRadius: 6,
             }}
           >
-            Powered by Gemini
+            Gemini Multimodal Document Engine
           </span>
         </div>
         <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b' }}>
-          Paste tender notices, Terms of Reference (TOR), RFPs, or invitation emails. AI extracts client intelligence and loads it directly into your proposal pipeline.
+          Upload official tender PDF, Word (.docx) terms of reference, or paste tender text directly.
         </p>
+      </div>
+
+      {/* Mode Switcher Tabs */}
+      <div style={{ display: 'flex', gap: 8, background: '#f1f5f9', padding: 4, borderRadius: 8 }}>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveMode('upload')
+            setError('')
+          }}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            borderRadius: 6,
+            border: 'none',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            background: activeMode === 'upload' ? '#ffffff' : 'transparent',
+            color: activeMode === 'upload' ? '#0f172a' : '#64748b',
+            boxShadow: activeMode === 'upload' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}
+        >
+          <span>📄</span> Upload Document (PDF / Word)
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setActiveMode('text')
+            setError('')
+          }}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            borderRadius: 6,
+            border: 'none',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: 'pointer',
+            background: activeMode === 'text' ? '#ffffff' : 'transparent',
+            color: activeMode === 'text' ? '#0f172a' : '#64748b',
+            boxShadow: activeMode === 'text' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 6,
+          }}
+        >
+          <span>✍️</span> Paste Tender Text
+        </button>
       </div>
 
       {error && (
@@ -138,53 +285,122 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
         </div>
       )}
 
-      <div>
-        <label style={{ fontSize: 12, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 4 }}>
-          Paste Raw Tender / RFP / TOR Text:
-        </label>
-        <textarea
-          rows={7}
-          value={rawText}
-          onChange={(e) => setRawText(e.target.value)}
-          placeholder="Paste tender advertisement, TOR scope, RFP notice, or email inquiry..."
-          style={{
-            width: '100%',
-            padding: 10,
-            borderRadius: 8,
-            border: '1px solid #cbd5e1',
-            fontSize: 12,
-            fontFamily: 'inherit',
-            boxSizing: 'border-box',
-          }}
-        />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>
-            {rawText.length > 0 ? `${rawText.length} characters entered` : 'Paste at least 1-2 paragraphs'}
-          </span>
-          <button
-            type="button"
-            disabled={analyzing || !rawText.trim()}
-            onClick={handleAnalyze}
+      {/* MODE 1: FILE DRAG AND DROP ZONE */}
+      {activeMode === 'upload' && (
+        <div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".pdf,.docx,.txt"
+            style={{ display: 'none' }}
+            onChange={(e) => handleFileSelect(e.target.files?.[0])}
+          />
+
+          <div
+            onDragOver={(e) => {
+              e.preventDefault()
+              setDragOver(true)
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setDragOver(false)
+              handleFileSelect(e.dataTransfer.files?.[0])
+            }}
+            onClick={() => fileInputRef.current?.click()}
             style={{
-              padding: '8px 18px',
-              borderRadius: 6,
-              border: 'none',
-              background: analyzing ? '#94a3b8' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-              color: '#fff',
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: analyzing ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)',
+              border: dragOver ? '2px dashed #0284c7' : '2px dashed #cbd5e1',
+              background: dragOver ? '#f0f9ff' : file ? '#f8fafc' : '#ffffff',
+              borderRadius: 10,
+              padding: '28px 16px',
+              textAlign: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
             }}
           >
-            {analyzing ? 'Analyzing Tender Scope…' : '✨ Extract Commercial Intelligence'}
-          </button>
+            {file ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 32 }}>
+                  {file.name.endsWith('.pdf') ? '📕' : file.name.endsWith('.docx') ? '📘' : '📄'}
+                </span>
+                <strong style={{ fontSize: 13, color: '#0f172a' }}>{file.name}</strong>
+                <span style={{ fontSize: 11, color: '#64748b' }}>
+                  {(file.size / (1024 * 1024)).toFixed(2)} MB • Click or drop another file to replace
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 32 }}>📁</span>
+                <strong style={{ fontSize: 13, color: '#1e293b' }}>
+                  Click to browse or drag &amp; drop RFP/TOR file here
+                </strong>
+                <span style={{ fontSize: 11, color: '#64748b' }}>
+                  Supports official <strong>PDF (.pdf)</strong> and <strong>Word (.docx)</strong> documents up to 20MB
+                </span>
+              </div>
+            )}
+          </div>
         </div>
+      )}
+
+      {/* MODE 2: MANUAL TEXTAREA */}
+      {activeMode === 'text' && (
+        <div>
+          <textarea
+            rows={7}
+            value={rawText}
+            onChange={(e) => setRawText(e.target.value)}
+            placeholder="Paste tender advertisement, Terms of Reference (TOR) scope, request for proposal notice, or email inquiry..."
+            style={{
+              width: '100%',
+              padding: 10,
+              borderRadius: 8,
+              border: '1px solid #cbd5e1',
+              fontSize: 12,
+              fontFamily: 'inherit',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>
+          {statusMessage || (activeMode === 'upload' && file ? 'Ready to analyze document' : '')}
+        </span>
+
+        <button
+          type="button"
+          disabled={analyzing || (activeMode === 'upload' && !file) || (activeMode === 'text' && !rawText.trim())}
+          onClick={handleAnalyze}
+          style={{
+            padding: '9px 20px',
+            borderRadius: 6,
+            border: 'none',
+            background: analyzing ? '#94a3b8' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+            color: '#fff',
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: analyzing ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)',
+          }}
+        >
+          {analyzing ? (
+            <>
+              <span className="spinner" style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
+              Analyzing Document…
+            </>
+          ) : (
+            '✨ Extract Commercial Intelligence'
+          )}
+        </button>
       </div>
 
+      {/* Parsed Result Display */}
       {parsedResult && (
         <div
           style={{
@@ -225,7 +441,7 @@ Extract and return ONLY a valid raw JSON object (with NO markdown code blocks, N
             </div>
 
             <div style={{ background: '#fff', padding: 10, borderRadius: 6, border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, display: 'block' }}>BUDGET / DEAL VALUE</span>
+              <span style={{ fontSize: 10, color: '#64748b', fontWeight: 700, display: 'block' }}>BUDGET / ESTIMATED VALUE</span>
               <strong style={{ fontSize: 13, color: '#166534' }}>
                 {parsedResult.estimated_value_etb ? `ETB ${new Intl.NumberFormat('en-US').format(parsedResult.estimated_value_etb)}` : 'Competitive Quote'}
               </strong>
