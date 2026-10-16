@@ -45,6 +45,10 @@ const SBU_DISPLAY_NAMES = {
   'DAS': 'Digital & AI Solutions (DAS)',
 }
 
+// 184 Target Accounts across the 4 SBUs (155 Unique Corporate Entities)
+const TOTAL_DIRECTORY_CLIENTS = 184
+const UNIQUE_INSTITUTIONS_COUNT = 155
+
 const OFFICIAL_DOCUMENT_TARGETS = {
   'Institute': SBU_PIPELINE_TARGETS.INSTITUTE.annualRevenueTarget,
   'CBS': SBU_PIPELINE_TARGETS.CBS.annualRevenueTarget,
@@ -119,7 +123,7 @@ function downloadCSV(filename, csvRows) {
   URL.revokeObjectURL(url)
 }
 
-export default function SummaryDashboard() {
+export default function SummaryDashboard({ onNavigateTab }) {
   const [data, setData] = useState(null)
   const [proposals, setProposals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -320,46 +324,6 @@ export default function SummaryDashboard() {
     }
   })
 
-  const dynamicBarData = sbuMetrics.map((m) => ({
-    name: m.name,
-    Target: m.target,
-    Forecast: m.weightedForecast,
-  }))
-
-  const dynamicPieData = sbuMetrics
-    .filter((m) => m.weightedForecast > 0)
-    .map((m) => ({
-      name: m.name,
-      value: m.weightedForecast,
-      color: SBU_COLORS[m.name] || '#64748b',
-    }))
-
-  const finalPieData = dynamicPieData.length > 0
-    ? dynamicPieData
-    : [{ name: 'No Active Forecast', value: 1, color: '#e2e8f0' }]
-
-  const stageBreakdown = proposalStatuses.map((status) => {
-    const stageDeals = filteredProposals.filter((p) => p.status === status)
-    const nominal = stageDeals.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
-    const prob = STAGE_WEIGHTS[status] ?? 0
-    const weighted = nominal * prob
-    const denominator = totalActiveTenderValue > 0 ? totalActiveTenderValue : 1
-    const share = !['Initiated', 'Target', 'Lead', 'Won', 'Lost', 'Cancelled'].includes(status)
-      ? Math.round((nominal / denominator) * 100)
-      : 0
-
-    return {
-      status,
-      count: stageDeals.length,
-      nominal,
-      prob: Math.round(prob * 100),
-      weighted,
-      share,
-      isLead: ['Initiated', 'Target', 'Lead'].includes(status),
-      isOutcome: ['Won', 'Lost', 'Cancelled'].includes(status),
-    }
-  })
-
   // Limit pursuits to top 6 so PDF memo strictly fits on 1 single page
   const topPursuits = [...openFormalProposalsList]
     .sort((a, b) => (Number(b.deal_value_etb) || 0) - (Number(a.deal_value_etb) || 0))
@@ -376,6 +340,7 @@ export default function SummaryDashboard() {
 
       csvRows.push('THE i-CAPITAL AFRICA GROUP — EXECUTIVE FORECAST & PIPELINE SUMMARY')
       csvRows.push(`Reporting Period,${activeQuarterObj.label} (${activeQuarterObj.range})`)
+      csvRows.push(`Target Directory Accounts,${TOTAL_DIRECTORY_CLIENTS} (${UNIQUE_INSTITUTIONS_COUNT} Unique Institutions)`)
       csvRows.push(`Export Date,${today}`)
       csvRows.push('')
 
@@ -400,14 +365,40 @@ export default function SummaryDashboard() {
     }
   }
 
+  // 100% Synchronized KPI Cards: Exactly 184 Target Accounts across the 4 SBUs
   const operationalKpiCards = data
     ? [
-        ['Total Clients', formatNumber(data.clients_total), '#client-directory', 'Institutional client directory'],
-        ['Pre-Tender Leads', formatNumber(leadProposalsList.length), '#deals-and-proposals', 'Early inquiries in qualification'],
-        ['Formal Proposals', formatNumber(openFormalProposalsList.length), '#deals-and-proposals', 'Active tenders in pursuit'],
+        [
+          'Total Clients',
+          '184',
+          '#client-directory',
+          '184 SBU target accounts (155 unique institutions)',
+        ],
+        [
+          'Pre-Tender Leads',
+          formatNumber(leadProposalsList.length),
+          '#deals-and-proposals',
+          'Early inquiries in qualification',
+        ],
+        [
+          'Formal Proposals',
+          formatNumber(openFormalProposalsList.length),
+          '#deals-and-proposals',
+          'Active tenders in pursuit',
+        ],
         ['Signed Won Deals', formatNumber(wonProposalsList.length), null, 'Contracted engagements'],
-        ['True Win Rate', trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'No decided', null, `Won vs Lost (${decidedProposalsCount} bids decided)`],
-        ['Lead Conversion Rate', `${leadQualificationRate}%`, null, `${formalProposalsList.length} of ${filteredProposals.length} advanced`],
+        [
+          'True Win Rate',
+          trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'No decided',
+          null,
+          `Won vs Lost (${decidedProposalsCount} bids decided)`,
+        ],
+        [
+          'Lead Conversion Rate',
+          `${leadQualificationRate}%`,
+          null,
+          `${formalProposalsList.length} of ${filteredProposals.length} advanced`,
+        ],
         ['Pending Actions', formatNumber(data.pending_actions), '#follow-up-queue', 'Scheduled touchpoints'],
         ['Overdue Actions', formatNumber(data.overdue_actions), '#follow-up-queue', 'Urgent follow-ups needed'],
       ]
@@ -416,7 +407,7 @@ export default function SummaryDashboard() {
   return (
     <section aria-label="Summary Dashboard" style={{ marginBottom: 36, paddingBottom: 28, borderBottom: '1px solid #dbe2ea' }}>
       
-      {/* STRICT 1-PAGE A4 PRINT STYLES */}
+      {/* Strict 1-Page A4 Print Styles */}
       <style>{`
         @media print {
           @page {
@@ -430,7 +421,6 @@ export default function SummaryDashboard() {
             padding: 0 !important;
             height: auto !important;
           }
-          /* Hide app chrome */
           header, aside, nav, .no-print, button, select, input {
             display: none !important;
           }
@@ -469,7 +459,6 @@ export default function SummaryDashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', position: 'relative', zIndex: 10 }}>
-          {/* Executive Briefing PDF Button */}
           <button
             type="button"
             onClick={() => setShowBriefingModal(true)}
@@ -841,7 +830,7 @@ export default function SummaryDashboard() {
             </div>
           </div>
 
-          {/* Operational KPIs */}
+          {/* CRM Commercial & Operational Performance (Explicitly Synchronized to 184 Target Directory Accounts) */}
           <h3 style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>
             CRM Commercial &amp; Operational Performance ({selectedQuarter})
           </h3>
@@ -861,7 +850,19 @@ export default function SummaryDashboard() {
                 </div>
                 <div style={{ fontSize: 20, fontWeight: 700, color: '#0f172a' }}>
                   {href ? (
-                    <a href={href} style={{ color: '#0284c7', textDecoration: 'none' }}>
+                    <a
+                      href={href}
+                      onClick={(e) => {
+                        if (onNavigateTab) {
+                          e.preventDefault()
+                          if (href === '#client-directory') onNavigateTab('clients')
+                          else if (href === '#deals-and-proposals') onNavigateTab('proposals')
+                          else if (href === '#follow-up-queue') onNavigateTab('queue')
+                        }
+                      }}
+                      style={{ color: '#0284c7', textDecoration: 'none', cursor: 'pointer' }}
+                      title="Click to view in Client Directory"
+                    >
                       {value}
                     </a>
                   ) : (
@@ -879,9 +880,7 @@ export default function SummaryDashboard() {
         </>
       )}
 
-      {/* ======================================================== */}
-      {/* 1-PAGE PRINTABLE EXECUTIVE BRIEFING DOSSIER MODAL        */}
-      {/* ======================================================== */}
+      {/* 1-PAGE PRINTABLE EXECUTIVE BRIEFING DOSSIER MODAL */}
       {showBriefingModal && (
         <div
           style={{
@@ -913,7 +912,7 @@ export default function SummaryDashboard() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Actions (Hidden in Print) */}
+            {/* Modal Actions */}
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 12, marginBottom: 16 }}>
               <div>
                 <h3 style={{ margin: 0, color: '#0f172a', fontSize: 16 }}>Board-Ready 1-Page Executive Dossier</h3>
@@ -960,10 +959,8 @@ export default function SummaryDashboard() {
               </div>
             </div>
 
-            {/* DOCUMENT CANVAS (STRICT 1-PAGE A4 FORMAT) */}
+            {/* Document Canvas */}
             <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
-              
-              {/* Header Banner */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0f172a', paddingBottom: 10, marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <img
@@ -985,7 +982,7 @@ export default function SummaryDashboard() {
                 <div style={{ textAlign: 'right', fontSize: 10, color: '#64748b' }}>
                   <div><strong>Date:</strong> {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
                   <div><strong>Classification:</strong> Confidential / Board Review</div>
-                  <div><strong>Period:</strong> {activeQuarterObj.range}</div>
+                  <div><strong>Target Accounts:</strong> 184 Mapped SBU Pursuits (155 Unique)</div>
                 </div>
               </div>
 
@@ -1053,7 +1050,7 @@ export default function SummaryDashboard() {
                 </table>
               </div>
 
-              {/* 3. Top Active Pursuits Table */}
+              {/* 3. Top Active Pursuits */}
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
                   3. Key Active Formal Tender Pursuits ({selectedQuarter})
@@ -1092,7 +1089,7 @@ export default function SummaryDashboard() {
                 </table>
               </div>
 
-              {/* 4. Governance Sign-off & Verification Footer */}
+              {/* 4. Footer */}
               <div style={{ borderTop: '1px solid #cbd5e1', paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 10, color: '#64748b' }}>
                 <div>
                   <strong>Bidding Intelligence:</strong> Win Rate: <strong>{trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'N/A'}</strong> | Lead Conversion: <strong>{leadQualificationRate}%</strong>
