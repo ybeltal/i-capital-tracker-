@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-
+import AiTenderParser from './AiTenderParser'
 // Core CRM Screens
 import SummaryDashboard from './SummaryDashboard'
 import ProposalList from './ProposalList'
