@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
-import AiTenderParser from './AiTenderParser'
+
 // Core CRM Screens
 import SummaryDashboard from './SummaryDashboard'
 import ProposalList from './ProposalList'
@@ -12,6 +12,7 @@ import FollowUpQueue from './FollowUpQueue'
 import ProposalForm from './ProposalForm'
 import LeadForm from './LeadForm'
 import ClientForm from './ClientForm'
+import AiTenderParser from './AiTenderParser'
 
 // Team Avatar Component
 import UserAvatar from './UserAvatar'
@@ -28,6 +29,7 @@ export default function App() {
   const [showProposalModal, setShowProposalModal] = useState(false)
   const [showLeadModal, setShowLeadModal] = useState(false)
   const [showClientModal, setShowClientModal] = useState(false)
+  const [showAiParserModal, setShowAiParserModal] = useState(false)
   const [targetContext, setTargetContext] = useState(null)
 
   useEffect(() => {
@@ -63,6 +65,19 @@ export default function App() {
     setShowProposalModal(true)
   }
 
+  function handleApplyAiToProposal(aiData) {
+    setTargetContext({
+      client: aiData.client,
+      sbu: aiData.sbu,
+      product: aiData.product,
+      dealValue: aiData.dealValue,
+      deadline: aiData.deadline,
+      notes: aiData.notes,
+    })
+    setShowAiParserModal(false)
+    setShowProposalModal(true)
+  }
+
   const navTabs = [
     { id: 'dashboard', label: 'Summary Dashboard', icon: '📊' },
     { id: 'proposals', label: 'Deals & Proposals', icon: '📋' },
@@ -74,9 +89,7 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
       
-      {/* ======================================================== */}
-      {/* 1. TOP EXECUTIVE BRANDING & GOVERNANCE BAR               */}
-      {/* ======================================================== */}
+      {/* 1. TOP EXECUTIVE BRANDING & GOVERNANCE BAR */}
       <header
         style={{
           background: 'linear-gradient(90deg, #070d1e 0%, #0f172a 60%, #1e293b 100%)',
@@ -175,9 +188,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* ======================================================== */}
-      {/* 2. COMMAND HEADER: ATTRIBUTION & ACTIONS                 */}
-      {/* ======================================================== */}
+      {/* 2. COMMAND HEADER: ATTRIBUTION & ACTIONS (WITH ✨ AI TENDER PARSER) */}
       <div style={{ padding: '20px 28px 0 28px', maxWidth: '1600px', margin: '0 auto' }}>
         <div
           style={{
@@ -219,6 +230,28 @@ export default function App() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {/* ✨ AI TENDER PARSER BUTTON */}
+            <button
+              type="button"
+              onClick={() => setShowAiParserModal(true)}
+              style={{
+                padding: '9px 16px',
+                borderRadius: 8,
+                border: '1px solid #0284c7',
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: '#ffffff',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>✨</span> AI Tender Parser
+            </button>
+
             <button
               type="button"
               onClick={() => {
@@ -252,13 +285,13 @@ export default function App() {
               style={{
                 padding: '9px 16px',
                 borderRadius: 8,
-                border: 'none',
-                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                color: '#ffffff',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#0f172a',
                 fontWeight: 700,
                 fontSize: '12px',
                 cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
@@ -334,9 +367,7 @@ export default function App() {
           })}
         </div>
 
-        {/* ======================================================== */}
-        {/* 3. ACTIVE TAB CONTENT VIEW                               */}
-        {/* ======================================================== */}
+        {/* 3. ACTIVE TAB CONTENT VIEW */}
         <main style={{ paddingBottom: '40px' }}>
           {activeTab === 'dashboard' && (
             <SummaryDashboard onNavigateTab={setActiveTab} />
@@ -374,9 +405,54 @@ export default function App() {
         </main>
       </div>
 
-      {/* ======================================================== */}
-      {/* 4. MODALS (PROPOSALS, LEADS & CLIENTS)                   */}
-      {/* ======================================================== */}
+      {/* 4. MODALS */}
+
+      {/* AI TENDER PARSER MODAL */}
+      {showAiParserModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+          onClick={() => setShowAiParserModal(false)}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 12,
+              width: '100%',
+              maxWidth: 720,
+              padding: 24,
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
+              maxHeight: '92vh',
+              overflowY: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <button
+                type="button"
+                onClick={() => setShowAiParserModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+            <AiTenderParser
+              onApplyToProposal={handleApplyAiToProposal}
+              onClose={() => setShowAiParserModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* PROPOSAL MODAL */}
       {showProposalModal && (
         <div
           style={{
@@ -429,6 +505,7 @@ export default function App() {
         </div>
       )}
 
+      {/* LEAD MODAL */}
       {showLeadModal && (
         <div
           style={{
@@ -481,6 +558,7 @@ export default function App() {
         </div>
       )}
 
+      {/* CLIENT MODAL */}
       {showClientModal && (
         <div
           style={{
