@@ -74,7 +74,9 @@ export default function App() {
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
       
-      {/* 1. TOP EXECUTIVE BRANDING & GOVERNANCE BAR */}
+      {/* ======================================================== */}
+      {/* 1. TOP EXECUTIVE BRANDING & GOVERNANCE BAR               */}
+      {/* ======================================================== */}
       <header
         style={{
           background: 'linear-gradient(90deg, #070d1e 0%, #0f172a 60%, #1e293b 100%)',
@@ -173,7 +175,9 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. COMMAND HEADER: ATTRIBUTION & CTAs */}
+      {/* ======================================================== */}
+      {/* 2. COMMAND HEADER: ATTRIBUTION & ACTIONS                 */}
+      {/* ======================================================== */}
       <div style={{ padding: '20px 28px 0 28px', maxWidth: '1600px', margin: '0 auto' }}>
         <div
           style={{
@@ -330,9 +334,13 @@ export default function App() {
           })}
         </div>
 
-        {/* 3. ACTIVE TAB CONTENT VIEW */}
+        {/* ======================================================== */}
+        {/* 3. ACTIVE TAB CONTENT VIEW                               */}
+        {/* ======================================================== */}
         <main style={{ paddingBottom: '40px' }}>
-          {activeTab === 'dashboard' && <SummaryDashboard />}
+          {activeTab === 'dashboard' && (
+            <SummaryDashboard onNavigateTab={setActiveTab} />
+          )}
 
           {activeTab === 'proposals' && (
             <ProposalList
@@ -366,7 +374,9 @@ export default function App() {
         </main>
       </div>
 
-      {/* 4. MODALS */}
+      {/* ======================================================== */}
+      {/* 4. MODALS (PROPOSALS, LEADS & CLIENTS)                   */}
+      {/* ======================================================== */}
       {showProposalModal && (
         <div
           style={{
