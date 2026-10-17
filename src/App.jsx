@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
 
+// Authentication Screen
+import Login from './Login'
+
 // Core CRM Screens
 import SummaryDashboard from './SummaryDashboard'
 import ProposalList from './ProposalList'
@@ -18,6 +21,9 @@ import AiTenderParser from './AiTenderParser'
 import UserAvatar from './UserAvatar'
 
 export default function App() {
+  const [session, setSession] = useState(null)
+  const [authChecking, setAuthChecking] = useState(true)
+
   const [activeTab, setActiveTab] = useState('dashboard')
   const [refreshVersion, setRefreshVersion] = useState(0)
 
@@ -33,15 +39,40 @@ export default function App() {
   const [targetContext, setTargetContext] = useState(null)
 
   useEffect(() => {
-    async function loadUser() {
-      const { data } = await supabase.auth.getUser()
-      if (data?.user) {
-        setUserEmail(data.user.email || '')
-        const metaName = data.user.user_metadata?.full_name || data.user.email?.split('@')[0]
+    // 1. Check existing session on load
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      setSession(existingSession)
+      if (existingSession?.user) {
+        setUserEmail(existingSession.user.email || '')
+        const metaName =
+          existingSession.user.user_metadata?.full_name ||
+          existingSession.user.user_metadata?.name ||
+          existingSession.user.email?.split('@')[0]
         if (metaName) setUserName(metaName)
       }
-    }
-    loadUser()
+      setAuthChecking(false)
+    })
+
+    // 2. Listen for sign-in / sign-out events in real time
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+      setSession(currentSession)
+      if (currentSession?.user) {
+        setUserEmail(currentSession.user.email || '')
+        const metaName =
+          currentSession.user.user_metadata?.full_name ||
+          currentSession.user.user_metadata?.name ||
+          currentSession.user.email?.split('@')[0]
+        if (metaName) setUserName(metaName)
+      } else {
+        setUserEmail('')
+        setUserName('User')
+      }
+      setAuthChecking(false)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   function triggerGlobalRefresh() {
@@ -50,7 +81,7 @@ export default function App() {
 
   async function handleSignOut() {
     await supabase.auth.signOut()
-    window.location.reload()
+    setSession(null)
   }
 
   function handleConvertTargetToLead(targetData) {
@@ -78,6 +109,35 @@ export default function App() {
     setShowProposalModal(true)
   }
 
+  // 1. Loading screen while checking authentication credentials
+  if (authChecking) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#070d1e',
+          color: '#ffffff',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          gap: '12px',
+        }}
+      >
+        <div style={{ fontSize: '28px' }}>⚡</div>
+        <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.5px' }}>
+          Verifying security credentials…
+        </div>
+      </div>
+    )
+  }
+
+  // 2. Auth Guard: If not signed in, show the Login screen
+  if (!session) {
+    return <Login onLoginSuccess={(newSession) => setSession(newSession)} />
+  }
+
   const navTabs = [
     { id: 'dashboard', label: 'Summary Dashboard', icon: '📊' },
     { id: 'proposals', label: 'Deals & Proposals', icon: '📋' },
@@ -86,6 +146,7 @@ export default function App() {
     { id: 'queue', label: 'Follow-up Queue', icon: '⏰' },
   ]
 
+  // 3. Render Authenticated Group CRM Platform
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
       
@@ -188,7 +249,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. COMMAND HEADER: ATTRIBUTION & ACTIONS (WITH ✨ AI TENDER PARSER) */}
+      {/* 2. COMMAND HEADER: ATTRIBUTION & ACTIONS */}
       <div style={{ padding: '20px 28px 0 28px', maxWidth: '1600px', margin: '0 auto' }}>
         <div
           style={{
@@ -230,7 +291,6 @@ export default function App() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            {/* ✨ AI TENDER PARSER BUTTON */}
             <button
               type="button"
               onClick={() => setShowAiParserModal(true)}
@@ -406,8 +466,6 @@ export default function App() {
       </div>
 
       {/* 4. MODALS */}
-
-      {/* AI TENDER PARSER MODAL */}
       {showAiParserModal && (
         <div
           style={{
@@ -452,7 +510,6 @@ export default function App() {
         </div>
       )}
 
-      {/* PROPOSAL MODAL */}
       {showProposalModal && (
         <div
           style={{
@@ -505,7 +562,6 @@ export default function App() {
         </div>
       )}
 
-      {/* LEAD MODAL */}
       {showLeadModal && (
         <div
           style={{
@@ -558,7 +614,6 @@ export default function App() {
         </div>
       )}
 
-      {/* CLIENT MODAL */}
       {showClientModal && (
         <div
           style={{
