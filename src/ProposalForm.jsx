@@ -24,7 +24,7 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
     product: '',
     title: '',
     dealValue: '',
-    stage: '3. Pre-Qualified Opportunity', // Direct promotion to qualified opportunity
+    stage: '3. Pre-Qualified Opportunity',
     deadline: '',
     commercialOwner: currentUser,
     notes: '',
@@ -34,13 +34,20 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
 
   useEffect(() => {
     if (targetContext) {
+      const clientName =
+        targetContext.client ||
+        targetContext.client_name ||
+        targetContext.name ||
+        targetContext.institution ||
+        ''
+
       setFormData((prev) => ({
         ...prev,
-        client: targetContext.client || prev.client,
+        client: clientName || prev.client,
         sbu: targetContext.sbu || prev.sbu,
-        product: targetContext.product || prev.product,
-        title: targetContext.title || prev.title,
-        dealValue: targetContext.dealValue || prev.dealValue,
+        product: targetContext.product || targetContext.service_fit || prev.product,
+        title: targetContext.title || (clientName ? `${clientName} Proposal` : prev.title),
+        dealValue: targetContext.dealValue || targetContext.deal_value || prev.dealValue,
         deadline: targetContext.deadline || prev.deadline,
         notes: targetContext.notes || prev.notes,
         stage: targetContext.stage || '3. Pre-Qualified Opportunity',
@@ -50,7 +57,9 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!formData.client.trim()) {
+    const cleanClient = formData.client.trim()
+
+    if (!cleanClient) {
       setError('Please provide the client name.')
       return
     }
@@ -58,11 +67,13 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
     setLoading(true)
     setError('')
 
+    // Set both client and client_name so all queries and triggers succeed
     const payload = {
-      client: formData.client.trim(),
+      client: cleanClient,
+      client_name: cleanClient,
       sbu: formData.sbu,
       product: formData.product.trim() || 'Executive Advisory',
-      title: formData.title.trim() || `${formData.client} Proposal`,
+      title: formData.title.trim() || `${cleanClient} Proposal`,
       deal_value: Number(formData.dealValue) || 0,
       stage: formData.stage,
       deadline: formData.deadline || null,
@@ -72,7 +83,7 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
     }
 
     try {
-      // 1. If targetContext explicitly has an existing record ID, UPDATE in place
+      // 1. If migrating a record with an existing ID, update in place
       if (targetContext?.id) {
         const { error: updateErr } = await supabase
           .from('opportunities')
@@ -81,26 +92,26 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
 
         if (updateErr) throw updateErr
       } else {
-        // 2. Check if a pre-existing lead or target exists for this client to prevent duplicates
-        const { data: existingLead } = await supabase
+        // 2. Check for an existing lead to upgrade and prevent duplicate Kanban cards
+        const { data: existingLeads } = await supabase
           .from('opportunities')
-          .select('id')
-          .ilike('client', formData.client.trim())
-          .in('stage', ['1. Potential Target', '2. Lead'])
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
+          .select('id, client, client_name, stage')
+          .limit(100)
 
-        if (existingLead?.id) {
-          // Promote existing lead record directly without creating a new row
+        const match = existingLeads?.find((d) => {
+          const name = (d.client || d.client_name || '').toLowerCase().trim()
+          return name === cleanClient.toLowerCase() && (d.stage?.includes('Target') || d.stage?.includes('Lead'))
+        })
+
+        if (match?.id) {
           const { error: upgradeErr } = await supabase
             .from('opportunities')
             .update(payload)
-            .eq('id', existingLead.id)
+            .eq('id', match.id)
 
           if (upgradeErr) throw upgradeErr
         } else {
-          // 3. Insert a new record only if no prior record existed
+          // 3. Insert fresh proposal
           const prefix = formData.sbu.substring(0, 4).toUpperCase()
           const generatedCode = `${prefix}-2026-${Math.floor(100 + Math.random() * 900)}`
 
@@ -134,7 +145,7 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
 
       {targetContext && (
         <div style={{ padding: '8px 12px', background: '#f0f9ff', borderRadius: 6, border: '1px solid #bae6fd', fontSize: 11, color: '#0369a1', fontWeight: 600 }}>
-          ⚡ Converting active record for: <strong>{formData.client}</strong> (will migrate existing card automatically)
+          ⚡ Converting account: <strong>{formData.client}</strong> (will register in active pipeline)
         </div>
       )}
 
@@ -148,7 +159,7 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
             required
             value={formData.client}
             onChange={(e) => setFormData({ ...formData, client: e.target.value })}
-            placeholder="e.g. Bank of Abyssinia, CBE, VisionFund"
+            placeholder="e.g. Cooperative Bank of Oromia, CBE, VisionFund"
             style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, boxSizing: 'border-box' }}
           />
         </div>
@@ -180,7 +191,7 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
             type="text"
             value={formData.product}
             onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-            placeholder="e.g. Overseas Training, MBL Leadership, S-OJT"
+            placeholder="e.g. MBL, S-OJT, Overseas Immersion"
             style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, boxSizing: 'border-box' }}
           />
         </div>
@@ -245,7 +256,7 @@ export default function ProposalForm({ targetContext, currentUser = 'Ybeltal Sem
 
       <div>
         <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
-          Notes &amp; Extracted Deliverables
+          Notes &amp; Scope Requirements
         </label>
         <textarea
           rows={3}

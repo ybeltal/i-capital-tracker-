@@ -97,14 +97,30 @@ export const STAGE_CONFIG = {
 
 const STAGE_KEYS = Object.keys(STAGE_CONFIG)
 
+// Robust stage matcher to accommodate variations in stage naming across existing database records
+function matchStage(dealStage, targetStageKey) {
+  if (!dealStage) return targetStageKey === '1. Potential Target'
+  const ds = dealStage.toLowerCase().trim()
+  const ts = targetStageKey.toLowerCase().trim()
+
+  if (ds === ts) return true
+  if (ts.startsWith('1') && (ds.includes('potential') || ds.includes('target'))) return true
+  if (ts.startsWith('2') && ds.includes('lead')) return true
+  if (ts.startsWith('3') && (ds.includes('pre-qual') || ds.includes('prequalified'))) return true
+  if (ts.startsWith('4') && ds.includes('qualified') && !ds.includes('pre')) return true
+  if (ts.startsWith('5') && (ds.includes('won') || ds.includes('conversion') || ds.includes('signed'))) return true
+  if (ts.startsWith('6') && (ds.includes('delivery') || ds.includes('repeat'))) return true
+  if (ts.includes('lost') && (ds.includes('lost') || ds.includes('closed') || ds.includes('cancelled'))) return true
+  return false
+}
+
 export default function ProposalList({ refreshVersion, onRefresh }) {
   const [deals, setDeals] = useState([])
   const [loading, setLoading] = useState(true)
   const [filterSbu, setFilterSbu] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
-  const [viewType, setViewType] = useState('board') // 'board' | 'table'
+  const [viewType, setViewType] = useState('board')
 
-  // Stage-Gate Verification Modal State
   const [migratingDeal, setMigratingDeal] = useState(null)
   const [checkedItems, setCheckedItems] = useState({})
   const [gateNotes, setGateNotes] = useState('')
@@ -116,32 +132,30 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
 
   async function fetchDeals() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('opportunities')
-      .select('*')
-      .order('created_at', { ascending: false })
 
-    if (!error && data) {
-      setDeals(data)
+    // Primary fetch ordering by created_at, with fallback to unordered select if created_at is indexing
+    let res = await supabase.from('opportunities').select('*').order('created_at', { ascending: false })
+    if (res.error) {
+      res = await supabase.from('opportunities').select('*')
+    }
+
+    if (res.data) {
+      setDeals(res.data)
     }
     setLoading(false)
   }
 
-  // Intercept dropdown selection to trigger the Stage Gate Checklist Modal
   function initiateStageTransition(deal, newStage) {
     if (deal.stage === newStage) return
-
     setMigratingDeal({ deal, targetStage: newStage })
     setCheckedItems({})
     setGateNotes('')
   }
 
-  // Toggle individual checklist items in the modal
   function toggleCheckItem(index) {
     setCheckedItems((prev) => ({ ...prev, [index]: !prev[index] }))
   }
 
-  // Check all items in one click
   function handleCheckAll(stageKey) {
     const total = STAGE_CONFIG[stageKey]?.checklist.length || 0
     const updated = {}
@@ -149,25 +163,20 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
     setCheckedItems(updated)
   }
 
-  // Confirm Stage Migration
   async function confirmStageMigration() {
     if (!migratingDeal) return
     const { deal, targetStage } = migratingDeal
-
     setSavingGate(true)
 
-    // 1. Optimistic Local State Update: Card moves immediately
     setDeals((prev) =>
       prev.map((d) => (d.id === deal.id ? { ...d, stage: targetStage } : d))
     )
 
-    // 2. Prepare gate metadata append to notes
-    const completedTasks = Object.keys(checkedItems).filter((k) => checkedItems[k]).length
-    const totalTasks = STAGE_CONFIG[targetStage]?.checklist.length || 0
-    const gateLog = ` [GATE_${targetStage.toUpperCase().replace(/[^A-Z]/g, '_')}: ${completedTasks}/${totalTasks} Verified${gateNotes ? ` - Notes: ${gateNotes}` : ''}]`
-    const updatedNotes = (deal.notes || '') + gateLog
+    const completed = Object.keys(checkedItems).filter((k) => checkedItems[k]).length
+    const total = STAGE_CONFIG[targetStage]?.checklist.length || 0
+    const noteSuffix = ` [GATE_${targetStage.replace(/[^A-Za-z0-9]/g, '_')}: ${completed}/${total} Verified${gateNotes ? ` - ${gateNotes}` : ''}]`
+    const updatedNotes = (deal.notes || '') + noteSuffix
 
-    // 3. Persist to Supabase
     const { error } = await supabase
       .from('opportunities')
       .update({
@@ -188,10 +197,8 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
     }
   }
 
-  // Delete card to eliminate duplicate entries
   async function handleDeleteDeal(dealId, clientName) {
     if (!window.confirm(`Permanently remove "${clientName}" from pipeline?`)) return
-
     setDeals((prev) => prev.filter((d) => d.id !== dealId))
     const { error } = await supabase.from('opportunities').delete().eq('id', dealId)
     if (error) {
@@ -203,10 +210,11 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
   }
 
   const filteredDeals = deals.filter((d) => {
+    const clientName = d.client || d.client_name || ''
     const matchesSbu = filterSbu === 'ALL' || d.sbu === filterSbu
     const matchesSearch =
       !searchQuery ||
-      (d.client && d.client.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      clientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (d.product && d.product.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (d.code && d.code.toLowerCase().includes(searchQuery.toLowerCase()))
     return matchesSbu && matchesSearch
@@ -214,7 +222,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* 1. FILTER & VIEW SELECTOR BAR */}
+      {/* Filter and View Selector */}
       <div
         style={{
           background: '#ffffff',
@@ -304,7 +312,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
         </div>
       </div>
 
-      {/* 2. MULTI-COLOR STAGED KANBAN BOARD */}
+      {/* Multicolored Staged Board */}
       {viewType === 'board' && (
         <div
           style={{
@@ -317,9 +325,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
         >
           {STAGE_KEYS.map((stageKey) => {
             const conf = STAGE_CONFIG[stageKey]
-            const stageDeals = filteredDeals.filter(
-              (d) => d.stage === stageKey || d.stage === conf.label
-            )
+            const stageDeals = filteredDeals.filter((d) => matchStage(d.stage, stageKey))
             const stageTotal = stageDeals.reduce((sum, d) => sum + (Number(d.deal_value) || 0), 0)
 
             return (
@@ -328,7 +334,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                 style={{
                   background: '#f8fafc',
                   border: `1px solid ${conf.border}`,
-                  borderTop: `4px solid ${conf.color}`, // Distinct Stage Top Border
+                  borderTop: `4px solid ${conf.color}`,
                   borderRadius: 12,
                   display: 'flex',
                   flexDirection: 'column',
@@ -336,15 +342,8 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                   boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
                 }}
               >
-                {/* Column Header */}
-                <div
-                  style={{
-                    padding: '12px 14px',
-                    borderBottom: '1px solid #e2e8f0',
-                    background: '#ffffff',
-                    borderRadius: '8px 8px 0 0',
-                  }}
-                >
+                {/* Header */}
+                <div style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0', background: '#ffffff', borderRadius: '8px 8px 0 0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span>{conf.icon}</span>
@@ -369,109 +368,108 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                   </div>
                 </div>
 
-                {/* Column Cards Area */}
+                {/* Cards Container */}
                 <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto', flex: 1 }}>
                   {stageDeals.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '36px 12px', fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
                       No deals in stage
                     </div>
                   ) : (
-                    stageDeals.map((deal) => (
-                      <div
-                        key={deal.id}
-                        style={{
-                          background: '#ffffff',
-                          borderRadius: 10,
-                          border: '1px solid #e2e8f0',
-                          borderLeft: `5px solid ${conf.color}`, // Card side stage color
-                          padding: 12,
-                          boxShadow: '0 2px 5px rgba(0,0,0,0.04)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 6,
-                        }}
-                      >
-                        {/* Top ID Code & SBU badge */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: 11, fontWeight: 800, color: conf.color }}>
-                            {deal.code || 'DEAL'}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 9,
-                              fontWeight: 800,
-                              background: '#f1f5f9',
-                              color: '#475569',
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                            }}
-                          >
-                            {deal.sbu || 'INST'}
-                          </span>
-                        </div>
-
-                        {/* Client Name & Product */}
-                        <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{deal.client}</div>
-                        <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.35 }}>
-                          {deal.title || deal.product}
-                        </div>
-
-                        {/* Commercial Deal Value */}
-                        <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', marginTop: 2 }}>
-                          ETB {new Intl.NumberFormat('en-US').format(deal.deal_value || 0)}
-                        </div>
-
-                        {/* Interactive Dropdown with Stage-Gate Gating */}
+                    stageDeals.map((deal) => {
+                      const displayClient = deal.client || deal.client_name || 'Institutional Client'
+                      return (
                         <div
+                          key={deal.id}
                           style={{
+                            background: '#ffffff',
+                            borderRadius: 10,
+                            border: '1px solid #e2e8f0',
+                            borderLeft: `5px solid ${conf.color}`,
+                            padding: 12,
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.04)',
                             display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginTop: 6,
-                            paddingTop: 6,
-                            borderTop: '1px solid #f1f5f9',
+                            flexDirection: 'column',
+                            gap: 6,
                           }}
                         >
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteDeal(deal.id, deal.client)}
-                            title="Delete card to eliminate duplicate"
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontSize: 12,
-                              color: '#ef4444',
-                              padding: 2,
-                            }}
-                          >
-                            🗑️
-                          </button>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: conf.color }}>
+                              {deal.code || 'DEAL'}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 800,
+                                background: '#f1f5f9',
+                                color: '#475569',
+                                padding: '2px 6px',
+                                borderRadius: 4,
+                              }}
+                            >
+                              {deal.sbu || 'INST'}
+                            </span>
+                          </div>
 
-                          <select
-                            value={deal.stage}
-                            onChange={(e) => initiateStageTransition(deal, e.target.value)}
+                          <div style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>{displayClient}</div>
+                          <div style={{ fontSize: 11, color: '#64748b', lineHeight: 1.35 }}>
+                            {deal.title || deal.product}
+                          </div>
+
+                          <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', marginTop: 2 }}>
+                            ETB {new Intl.NumberFormat('en-US').format(deal.deal_value || 0)}
+                          </div>
+
+                          <div
                             style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              padding: '4px 8px',
-                              borderRadius: 6,
-                              border: `1px solid ${conf.border}`,
-                              background: conf.badgeBg,
-                              color: conf.color,
-                              maxWidth: '175px',
-                              cursor: 'pointer',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginTop: 6,
+                              paddingTop: 6,
+                              borderTop: '1px solid #f1f5f9',
                             }}
                           >
-                            {STAGE_KEYS.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteDeal(deal.id, displayClient)}
+                              title="Delete redundant card"
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: 12,
+                                color: '#ef4444',
+                                padding: 2,
+                              }}
+                            >
+                              🗑️
+                            </button>
+
+                            <select
+                              value={deal.stage}
+                              onChange={(e) => initiateStageTransition(deal, e.target.value)}
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                padding: '4px 8px',
+                                borderRadius: 6,
+                                border: `1px solid ${conf.border}`,
+                                background: conf.badgeBg,
+                                color: conf.color,
+                                maxWidth: '175px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {STAGE_KEYS.map((s) => (
+                                <option key={s} value={s}>
+                                  {s}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </div>
-                      </div>
-                    ))
+                      )
+                    })
                   )}
                 </div>
               </div>
@@ -480,7 +478,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
         </div>
       )}
 
-      {/* 3. TABLE VIEW */}
+      {/* Table View */}
       {viewType === 'table' && (
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
@@ -504,11 +502,12 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                 </tr>
               ) : (
                 filteredDeals.map((deal) => {
+                  const displayClient = deal.client || deal.client_name || 'Institutional Client'
                   const conf = STAGE_CONFIG[deal.stage] || STAGE_CONFIG['1. Potential Target']
                   return (
                     <tr key={deal.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '12px 16px', fontWeight: 800, color: conf.color }}>{deal.code}</td>
-                      <td style={{ padding: '12px 16px', fontWeight: 700, color: '#0f172a' }}>{deal.client}</td>
+                      <td style={{ padding: '12px 16px', fontWeight: 700, color: '#0f172a' }}>{displayClient}</td>
                       <td style={{ padding: '12px 16px' }}>
                         <span style={{ fontSize: 10, fontWeight: 800, background: '#f1f5f9', padding: '2px 6px', borderRadius: 4 }}>
                           {deal.sbu}
@@ -543,7 +542,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                       <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                         <button
                           type="button"
-                          onClick={() => handleDeleteDeal(deal.id, deal.client)}
+                          onClick={() => handleDeleteDeal(deal.id, displayClient)}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 14 }}
                         >
                           🗑️
@@ -558,7 +557,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
         </div>
       )}
 
-      {/* 4. STAGE-GATE VERIFICATION CHECKLIST MODAL */}
+      {/* Stage-Gate Verification Modal */}
       {migratingDeal && (
         <div
           style={{
@@ -587,7 +586,6 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Title & Stage Target Header */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span
@@ -614,7 +612,7 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
               </div>
 
               <h3 style={{ margin: '8px 0 2px 0', fontSize: 17, color: '#0f172a' }}>
-                Migrate "{migratingDeal.deal.client}" to:
+                Migrate "{migratingDeal.deal.client || migratingDeal.deal.client_name}" to:
               </h3>
               <div
                 style={{
@@ -631,7 +629,6 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
               </div>
             </div>
 
-            {/* Stage Checklist Section */}
             <div
               style={{
                 background: STAGE_CONFIG[migratingDeal.targetStage]?.lightBg,
@@ -687,7 +684,6 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
               </div>
             </div>
 
-            {/* Optional Gate Verification Notes */}
             <div>
               <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 4 }}>
                 {migratingDeal.targetStage === 'Closed / Lost' ? 'Loss Reason / Competitor Notes *' : 'Gate Verification Notes (Optional)'}
@@ -698,8 +694,8 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
                 onChange={(e) => setGateNotes(e.target.value)}
                 placeholder={
                   migratingDeal.targetStage === 'Closed / Lost'
-                    ? 'e.g. Lost to local competitor on pricing, budget cancelled by client…'
-                    : 'e.g. Technical proposal submitted, award letter in hand, etc.'
+                    ? 'e.g. Price competition, project postponed by client…'
+                    : 'e.g. Scope confirmed, advance invoice submitted…'
                 }
                 style={{
                   width: '100%',
@@ -712,7 +708,6 @@ export default function ProposalList({ refreshVersion, onRefresh }) {
               />
             </div>
 
-            {/* Action Buttons */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
               <button
                 type="button"
