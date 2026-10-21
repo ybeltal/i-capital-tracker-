@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
+import TorComplianceMatrixModal from './TorComplianceMatrixModal'
 
 const STAGES = [
   { id: '1. TOR / RFP Identified', title: '1. TOR / RFP Identified', color: '#6366f1', badgeBg: '#e0e7ff', badgeText: '#4338ca' },
@@ -20,7 +21,11 @@ export default function ProposalList({
   const [searchQuery, setSearchQuery] = useState('')
   const [sbuFilter, setSbuFilter] = useState('All')
   const [evidenceFilter, setEvidenceFilter] = useState('All')
+  const [verdictFilter, setVerdictFilter] = useState('All')
+
+  // Modals & Drawers State
   const [selectedDeal, setSelectedDeal] = useState(null)
+  const [assessmentDeal, setAssessmentDeal] = useState(null)
 
   const [criteriaChecked, setCriteriaChecked] = useState({
     c1: false,
@@ -142,7 +147,12 @@ export default function ProposalList({
       evidenceFilter === 'All' ||
       currentEvidence.toLowerCase() === evidenceFilter.toLowerCase()
 
-    return matchSearch && matchSbu && matchEvidence
+    const currentVerdict = deal.gonogo_verdict || 'Pending Assessment'
+    const matchVerdict =
+      verdictFilter === 'All' ||
+      currentVerdict.toLowerCase() === verdictFilter.toLowerCase()
+
+    return matchSearch && matchSbu && matchEvidence && matchVerdict
   })
 
   return (
@@ -163,6 +173,7 @@ export default function ProposalList({
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          {/* SBU Filter */}
           <select
             value={sbuFilter}
             onChange={(e) => setSbuFilter(e.target.value)}
@@ -179,12 +190,12 @@ export default function ProposalList({
           >
             <option value="All">All Business Units (Institute, CBS, IIP, DAS)</option>
             <option value="Institute">The i-Capital Institute</option>
-            <option value="CBS">Corporate Business Solutions (CBS)</option>
+            <option value="CBS">Cross Border Solutions (CBS)</option>
             <option value="IIP">Investment Platform (IIP)</option>
             <option value="DAS">Digital &amp; AI Solutions (DAS)</option>
           </select>
 
-          {/* Evidence Health Governance Filter */}
+          {/* Evidence Health Filter */}
           <select
             value={evidenceFilter}
             onChange={(e) => setEvidenceFilter(e.target.value)}
@@ -205,6 +216,29 @@ export default function ProposalList({
             <option value="Unverified">🔴 Unverified (Gating Blocked)</option>
           </select>
 
+          {/* Go/No-Go Decision Filter */}
+          <select
+            value={verdictFilter}
+            onChange={(e) => setVerdictFilter(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              borderRadius: 8,
+              border: '1px solid #cbd5e1',
+              fontSize: 12,
+              fontWeight: 700,
+              background: '#ffffff',
+              color: '#0f172a',
+              cursor: 'pointer',
+            }}
+          >
+            <option value="All">All Go/No-Go Verdicts</option>
+            <option value="GO">🟢 GO Only (Competitive)</option>
+            <option value="CONDITIONAL_GO">🟡 Conditional GO (Action Needed)</option>
+            <option value="NO_GO">🔴 NO-GO (High Risk/Disqualified)</option>
+            <option value="Pending Assessment">⚪ Pending Evaluation</option>
+          </select>
+
+          {/* Search Box */}
           <input
             type="text"
             placeholder="Search institution, proposal, code..."
@@ -215,7 +249,7 @@ export default function ProposalList({
               borderRadius: 8,
               border: '1px solid #cbd5e1',
               fontSize: 12,
-              width: 260,
+              width: 240,
               background: '#ffffff',
             }}
           />
@@ -241,7 +275,7 @@ export default function ProposalList({
         </div>
       </div>
 
-      {/* 4-COLUMN EVIDENCE-PROTECTED KANBAN BOARD */}
+      {/* 4-COLUMN KANBAN BOARD */}
       <div
         style={{
           display: 'grid',
@@ -296,7 +330,7 @@ export default function ProposalList({
                 </div>
               </div>
 
-              {/* Deals Feed */}
+              {/* Cards Feed */}
               <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
                 {loading ? (
                   <div style={{ textAlign: 'center', padding: '40px 10px', color: '#94a3b8', fontSize: 12 }}>
@@ -311,6 +345,9 @@ export default function ProposalList({
                     const status = deal.evidence_status || 'Unverified'
                     const isVerified = status === 'Verified'
                     const isProvisional = status === 'Provisional'
+
+                    const verdict = deal.gonogo_verdict
+                    const hasVerdict = verdict && verdict !== 'Pending Assessment'
 
                     return (
                       <div
@@ -337,7 +374,7 @@ export default function ProposalList({
                           e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.04)'
                         }}
                       >
-                        {/* Card Header & Evidence Health Badge */}
+                        {/* Header: Deal Code + Evidence Health Badge */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <span style={{ fontSize: 11, fontWeight: 900, color: '#0284c7' }}>
                             {deal.code || 'DEAL'}
@@ -363,24 +400,68 @@ export default function ProposalList({
                           </span>
                         </div>
 
+                        {/* Client Name */}
                         <div style={{ fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
                           {deal.client || deal.client_name || 'Strategic Client'}
                         </div>
 
+                        {/* Title / Scope */}
                         <div style={{ fontSize: 11, color: '#475569', lineHeight: 1.3 }}>
                           {deal.title || deal.product || 'Proposal Mandate Scope'}
                         </div>
 
+                        {/* Go / No-Go Decision Scorecard Pill */}
+                        {hasVerdict && (
+                          <div style={{ marginTop: 2 }}>
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 800,
+                                padding: '2px 6px',
+                                borderRadius: 4,
+                                background:
+                                  verdict === 'GO'
+                                    ? '#dcfce7'
+                                    : verdict === 'CONDITIONAL_GO'
+                                    ? '#fef3c7'
+                                    : '#fee2e2',
+                                color:
+                                  verdict === 'GO'
+                                    ? '#15803d'
+                                    : verdict === 'CONDITIONAL_GO'
+                                    ? '#b45309'
+                                    : '#b91c1c',
+                                border: `1px solid ${
+                                  verdict === 'GO'
+                                    ? '#86efac'
+                                    : verdict === 'CONDITIONAL_GO'
+                                    ? '#fde68a'
+                                    : '#fecaca'
+                                }`,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 4,
+                              }}
+                            >
+                              <span>{verdict === 'GO' ? '🟢 GO' : verdict === 'CONDITIONAL_GO' ? '🟡 CONDITIONAL' : '🔴 NO-GO'}</span>
+                              <span>({deal.gonogo_score || 0} pts)</span>
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Commercial Deal Value */}
                         <div style={{ fontSize: 12, fontWeight: 800, color: '#166534', marginTop: 4 }}>
                           ETB {new Intl.NumberFormat('en-US').format(deal.deal_value || 0)}
                         </div>
 
+                        {/* Deadline */}
                         {deal.deadline && (
                           <div style={{ fontSize: 10, fontWeight: 800, color: '#dc2626' }}>
                             ⏰ Deadline: {deal.deadline}
                           </div>
                         )}
 
+                        {/* Evidence Title Snippet */}
                         {deal.last_evidence_title && (
                           <div
                             style={{
@@ -409,9 +490,11 @@ export default function ProposalList({
                             borderTop: '1px solid #f1f5f9',
                             paddingTop: 8,
                             marginTop: 6,
+                            flexWrap: 'wrap',
+                            gap: 4,
                           }}
                         >
-                          <div style={{ display: 'flex', gap: 6 }}>
+                          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                             {/* 1-Click TOR Chat Trigger */}
                             <button
                               type="button"
@@ -421,17 +504,17 @@ export default function ProposalList({
                                 triggerChat(deal)
                               }}
                               style={{
-                                padding: '4px 8px',
+                                padding: '4px 6px',
                                 borderRadius: 6,
                                 border: '1px solid #bae6fd',
                                 background: '#f0f9ff',
                                 color: '#0284c7',
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: 800,
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: 4,
+                                gap: 3,
                               }}
                             >
                               <span>💬</span> Chat
@@ -446,35 +529,60 @@ export default function ProposalList({
                                 triggerStudio(deal)
                               }}
                               style={{
-                                padding: '4px 8px',
+                                padding: '4px 6px',
                                 borderRadius: 6,
                                 border: '1px solid #cbd5e1',
                                 background: '#ffffff',
                                 color: '#475569',
-                                fontSize: 11,
+                                fontSize: 10,
                                 fontWeight: 700,
                                 cursor: 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: 4,
+                                gap: 3,
                               }}
                             >
                               <span>📋</span> Studio
                             </button>
+
+                            {/* 1-Click Go/No-Go Compliance Trigger */}
+                            <button
+                              type="button"
+                              title="Evaluate TOR Compliance & Go/No-Go Decision"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setAssessmentDeal(deal)
+                              }}
+                              style={{
+                                padding: '4px 6px',
+                                borderRadius: 6,
+                                border: '1px solid #fed7aa',
+                                background: '#fff7ed',
+                                color: '#c2410c',
+                                fontSize: 10,
+                                fontWeight: 800,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 3,
+                              }}
+                            >
+                              <span>⚖️</span> Go/No-Go
+                            </button>
                           </div>
 
-                          {/* Stage-Gate Intercepted Advance Button */}
+                          {/* Stage-Gate Advance Button */}
                           <button
                             type="button"
                             title="Verify Stage-Gate Evidence & Advance"
                             onClick={(e) => handleQuickAdvance(e, deal)}
                             style={{
-                              padding: '4px 10px',
+                              padding: '4px 8px',
                               borderRadius: 6,
                               border: 'none',
                               background: '#e0f2fe',
                               color: '#0369a1',
-                              fontSize: 11,
+                              fontSize: 10,
                               fontWeight: 800,
                               cursor: 'pointer',
                             }}
@@ -564,8 +672,8 @@ export default function ProposalList({
                 </button>
               </div>
 
-              {/* QUICK ACTION BAR */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, margin: '20px 0' }}>
+              {/* QUICK ACTION BAR (3-BUTTON SUITE: CHAT, STUDIO, GO/NO-GO) */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, margin: '20px 0' }}>
                 <button
                   type="button"
                   onClick={() => {
@@ -574,22 +682,22 @@ export default function ProposalList({
                     triggerChat(d)
                   }}
                   style={{
-                    padding: '11px 14px',
+                    padding: '10px 8px',
                     borderRadius: 8,
                     border: 'none',
                     background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                     color: '#ffffff',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 800,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 6,
+                    gap: 4,
                     boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
                   }}
                 >
-                  <span>💬</span> Live TOR Chat
+                  <span>💬</span> Live Chat
                 </button>
 
                 <button
@@ -600,21 +708,46 @@ export default function ProposalList({
                     triggerStudio(d)
                   }}
                   style={{
-                    padding: '11px 14px',
+                    padding: '10px 8px',
                     borderRadius: 8,
                     border: '1px solid #cbd5e1',
                     background: '#ffffff',
                     color: '#0f172a',
-                    fontSize: 12,
+                    fontSize: 11,
                     fontWeight: 800,
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: 6,
+                    gap: 4,
                   }}
                 >
-                  <span>📋</span> Proposal Studio
+                  <span>📋</span> Studio
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = selectedDeal
+                    setSelectedDeal(null)
+                    setAssessmentDeal(d)
+                  }}
+                  style={{
+                    padding: '10px 8px',
+                    borderRadius: 8,
+                    border: '1px solid #fed7aa',
+                    background: '#fff7ed',
+                    color: '#c2410c',
+                    fontSize: 11,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <span>⚖️</span> Go/No-Go
                 </button>
               </div>
 
@@ -784,6 +917,17 @@ export default function ProposalList({
           </div>
         </div>
       )}
+
+      {/* AUTOMATED GO / NO-GO COMPLIANCE MATRIX MODAL */}
+      <TorComplianceMatrixModal
+        isOpen={Boolean(assessmentDeal)}
+        deal={assessmentDeal}
+        onClose={() => setAssessmentDeal(null)}
+        onSaved={() => {
+          fetchOpportunities()
+          onRefresh?.()
+        }}
+      />
     </div>
   )
 }
