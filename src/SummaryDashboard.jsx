@@ -21,13 +21,17 @@ const STAGE_WEIGHTS = {
   Lead: 0.10,
   Initiated: 0.10,
   'Pre-Qualified': 0.25,
-  'In Progress': 0.30,
+  '1. TOR / RFP Identified': 0.30,
+  'In Progress': 0.35,
+  '2. Proposal In Defense': 0.60,
   'Qualified Pipeline': 0.50,
   Submitted: 0.50,
   'Under Review': 0.60,
   Shortlisted: 0.75,
   Negotiation: 0.90,
+  '3. Contract Won / Signed': 1.00,
   Won: 1.00,
+  '4. Delivery & Repeat Business': 1.00,
   'Delivery & Repeat': 1.00,
   'On Hold': 0.20,
   Lost: 0.00,
@@ -159,29 +163,9 @@ export default function SummaryDashboard({ onNavigateTab }) {
           setIsAdmin(ADMIN_EMAILS.includes(email) || role === 'admin' || email.includes('ybeltal'))
         }
 
-        // Parallel Fetch: summary RPC, proposals table, AND primary opportunities table
-        const [summaryRes, proposalsRes, oppsRes] = await Promise.all([
+        // Parallel Fetch: read opportunities table directly to guarantee all live deals load
+        const [summaryRes, oppsRes] = await Promise.all([
           supabase.rpc('get_dashboard_summary'),
-          supabase
-            .from('proposals')
-            .select(`
-              id,
-              proposal_code,
-              title,
-              status,
-              deal_value_etb,
-              submission_deadline,
-              product_engine,
-              bd_owner,
-              proposal_developer,
-              notes,
-              created_at,
-              opportunities (
-                sbus (name, code),
-                clients (name, sector)
-              )
-            `)
-            .order('created_at', { ascending: false }),
           supabase
             .from('opportunities')
             .select('*')
@@ -189,52 +173,50 @@ export default function SummaryDashboard({ onNavigateTab }) {
         ])
 
         if (!cancelled) {
-          // Normalize proposals list: merge with opportunities if proposals table is empty
-          let mergedList = proposalsRes.data || []
+          const rawOpps = oppsRes.data || []
 
-          if (oppsRes.data && oppsRes.data.length > 0) {
-            const oppsMapped = oppsRes.data.map((o) => {
-              let mappedStatus = 'Initiated'
-              const stg = (o.stage || '').toLowerCase()
-              if (stg.includes('1.') || stg.includes('tor') || stg.includes('potential')) mappedStatus = 'Initiated'
-              else if (stg.includes('2.') || stg.includes('defense') || stg.includes('in progress')) mappedStatus = 'In Progress'
-              else if (stg.includes('3.') || stg.includes('won') || stg.includes('signed')) mappedStatus = 'Won'
-              else if (stg.includes('4.') || stg.includes('delivery')) mappedStatus = 'Delivery & Repeat'
-              else if (stg.includes('lost')) mappedStatus = 'Lost'
-
-              let sbuClean = 'Institute'
-              const rawSbu = (o.sbu || '').toLowerCase()
-              if (rawSbu.includes('cross') || rawSbu.includes('cbs') || rawSbu.includes('border')) sbuClean = 'CBS'
-              else if (rawSbu.includes('invest') || rawSbu.includes('iip') || rawSbu.includes('partner')) sbuClean = 'IIP'
-              else if (rawSbu.includes('digital') || rawSbu.includes('das') || rawSbu.includes('ai')) sbuClean = 'DAS'
-
-              return {
-                id: o.id,
-                proposal_code: o.code || 'DEAL',
-                title: o.title || o.product || 'Proposal Mandate',
-                status: mappedStatus,
-                deal_value_etb: Number(o.submitted_proposal_value || o.deal_value) || 0,
-                submission_deadline: o.deadline || o.submission_deadline || null,
-                product_engine: o.product || 'Strategic Solution',
-                bd_owner: o.commercial_owner_email || o.commercial_owner || 'Corporate BD',
-                proposal_developer: o.technical_lead_email || 'Technical Lead',
-                notes: o.notes || '',
-                created_at: o.created_at,
-                opportunities: {
-                  sbus: { name: sbuClean, code: sbuClean },
-                  clients: { name: o.client || o.client_name || 'Strategic Client', sector: 'Corporate' },
-                },
-              }
-            })
-
-            // If proposals table is empty or smaller, use opportunities as primary source
-            if (mergedList.length === 0) {
-              mergedList = oppsMapped
+          const normalizedDeals = rawOpps.map((o) => {
+            let mappedStatus = '1. TOR / RFP Identified'
+            const stg = (o.stage || '').toLowerCase()
+            if (stg.includes('1.') || stg.includes('tor') || stg.includes('lead') || stg.includes('initiated')) {
+              mappedStatus = '1. TOR / RFP Identified'
+            } else if (stg.includes('2.') || stg.includes('defense') || stg.includes('progress')) {
+              mappedStatus = '2. Proposal In Defense'
+            } else if (stg.includes('3.') || stg.includes('won') || stg.includes('signed')) {
+              mappedStatus = '3. Contract Won / Signed'
+            } else if (stg.includes('4.') || stg.includes('delivery') || stg.includes('repeat')) {
+              mappedStatus = '4. Delivery & Repeat Business'
+            } else if (stg.includes('lost')) {
+              mappedStatus = 'Lost'
             }
-          }
+
+            let sbuKey = 'Institute'
+            const rawSbu = (o.sbu || '').toLowerCase()
+            if (rawSbu.includes('cross') || rawSbu.includes('cbs') || rawSbu.includes('border')) sbuKey = 'CBS'
+            else if (rawSbu.includes('invest') || rawSbu.includes('iip') || rawSbu.includes('partner')) sbuKey = 'IIP'
+            else if (rawSbu.includes('digital') || rawSbu.includes('das') || rawSbu.includes('ai')) sbuKey = 'DAS'
+
+            return {
+              id: o.id,
+              proposal_code: o.code || 'DEAL',
+              title: o.title || o.product || 'Proposal Mandate',
+              status: mappedStatus,
+              deal_value_etb: Number(o.submitted_proposal_value || o.deal_value) || 0,
+              submission_deadline: o.deadline || o.submission_deadline || null,
+              product_engine: o.product || 'Strategic Solution',
+              bd_owner: o.commercial_owner_email || o.commercial_owner || 'Corporate BD',
+              proposal_developer: o.technical_lead_email || 'Technical Lead',
+              notes: o.notes || '',
+              created_at: o.created_at,
+              opportunities: {
+                sbus: { name: sbuKey, code: sbuKey },
+                clients: { name: o.client || o.client_name || 'Strategic Client', sector: 'Corporate' },
+              },
+            }
+          })
 
           setData(summaryRes.data || { pending_actions: 0, overdue_actions: 0 })
-          setProposals(mergedList)
+          setProposals(normalizedDeals)
         }
       } catch (err) {
         if (!cancelled) {
@@ -278,11 +260,20 @@ export default function SummaryDashboard({ onNavigateTab }) {
     return dealQuarter === selectedQuarter
   })
 
-  const leadProposalsList = filteredProposals.filter((p) => ['Initiated', 'Target', 'Lead'].includes(p.status))
-  const formalProposalsList = filteredProposals.filter((p) => !['Initiated', 'Target', 'Lead'].includes(p.status))
+  // Separate Pre-Tender Leads from Formal Proposals
+  const leadProposalsList = filteredProposals.filter((p) =>
+    ['Initiated', 'Target', 'Lead'].includes(p.status)
+  )
+  const formalProposalsList = filteredProposals.filter(
+    (p) => !['Initiated', 'Target', 'Lead'].includes(p.status)
+  )
 
-  const openFormalProposalsList = formalProposalsList.filter((p) => !['Won', 'Lost', 'Cancelled'].includes(p.status))
-  const wonProposalsList = formalProposalsList.filter((p) => p.status === 'Won' || p.status === 'Delivery & Repeat')
+  const openFormalProposalsList = formalProposalsList.filter((p) =>
+    ['1. TOR / RFP Identified', '2. Proposal In Defense', 'In Progress', 'Submitted', 'Under Review'].includes(p.status)
+  )
+  const wonProposalsList = formalProposalsList.filter((p) =>
+    ['3. Contract Won / Signed', '4. Delivery & Repeat Business', 'Won', 'Delivery & Repeat'].includes(p.status)
+  )
   const lostProposalsList = formalProposalsList.filter((p) => p.status === 'Lost')
 
   const totalSpeculativeLeadValue = leadProposalsList.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
@@ -291,7 +282,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
 
   const totalFormalWeightedForecast = openFormalProposalsList.reduce((sum, p) => {
     const val = Number(p.deal_value_etb) || 0
-    const prob = STAGE_WEIGHTS[p.status] ?? 0.30
+    const prob = STAGE_WEIGHTS[p.status] ?? 0.35
     return sum + (val * prob)
   }, 0)
 
@@ -302,9 +293,9 @@ export default function SummaryDashboard({ onNavigateTab }) {
 
   const leadQualificationRate = filteredProposals.length > 0
     ? Math.round((formalProposalsList.length / filteredProposals.length) * 100)
-    : 0
+    : 100
 
-  // 30-Day Win Celebration Spotlight Check
+  // Active Celebration Deal
   const nowMs = new Date().getTime()
   const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000
 
@@ -323,8 +314,12 @@ export default function SummaryDashboard({ onNavigateTab }) {
       return name.toLowerCase().includes(sbuName.toLowerCase())
     })
     const sbuLeads = sbuDeals.filter((p) => ['Initiated', 'Target', 'Lead'].includes(p.status))
-    const sbuFormalOpen = sbuDeals.filter((p) => !['Initiated', 'Target', 'Lead', 'Won', 'Delivery & Repeat', 'Lost', 'Cancelled'].includes(p.status))
-    const sbuWon = sbuDeals.filter((p) => p.status === 'Won' || p.status === 'Delivery & Repeat')
+    const sbuFormalOpen = sbuDeals.filter((p) =>
+      ['1. TOR / RFP Identified', '2. Proposal In Defense', 'In Progress', 'Submitted', 'Under Review'].includes(p.status)
+    )
+    const sbuWon = sbuDeals.filter((p) =>
+      ['3. Contract Won / Signed', '4. Delivery & Repeat Business', 'Won', 'Delivery & Repeat'].includes(p.status)
+    )
     const sbuLost = sbuDeals.filter((p) => p.status === 'Lost')
 
     const leadVal = sbuLeads.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
@@ -333,7 +328,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
 
     const weightedForecast = sbuFormalOpen.reduce((sum, p) => {
       const val = Number(p.deal_value_etb) || 0
-      const prob = STAGE_WEIGHTS[p.status] ?? 0.30
+      const prob = STAGE_WEIGHTS[p.status] ?? 0.35
       return sum + (val * prob)
     }, 0)
 
@@ -349,7 +344,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
     }
 
     const required3xPipeline = target * 3
-    const attainmentPct = target > 0 ? Math.min(150, Math.round((weightedForecast / target) * 100)) : 0
+    const attainmentPct = target > 0 ? Math.min(150, Math.round(((openVal + wonVal) / target) * 100)) : 0
     const decided = sbuWon.length + sbuLost.length
     const winRate = decided > 0 ? Math.round((sbuWon.length / decided) * 100) : null
 
@@ -372,7 +367,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
     }
   })
 
-  // Charts Dataset Preparation
+  // Bar Chart Data
   const barChartData = sbuMetrics.map((m) => ({
     sbuKey: m.name,
     sbuName: m.displayName.replace(/\s*\(.*?\)\s*/g, ''),
@@ -389,10 +384,9 @@ export default function SummaryDashboard({ onNavigateTab }) {
   }))
 
   const stageBreakdownData = [
-    { name: 'Pre-Tender Leads', value: leadProposalsList.length || 0, color: '#0284c7' },
-    { name: 'Active In Defense', value: openFormalProposalsList.length || 0, color: '#f59e0b' },
-    { name: 'Contracted Won', value: wonProposalsList.length || 0, color: '#10b981' },
-    { name: 'Under Review / Loss', value: lostProposalsList.length || 0, color: '#94a3b8' },
+    { name: 'Active Formal Bids', value: openFormalProposalsList.length || 1, color: '#0284c7' },
+    { name: 'Won Contracts', value: wonProposalsList.length || 0, color: '#10b981' },
+    { name: 'Pre-Tender Leads', value: leadProposalsList.length || 0, color: '#f59e0b' },
   ].filter((item) => item.value > 0)
 
   const topPursuits = [...openFormalProposalsList]
@@ -402,7 +396,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
   const activeQuarterObj = QUARTERS.find((q) => q.id === selectedQuarter) || QUARTERS[0]
 
   async function handleExportCSV() {
-    if (!data) return
+    if (!proposals.length) return
     setExporting(true)
     try {
       const today = new Date().toISOString().slice(0, 10)
@@ -415,15 +409,15 @@ export default function SummaryDashboard({ onNavigateTab }) {
       csvRows.push('')
 
       csvRows.push('COMMERCIAL PIPELINE TIERS,DEAL COUNT,VALUE (ETB)')
-      csvRows.push(`"Speculative Pre-Tender Leads (Initiated)","${leadProposalsList.length}","${formatMoney(totalSpeculativeLeadValue)}"`)
+      csvRows.push(`"Speculative Pre-Tender Leads","${leadProposalsList.length}","${formatMoney(totalSpeculativeLeadValue)}"`)
       csvRows.push(`"Active Formal Proposals","${openFormalProposalsList.length}","${formatMoney(totalActiveTenderValue)}"`)
       csvRows.push(`"Contracted Won Revenue","${wonProposalsList.length}","${formatMoney(totalWonValue)}"`)
       csvRows.push(`"True Proposal Win Rate","${decidedProposalsCount} decided","${trueProposalWinRate != null ? trueProposalWinRate + '%' : 'N/A'}"`)
       csvRows.push('')
 
-      csvRows.push('SBU PERFORMANCE MATRIX,WINS,LOSSES,WEIGHTED FORECAST (ETB),PERIOD TARGET (ETB),ATTAINMENT %')
+      csvRows.push('SBU PERFORMANCE MATRIX,WINS,LOSSES,ACTIVE PIPELINE (ETB),WEIGHTED FORECAST (ETB),PERIOD TARGET (ETB),ATTAINMENT %')
       sbuMetrics.forEach((m) => {
-        csvRows.push(`"${m.displayName}","${m.wonCount}","${m.lostCount}","${m.weightedForecast}","${m.target}","${m.attainmentPct}%"`)
+        csvRows.push(`"${m.displayName}","${m.wonCount}","${m.lostCount}","${m.openValue}","${m.weightedForecast}","${m.target}","${m.attainmentPct}%"`)
       })
       csvRows.push('')
 
@@ -1049,7 +1043,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
                     </ResponsiveContainer>
                   </div>
                   <div style={{ fontSize: 10, color: '#64748b', textAlign: 'center' }}>
-                    Leads vs In Defense vs Won
+                    Formal Bids vs Won vs Leads
                   </div>
                 </div>
               </div>
@@ -1099,6 +1093,10 @@ export default function SummaryDashboard({ onNavigateTab }) {
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
+                      <span>Active Pipeline:</span>
+                      <strong style={{ color: '#0284c7' }}>{formatMoney(sbu.openValue)}</strong>
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
                       <span>Weighted Forecast:</span>
                       <strong style={{ color: '#0f172a' }}>{formatMoney(sbu.weightedForecast)}</strong>
