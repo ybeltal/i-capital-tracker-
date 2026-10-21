@@ -3,6 +3,7 @@ import { supabase } from './supabase'
 import TorClarificationChat from './TorClarificationChat'
 import ProposalDocumentEditor from './ProposalDocumentEditor'
 import StageGateEvidenceModal from './StageGateEvidenceModal'
+import DigitalMarketingLeads from './DigitalMarketingLeads'
 
 // Authentication Screen
 import Login from './Login'
@@ -198,10 +199,12 @@ export default function App() {
     return <Login onLoginSuccess={(newSession) => setSession(newSession)} />
   }
 
+  // Navigation tab bar with Digital Marketing Leads included
   const navTabs = [
     { id: 'dashboard', label: viewMode === 'group' ? 'Executive Dashboard' : `${selectedSbu} Workbench`, icon: viewMode === 'group' ? '📊' : '💼' },
     { id: 'proposals', label: 'Deals & Proposals', icon: '📋' },
     { id: 'leads', label: 'Lead Intake', icon: '🎯' },
+    { id: 'marketing', label: 'Digital Marketing Leads', icon: '📣' },
     { id: 'clients', label: 'Client Directory', icon: '🏢' },
     { id: 'queue', label: 'Follow-up Queue', icon: '⏰' },
   ]
@@ -272,7 +275,7 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {/* VIEW MODE TOGGLE (Executive Admin vs SBU Workbench) */}
+          {/* VIEW MODE TOGGLE */}
           <div
             style={{
               background: 'rgba(255, 255, 255, 0.08)',
@@ -570,6 +573,16 @@ export default function App() {
             />
           )}
 
+          {/* MOUNTED DIGITAL MARKETING LEADS TAB */}
+          {activeTab === 'marketing' && (
+            <DigitalMarketingLeads
+              onConvertToProposal={(leadCtx) => {
+                setTargetContext(leadCtx)
+                setShowProposalModal(true)
+              }}
+            />
+          )}
+
           {activeTab === 'clients' && (
             <ClientDirectory
               refreshVersion={refreshVersion}
@@ -588,7 +601,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* CORE MODALS WITH PERSISTENCE (WILL NOT DISMISS ACCIDENTALLY ON BACKDROP CLICKS) */}
+      {/* CORE MODALS WITH PERSISTENCE (EXPLICIT X BUTTON CLOSE ONLY) */}
       {showAiParserModal && (
         <div
           style={{
