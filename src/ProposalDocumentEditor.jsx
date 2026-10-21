@@ -1,341 +1,486 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from './supabase'
+import TorClarificationChat from './TorClarificationChat'
 
-const INVITATION_TYPES = [
-  { id: 'TOR', label: '📑 Terms of Reference (TOR) / Scope of Work' },
-  { id: 'RFP', label: '📜 Formal Request for Proposals (RFP / Tender Notice)' },
-  { id: 'LETTER', label: '✉️ Official Invitation Letter / EOI' },
-  { id: 'EMAIL', label: '📧 Client Email Invitation / Written Inquiry' },
-  { id: 'ORAL', label: '🗣️ Oral Conversation / Executive Briefing' },
-]
+export default function ProposalDocumentEditor({ proposal, onClose, onSave }) {
+  const [activeTab, setActiveTab] = useState('methodology')
+  const [saving, setSaving] = useState(false)
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const [notification, setNotification] = useState('')
 
-function parseTag(text, tag) {
-  if (!text) return ''
-  const match = text.match(new RegExp(`\\[${tag}:\\s*([^\\]]+)\\]`))
-  return match ? match[1].trim() : ''
-}
-
-function updateTag(text, tag, value) {
-  const current = text || ''
-  const regex = new RegExp(`\\[${tag}:\\s*([^\\]]+)\\]`)
-  const newTagStr = value ? `[${tag}: ${value}]` : ''
-
-  if (regex.test(current)) {
-    return newTagStr ? current.replace(regex, newTagStr) : current.replace(regex, '').trim()
-  }
-  if (!newTagStr) return current
-  return current ? `${newTagStr}\n${current}` : newTagStr
-}
-
-export default function ProposalDocumentEditor({ proposalId }) {
-  const [loading, setLoading] = useState(true)
-  const [busy, setBusy] = useState(false)
-  const [notes, setNotes] = useState('')
-  const [message, setMessage] = useState('')
-
-  // Mandate & Invitation Fields
-  const [invitationType, setInvitationType] = useState('TOR')
-  const [docLink, setDocLink] = useState('')
-  const [refNumber, setRefNumber] = useState('')
-  const [dateReceived, setDateReceived] = useState('')
-  const [oralStakeholder, setOralStakeholder] = useState('')
-  const [mandateSummary, setMandateSummary] = useState('')
+  // Proposal Document Sections State
+  const [docData, setDocData] = useState({
+    title: '',
+    client: '',
+    sbu: 'Institute',
+    code: '',
+    executiveSummary: '',
+    methodology: '',
+    keyExperts: '',
+    workPlan: '',
+    financialOffer: '',
+  })
 
   useEffect(() => {
-    loadProposalData()
-  }, [proposalId])
+    if (proposal) {
+      setDocData({
+        title: proposal.title || proposal.product || 'Strategic Institutional Advisory Proposal',
+        client: proposal.client || proposal.client_name || 'Client Target',
+        sbu: proposal.sbu || 'Institute',
+        code: proposal.code || 'TENDER-2026',
+        executiveSummary:
+          proposal.executive_summary ||
+          `The i-Capital Africa Group submits this formal technical and commercial bid to deliver high-impact advisory and organizational capacity strengthening for ${proposal.client || proposal.client_name || 'the client'}. Designed in strict accordance with the terms of reference, our engagement architecture combines deep regional regulatory intelligence with actionable execution frameworks.`,
+        methodology:
+          proposal.methodology ||
+          `Phase 1: Institutional Diagnostic & Baseline Assessment\n- Convene executive kickoff and finalize governance reporting milestones.\n- Review regulatory policies, organizational bottlenecks, and existing workflows.\n\nPhase 2: Customized Advisory & Capacity Frameworks\n- Deliver bespoke capacity modules matching operational and strategic mandates.\n- Establish standard operating procedures (SOPs) and institutional toolkits.\n\nPhase 3: Impact Realization & Sustainability Handover\n- Administer pilot testing and post-training competency evaluations.\n- Provide closing leadership debriefing and long-term sustainability roadmap.`,
+        keyExperts:
+          proposal.key_experts ||
+          `1. Lead Engagement Partner & Project Director (15+ Years Strategic Advisory)\n2. Senior Technical Expert & Industry Specialist (10+ Years Financial / Regulatory Advisory)\n3. Project Management & Monitoring Specialist (MSc, PMP/Agile Certified)\n4. Junior Research Analyst & Data Specialist`,
+        workPlan:
+          proposal.work_plan ||
+          `Month 1: Inception Report, Stakeholder Diagnostic, and TOR Scope Confirmation\nMonth 2-3: Core Execution, Interactive Workshops, and Strategic Document Drafting\nMonth 4: Executive Review, Revisions, and Final Governance Handover`,
+        financialOffer:
+          proposal.financial_offer ||
+          `Professional Advisory Fees: ETB ${new Intl.NumberFormat('en-US').format(proposal.deal_value || 8500000)}\nStatutory VAT (15%): ETB ${new Intl.NumberFormat('en-US').format((proposal.deal_value || 8500000) * 0.15)}\nTotal Gross Offer: ETB ${new Intl.NumberFormat('en-US').format((proposal.deal_value || 8500000) * 1.15)}`,
+      })
+    }
+  }, [proposal])
 
-  async function loadProposalData() {
-    setLoading(true)
+  function showBanner(msg) {
+    setNotification(msg)
+    setTimeout(() => setNotification(''), 3000)
+  }
+
+  // AI-Assisted Section Generator via Gemini
+  async function handleAiSynthesize(sectionKey) {
+    setAiGenerating(true)
+    const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY
+
+    if (!geminiApiKey) {
+      showBanner('Gemini API key not found in .env.local')
+      setAiGenerating(false)
+      return
+    }
+
     try {
-      const { data, error } = await supabase
-        .from('proposals')
-        .select('notes')
-        .eq('id', proposalId)
-        .single()
+      const prompt = `
+You are the Lead Proposal Specialist and Project Director at The i-Capital Africa Group in Addis Ababa, Ethiopia.
+Synthesize an executive-ready, highly professional bidding narrative for a formal procurement tender.
 
-      if (error) throw error
+Client: ${docData.client}
+Proposal Title: ${docData.title}
+Strategic Business Unit (SBU): ${docData.sbu}
+Target Section to Synthesize: ${sectionKey.toUpperCase()}
+Current Working Draft Context:
+${docData[sectionKey]}
 
-      const rawNotes = data?.notes || ''
-      setNotes(rawNotes)
+Provide rigorous, institutional-grade text tailored to Ethiopian corporate and public-sector procurement standards. Do not include markdown code blocks or greetings.
+`
 
-      // Parse existing mandate metadata
-      setInvitationType(parseTag(rawNotes, 'MANDATE_TYPE') || 'TOR')
-      setDocLink(parseTag(rawNotes, 'MANDATE_LINK') || '')
-      setRefNumber(parseTag(rawNotes, 'MANDATE_REF') || '')
-      setDateReceived(parseTag(rawNotes, 'MANDATE_DATE') || '')
-      setOralStakeholder(parseTag(rawNotes, 'ORAL_STAKEHOLDER') || '')
-      setMandateSummary(parseTag(rawNotes, 'MANDATE_SUMMARY') || '')
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+          }),
+        }
+      )
+
+      const result = await res.json()
+      const generated = result.candidates?.[0]?.content?.parts?.[0]?.text
+      if (generated) {
+        setDocData((prev) => ({ ...prev, [sectionKey]: generated.trim() }))
+        showBanner(`Enhanced ${sectionKey.toUpperCase()} with Gemini AI`)
+      }
     } catch (err) {
-      console.error('Could not load mandate vault:', err)
+      console.error(err)
+      showBanner('Failed to generate with AI')
     } finally {
-      setLoading(false)
+      setAiGenerating(false)
     }
   }
 
-  async function handleSaveMandate(e) {
-    e.preventDefault()
-    setBusy(true)
-    setMessage('')
-
-    try {
-      let updatedNotes = notes
-
-      // Sync tags into proposal notes
-      updatedNotes = updateTag(updatedNotes, 'MANDATE_TYPE', invitationType)
-      updatedNotes = updateTag(updatedNotes, 'MANDATE_LINK', docLink.trim())
-      updatedNotes = updateTag(updatedNotes, 'MANDATE_REF', refNumber.trim())
-      updatedNotes = updateTag(updatedNotes, 'MANDATE_DATE', dateReceived)
-      updatedNotes = updateTag(updatedNotes, 'ORAL_STAKEHOLDER', oralStakeholder.trim())
-      updatedNotes = updateTag(updatedNotes, 'MANDATE_SUMMARY', mandateSummary.trim())
-
+  // Save changes to Supabase opportunities table
+  async function handleSaveDocument() {
+    setSaving(true)
+    if (proposal?.id) {
       const { error } = await supabase
-        .from('proposals')
-        .update({ notes: updatedNotes.trim() || null })
-        .eq('id', proposalId)
+        .from('opportunities')
+        .update({
+          title: docData.title,
+          methodology: docData.methodology,
+          executive_summary: docData.executiveSummary,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', proposal.id)
 
-      if (error) throw error
-
-      setNotes(updatedNotes)
-      setMessage('✓ Mandate & client invitation evidence saved successfully.')
-    } catch (err) {
-      setMessage(`Error: ${err.message || 'Could not save evidence.'}`)
-    } finally {
-      setBusy(false)
+      if (error) {
+        showBanner('Error saving to database')
+      } else {
+        showBanner('Proposal document successfully saved')
+        onSave?.(docData)
+      }
+    } else {
+      showBanner('Document state saved locally')
+      onSave?.(docData)
     }
+    setSaving(false)
   }
-
-  if (loading) {
-    return (
-      <div style={{ padding: 12, fontSize: 12, color: '#64748b' }}>
-        Loading mandate documentation vault…
-      </div>
-    )
-  }
-
-  const isOral = invitationType === 'ORAL'
 
   return (
     <div
       style={{
-        background: '#ffffff',
-        border: '1px solid #cbd5e1',
-        borderRadius: 10,
-        padding: '16px',
-        marginBottom: 20,
-        boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.75)',
+        zIndex: 99990,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
       }}
+      onClick={onClose}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div>
-          <h4 style={{ margin: 0, fontSize: 13, color: '#0f172a', fontWeight: 800 }}>
-            📁 Client Mandate &amp; Tender Origination Vault
-          </h4>
-          <span style={{ fontSize: 11, color: '#64748b' }}>
-            Store the client's invitation letter, RFP, TOR, or oral conversation record.
-          </span>
-        </div>
-
-        <span
+      <div
+        style={{
+          background: '#ffffff',
+          borderRadius: 16,
+          width: '100%',
+          maxWidth: '1200px',
+          height: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.4)',
+          overflow: 'hidden',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top Header */}
+        <div
           style={{
-            fontSize: 10,
-            fontWeight: 800,
-            padding: '2px 8px',
-            borderRadius: 12,
-            background: docLink || oralStakeholder ? '#dcfce7' : '#fee2e2',
-            color: docLink || oralStakeholder ? '#166534' : '#b91c1c',
+            background: 'linear-gradient(90deg, #070d1e 0%, #0f172a 60%, #1e293b 100%)',
+            padding: '16px 24px',
+            color: '#ffffff',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          {docLink || oralStakeholder ? '✓ Mandate Filed' : '⚠️ Missing Evidence'}
-        </span>
-      </div>
-
-      <form onSubmit={handleSaveMandate} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* 1. Select Invitation Type */}
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 3 }}>
-            Invitation / Mandate Type <span style={{ color: '#dc2626' }}>*</span>
-          </label>
-          <select
-            value={invitationType}
-            onChange={(e) => setInvitationType(e.target.value)}
-            disabled={busy}
-            style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, background: '#f8fafc' }}
-          >
-            {INVITATION_TYPES.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* 2A. If Written (RFP / TOR / Letter / Email) */}
-        {!isOral ? (
-          <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 22 }}>📋</span>
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 3 }}>
-                Document Vault / Folder Link (Google Drive / OneDrive / Cloud) <span style={{ color: '#dc2626' }}>*</span>
-              </label>
-              <input
-                type="url"
-                required={!isOral}
-                value={docLink}
-                placeholder="https://drive.google.com/drive/folders/..."
-                onChange={(e) => setDocLink(e.target.value)}
-                disabled={busy}
-                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
-              />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 3 }}>
-                  Tender / Letter Reference Number
-                </label>
-                <input
-                  type="text"
-                  value={refNumber}
-                  placeholder="e.g. RFP/CBE/2026/04 or Ref: 104/26"
-                  onChange={(e) => setRefNumber(e.target.value)}
-                  disabled={busy}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
-                />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900 }}>
+                  Technical Proposal & Tender Submission Studio
+                </h3>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    background: '#0284c7',
+                    color: '#fff',
+                    padding: '2px 8px',
+                    borderRadius: 10,
+                  }}
+                >
+                  {docData.sbu}
+                </span>
               </div>
-
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 3 }}>
-                  Date Received
-                </label>
-                <input
-                  type="date"
-                  value={dateReceived}
-                  onChange={(e) => setDateReceived(e.target.value)}
-                  disabled={busy}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
-                />
+              <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
+                {docData.code} • <strong>{docData.client}</strong>
               </div>
             </div>
-          </>
-        ) : (
-          /* 2B. If Oral Conversation */
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 10 }}>
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 3 }}>
-                  Key Client Decision-Maker <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  required={isOral}
-                  value={oralStakeholder}
-                  placeholder="e.g. CEO, VP of Strategy, Board Chairman"
-                  onChange={(e) => setOralStakeholder(e.target.value)}
-                  disabled={busy}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
-                />
-              </div>
+          </div>
 
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 3 }}>
-                  Discussion Date <span style={{ color: '#dc2626' }}>*</span>
-                </label>
-                <input
-                  type="date"
-                  required={isOral}
-                  value={dateReceived}
-                  onChange={(e) => setDateReceived(e.target.value)}
-                  disabled={busy}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 3 }}>
-                Direct Link to Meeting Notes / Audio Memo (Optional)
-              </label>
-              <input
-                type="url"
-                value={docLink}
-                placeholder="Google Doc meeting minutes link (optional)"
-                onChange={(e) => setDocLink(e.target.value)}
-                disabled={busy}
-                style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
-              />
-            </div>
-          </>
-        )}
-
-        {/* 3. Brief Summary / Scope / Objectives */}
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 700, color: '#334155', display: 'block', marginBottom: 3 }}>
-            {isOral ? 'Oral Briefing Notes & Key Objectives' : 'Scope Summary & Key Evaluation Requirements'}
-          </label>
-          <textarea
-            rows={2}
-            value={mandateSummary}
-            placeholder={
-              isOral
-                ? 'Client requested in-person executive immersion program for 25 executives; budget approved in principle...'
-                : 'TOR deliverables: Leadership diagnostic assessment, 4 training modules, 6-month delivery window...'
-            }
-            onChange={(e) => setMandateSummary(e.target.value)}
-            disabled={busy}
-            style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, boxSizing: 'border-box' }}
-          />
-        </div>
-
-        {/* Action Button & Active Link Shortcut */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-          {docLink ? (
-            <a
-              href={docLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ fontSize: 11, color: '#0284c7', fontWeight: 700, textDecoration: 'none' }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Live TOR Clarifications Trigger */}
+            <button
+              type="button"
+              onClick={() => setShowChat(true)}
+              style={{
+                padding: '8px 14px',
+                borderRadius: 8,
+                border: '1px solid #38bdf8',
+                background: 'rgba(56, 189, 248, 0.1)',
+                color: '#38bdf8',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 2px 8px rgba(56, 189, 248, 0.2)',
+              }}
             >
-              🔗 Open Document Vault ↗
-            </a>
-          ) : (
-            <span style={{ fontSize: 11, color: '#94a3b8', fontStyle: 'italic' }}>
-              No document link saved yet
-            </span>
-          )}
+              <span>💬</span> Live TOR Clarifications
+            </button>
 
-          <button
-            type="submit"
-            disabled={busy}
+            <button
+              type="button"
+              onClick={handleSaveDocument}
+              disabled={saving}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 8,
+                border: 'none',
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: '#fff',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+              }}
+            >
+              {saving ? 'Saving…' : 'Save Document'}
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: 20,
+                cursor: 'pointer',
+                color: '#cbd5e1',
+                marginLeft: 4,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Status Notification Toast */}
+        {notification && (
+          <div
             style={{
-              padding: '7px 14px',
-              borderRadius: 6,
-              border: 'none',
-              background: '#0f172a',
+              background: '#0284c7',
               color: '#ffffff',
               fontSize: 12,
               fontWeight: 700,
-              cursor: busy ? 'not-allowed' : 'pointer',
+              padding: '6px 20px',
+              textAlign: 'center',
             }}
           >
-            {busy ? 'Saving Evidence…' : 'Save Mandate Evidence'}
-          </button>
-        </div>
-
-        {message && (
-          <div
-            style={{
-              padding: '6px 10px',
-              borderRadius: 6,
-              fontSize: 11,
-              fontWeight: 600,
-              background: message.includes('✓') ? '#dcfce7' : '#fee2e2',
-              color: message.includes('✓') ? '#166534' : '#b91c1c',
-            }}
-          >
-            {message}
+            {notification}
           </div>
         )}
-      </form>
+
+        {/* Proposal Title & Metadata Bar */}
+        <div
+          style={{
+            padding: '12px 24px',
+            background: '#f8fafc',
+            borderBottom: '1px solid #e2e8f0',
+            display: 'grid',
+            gridTemplateColumns: '2fr 1fr',
+            gap: 16,
+          }}
+        >
+          <div>
+            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+              Proposal Header Title
+            </label>
+            <input
+              type="text"
+              value={docData.title}
+              onChange={(e) => setDocData({ ...docData, title: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: 6,
+                border: '1px solid #cbd5e1',
+                fontSize: 13,
+                fontWeight: 700,
+                color: '#0f172a',
+                marginTop: 4,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+              Target Procuring Institution
+            </label>
+            <input
+              type="text"
+              value={docData.client}
+              onChange={(e) => setDocData({ ...docData, client: e.target.value })}
+              style={{
+                width: '100%',
+                padding: '8px 10px',
+                borderRadius: 6,
+                border: '1px solid #cbd5e1',
+                fontSize: 13,
+                fontWeight: 700,
+                color: '#0f172a',
+                marginTop: 4,
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Section Navigation Tabs */}
+        <div
+          style={{
+            display: 'flex',
+            background: '#ffffff',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '0 24px',
+            gap: 8,
+          }}
+        >
+          {[
+            { id: 'methodology', label: '1. Technical Methodology & Approach' },
+            { id: 'executiveSummary', label: '2. Executive Summary' },
+            { id: 'keyExperts', label: '3. Team Composition & Key Experts' },
+            { id: 'workPlan', label: '4. Work Plan & Milestone Schedule' },
+            { id: 'financialOffer', label: '5. Financial & Commercial Offer' },
+          ].map((tab) => {
+            const isActive = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  padding: '12px 14px',
+                  background: 'none',
+                  border: 'none',
+                  borderBottom: isActive ? '3px solid #0284c7' : '3px solid transparent',
+                  color: isActive ? '#0284c7' : '#64748b',
+                  fontSize: 12,
+                  fontWeight: isActive ? 800 : 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Workspace Body */}
+        <div style={{ flex: 1, padding: 24, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>
+              Section Workspace: {activeTab.toUpperCase()}
+            </span>
+
+            <button
+              type="button"
+              disabled={aiGenerating}
+              onClick={() => handleAiSynthesize(activeTab)}
+              style={{
+                padding: '7px 14px',
+                borderRadius: 6,
+                border: 'none',
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                color: '#fff',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: aiGenerating ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)',
+              }}
+            >
+              <span>{aiGenerating ? '⏳' : '✨'}</span>
+              <span>{aiGenerating ? 'Synthesizing with Gemini…' : 'Synthesize with Gemini AI'}</span>
+            </button>
+          </div>
+
+          <textarea
+            rows={18}
+            value={docData[activeTab]}
+            onChange={(e) => setDocData({ ...docData, [activeTab]: e.target.value })}
+            style={{
+              width: '100%',
+              flex: 1,
+              padding: 16,
+              borderRadius: 8,
+              border: '1px solid #cbd5e1',
+              fontSize: 13,
+              lineHeight: 1.6,
+              color: '#0f172a',
+              fontFamily: 'inherit',
+              boxSizing: 'border-box',
+              resize: 'none',
+              background: '#fcfcfd',
+            }}
+          />
+        </div>
+
+        {/* Footer Actions */}
+        <div
+          style={{
+            padding: '12px 24px',
+            borderTop: '1px solid #e2e8f0',
+            background: '#f8fafc',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <div style={{ fontSize: 11, color: '#64748b' }}>
+            Submission Gating: Verify all compliance and TOR questions in <strong>Live TOR Clarifications</strong> before finalizing commercial bids.
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 8,
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                color: '#0f172a',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              🖨️ Print / Export PDF
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveDocument}
+              style={{
+                padding: '8px 18px',
+                borderRadius: 8,
+                border: 'none',
+                background: '#0284c7',
+                color: '#ffffff',
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              Save &amp; Continue →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Slide-out Realtime TOR Clarification Drawer */}
+      <TorClarificationChat
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        opportunityId={proposal?.id}
+        tenderCode={docData.code}
+        clientName={docData.client}
+        currentUserEmail="ybeltalsemagn8899@gmail.com"
+        currentUserName="Ybeltal Semagn"
+      />
     </div>
   )
 }
