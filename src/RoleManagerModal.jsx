@@ -9,6 +9,7 @@ export default function RoleManagerModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(true)
   const [updatingId, setUpdatingId] = useState(null)
   const [message, setMessage] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
 
   useEffect(() => {
     if (isOpen) {
@@ -18,15 +19,25 @@ export default function RoleManagerModal({ isOpen, onClose }) {
 
   async function loadUsers() {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .order('created_at', { ascending: true })
+    setErrorMsg('')
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .order('created_at', { ascending: true })
 
-    if (!error && data) {
-      setUsers(data)
+      if (error) {
+        console.error('Error loading users:', error)
+        setErrorMsg(error.message)
+      } else if (data) {
+        setUsers(data)
+      }
+    } catch (err) {
+      console.error('Unexpected load error:', err)
+      setErrorMsg(err.message)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function handleRoleChange(user, newRole) {
@@ -51,7 +62,7 @@ export default function RoleManagerModal({ isOpen, onClose }) {
         prev.map((u) => (u.id === user.id ? { ...u, role: newRole } : u))
       )
 
-      setMessage(`Updated ${user.email} role to ${ROLE_DEFINITIONS[newRole].label}.`)
+      setMessage(`Updated ${user.email} role to ${ROLE_DEFINITIONS[newRole]?.label || newRole}.`)
       setTimeout(() => setMessage(''), 4000)
     } catch (err) {
       alert('Failed to update role: ' + err.message)
@@ -128,7 +139,7 @@ export default function RoleManagerModal({ isOpen, onClose }) {
           background: '#ffffff',
           borderRadius: 14,
           width: '100%',
-          maxWidth: '860px',
+          maxWidth: '880px',
           maxHeight: '90vh',
           display: 'flex',
           flexDirection: 'column',
@@ -158,7 +169,7 @@ export default function RoleManagerModal({ isOpen, onClose }) {
               </span>
             </div>
             <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
-              Assign one of the six approved governance roles and SBU scopes. Changes take effect instantly in RLS.
+              Assign one of the approved governance roles and SBU scopes. Changes take effect instantly in RLS.
             </div>
           </div>
 
@@ -170,6 +181,12 @@ export default function RoleManagerModal({ isOpen, onClose }) {
             ✕
           </button>
         </div>
+
+        {errorMsg && (
+          <div style={{ background: '#fef2f2', color: '#b91c1c', padding: '10px 24px', fontSize: 12, fontWeight: 700, borderBottom: '1px solid #fecaca' }}>
+            ⚠️ Database Error: {errorMsg}
+          </div>
+        )}
 
         {message && (
           <div style={{ background: '#ecfdf5', color: '#047857', padding: '10px 24px', fontSize: 12, fontWeight: 700, borderBottom: '1px solid #a7f3d0' }}>
@@ -196,104 +213,122 @@ export default function RoleManagerModal({ isOpen, onClose }) {
                     Loading institutional accounts…
                   </td>
                 </tr>
+              ) : users.length === 0 ? (
+                <tr>
+                  <td colSpan="5" style={{ padding: 30, textAlign: 'center', color: '#64748b' }}>
+                    No user profiles returned. Click "Refresh" or verify RLS policy permissions in Supabase.
+                  </td>
+                </tr>
               ) : (
-                users.map((u) => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '12px' }}>
-                      <div style={{ fontWeight: 800, color: '#0f172a' }}>{u.full_name || 'Team Member'}</div>
-                      <div style={{ fontSize: 11, color: '#0284c7' }}>{u.email}</div>
-                    </td>
+                users.map((u) => {
+                  const roleConfig = ROLE_DEFINITIONS[u.role] || ROLE_DEFINITIONS.read_only
+                  return (
+                    <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '12px' }}>
+                        <div style={{ fontWeight: 800, color: '#0f172a' }}>{u.full_name || 'Team Member'}</div>
+                        <div style={{ fontSize: 11, color: '#0284c7' }}>{u.email}</div>
+                      </td>
 
-                    <td style={{ padding: '12px' }}>
-                      <select
-                        disabled={updatingId === u.id || u.email === 'ybeltalsemagn8899@gmail.com'}
-                        value={u.role}
-                        onChange={(e) => handleRoleChange(u, e.target.value)}
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: 6,
-                          fontSize: 11,
-                          fontWeight: 800,
-                          border: '1px solid #cbd5e1',
-                          background: ROLE_DEFINITIONS[u.role]?.badgeBg || '#fff',
-                          color: ROLE_DEFINITIONS[u.role]?.badgeText || '#000',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {Object.entries(ROLE_DEFINITIONS).map(([rKey, rMeta]) => (
-                          <option key={rKey} value={rKey} style={{ background: '#fff', color: '#000' }}>
-                            {rMeta.label}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-
-                    <td style={{ padding: '12px' }}>
-                      <select
-                        disabled={updatingId === u.id}
-                        value={u.assigned_sbu}
-                        onChange={(e) => handleSbuChange(u, e.target.value)}
-                        style={{
-                          padding: '6px 10px',
-                          borderRadius: 6,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          border: '1px solid #cbd5e1',
-                          background: '#fff',
-                        }}
-                      >
-                        {SBUS.map((sbu) => (
-                          <option key={sbu} value={sbu}>
-                            {sbu === 'All' ? '🌐 All SBUs (Group)' : sbu}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-
-                    <td style={{ padding: '12px' }}>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 800,
-                          padding: '2px 8px',
-                          borderRadius: 10,
-                          background: u.is_active ? '#dcfce7' : '#fee2e2',
-                          color: u.is_active ? '#15803d' : '#b91c1c',
-                        }}
-                      >
-                        {u.is_active ? 'Active' : 'Suspended'}
-                      </span>
-                    </td>
-
-                    <td style={{ padding: '12px' }}>
-                      {u.email !== 'ybeltalsemagn8899@gmail.com' && (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(u)}
+                      <td style={{ padding: '12px' }}>
+                        <select
+                          disabled={updatingId === u.id || u.email === 'ybeltalsemagn8899@gmail.com'}
+                          value={u.role}
+                          onChange={(e) => handleRoleChange(u, e.target.value)}
                           style={{
-                            padding: '4px 10px',
+                            padding: '6px 10px',
                             borderRadius: 6,
-                            border: '1px solid #cbd5e1',
-                            background: '#fff',
                             fontSize: 11,
-                            fontWeight: 700,
-                            color: u.is_active ? '#b91c1c' : '#15803d',
+                            fontWeight: 800,
+                            border: '1px solid #cbd5e1',
+                            background: roleConfig?.badgeBg || '#fff',
+                            color: roleConfig?.badgeText || '#000',
                             cursor: 'pointer',
                           }}
                         >
-                          {u.is_active ? 'Suspend' : 'Reactivate'}
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                          {Object.entries(ROLE_DEFINITIONS).map(([rKey, rMeta]) => (
+                            <option key={rKey} value={rKey} style={{ background: '#fff', color: '#000' }}>
+                              {rMeta.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      <td style={{ padding: '12px' }}>
+                        <select
+                          disabled={updatingId === u.id}
+                          value={u.assigned_sbu}
+                          onChange={(e) => handleSbuChange(u, e.target.value)}
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: 6,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            border: '1px solid #cbd5e1',
+                            background: '#fff',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {SBUS.map((sbu) => (
+                            <option key={sbu} value={sbu}>
+                              {sbu === 'All' ? '🌐 All SBUs (Group)' : sbu}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+
+                      <td style={{ padding: '12px' }}>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            padding: '2px 8px',
+                            borderRadius: 10,
+                            background: u.is_active ? '#dcfce7' : '#fee2e2',
+                            color: u.is_active ? '#15803d' : '#b91c1c',
+                          }}
+                        >
+                          {u.is_active ? 'Active' : 'Suspended'}
+                        </span>
+                      </td>
+
+                      <td style={{ padding: '12px' }}>
+                        {u.email !== 'ybeltalsemagn8899@gmail.com' && (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleActive(u)}
+                            style={{
+                              padding: '4px 10px',
+                              borderRadius: 6,
+                              border: '1px solid #cbd5e1',
+                              background: '#fff',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: u.is_active ? '#b91c1c' : '#15803d',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {u.is_active ? 'Suspend' : 'Reactivate'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
         </div>
 
         {/* Footer */}
-        <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ padding: '14px 24px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button
+            type="button"
+            onClick={loadUsers}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+          >
+            🔄 Refresh List
+          </button>
+
           <button
             type="button"
             onClick={onClose}
