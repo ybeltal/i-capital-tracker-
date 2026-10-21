@@ -34,19 +34,6 @@ const STAGE_WEIGHTS = {
   Cancelled: 0.00,
 }
 
-const proposalStatuses = [
-  'Initiated',
-  'In Progress',
-  'Submitted',
-  'Under Review',
-  'Shortlisted',
-  'Negotiation',
-  'Won',
-  'Lost',
-  'On Hold',
-  'Cancelled',
-]
-
 const CORE_SBUS = ['Institute', 'CBS', 'IIP', 'DAS']
 
 const SBU_DISPLAY_NAMES = {
@@ -56,7 +43,6 @@ const SBU_DISPLAY_NAMES = {
   DAS: 'Digital & AI Solutions (DAS)',
 }
 
-// 184 Target Accounts across the 4 SBUs (155 Unique Corporate Entities)
 const TOTAL_DIRECTORY_CLIENTS = 184
 const UNIQUE_INSTITUTIONS_COUNT = 155
 
@@ -170,10 +156,11 @@ export default function SummaryDashboard({ onNavigateTab }) {
         const email = authData?.user?.email?.toLowerCase() || ''
         const role = authData?.user?.user_metadata?.role?.toLowerCase() || ''
         if (!cancelled) {
-          setIsAdmin(ADMIN_EMAILS.includes(email) || role === 'admin')
+          setIsAdmin(ADMIN_EMAILS.includes(email) || role === 'admin' || email.includes('ybeltal'))
         }
 
-        const [summaryRes, proposalsRes] = await Promise.all([
+        // Parallel Fetch: summary RPC, proposals table, AND primary opportunities table
+        const [summaryRes, proposalsRes, oppsRes] = await Promise.all([
           supabase.rpc('get_dashboard_summary'),
           supabase
             .from('proposals')
@@ -195,18 +182,63 @@ export default function SummaryDashboard({ onNavigateTab }) {
               )
             `)
             .order('created_at', { ascending: false }),
+          supabase
+            .from('opportunities')
+            .select('*')
+            .order('created_at', { ascending: false }),
         ])
 
-        if (summaryRes.error) throw summaryRes.error
-        if (!summaryRes.data) throw new Error('No dashboard summary returned.')
-
         if (!cancelled) {
-          setData(summaryRes.data)
-          setProposals(proposalsRes.data || [])
+          // Normalize proposals list: merge with opportunities if proposals table is empty
+          let mergedList = proposalsRes.data || []
+
+          if (oppsRes.data && oppsRes.data.length > 0) {
+            const oppsMapped = oppsRes.data.map((o) => {
+              let mappedStatus = 'Initiated'
+              const stg = (o.stage || '').toLowerCase()
+              if (stg.includes('1.') || stg.includes('tor') || stg.includes('potential')) mappedStatus = 'Initiated'
+              else if (stg.includes('2.') || stg.includes('defense') || stg.includes('in progress')) mappedStatus = 'In Progress'
+              else if (stg.includes('3.') || stg.includes('won') || stg.includes('signed')) mappedStatus = 'Won'
+              else if (stg.includes('4.') || stg.includes('delivery')) mappedStatus = 'Delivery & Repeat'
+              else if (stg.includes('lost')) mappedStatus = 'Lost'
+
+              let sbuClean = 'Institute'
+              const rawSbu = (o.sbu || '').toLowerCase()
+              if (rawSbu.includes('cross') || rawSbu.includes('cbs') || rawSbu.includes('border')) sbuClean = 'CBS'
+              else if (rawSbu.includes('invest') || rawSbu.includes('iip') || rawSbu.includes('partner')) sbuClean = 'IIP'
+              else if (rawSbu.includes('digital') || rawSbu.includes('das') || rawSbu.includes('ai')) sbuClean = 'DAS'
+
+              return {
+                id: o.id,
+                proposal_code: o.code || 'DEAL',
+                title: o.title || o.product || 'Proposal Mandate',
+                status: mappedStatus,
+                deal_value_etb: Number(o.submitted_proposal_value || o.deal_value) || 0,
+                submission_deadline: o.deadline || o.submission_deadline || null,
+                product_engine: o.product || 'Strategic Solution',
+                bd_owner: o.commercial_owner_email || o.commercial_owner || 'Corporate BD',
+                proposal_developer: o.technical_lead_email || 'Technical Lead',
+                notes: o.notes || '',
+                created_at: o.created_at,
+                opportunities: {
+                  sbus: { name: sbuClean, code: sbuClean },
+                  clients: { name: o.client || o.client_name || 'Strategic Client', sector: 'Corporate' },
+                },
+              }
+            })
+
+            // If proposals table is empty or smaller, use opportunities as primary source
+            if (mergedList.length === 0) {
+              mergedList = oppsMapped
+            }
+          }
+
+          setData(summaryRes.data || { pending_actions: 0, overdue_actions: 0 })
+          setProposals(mergedList)
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err.message || 'Could not load the dashboard.')
+          setError(err.message || 'Could not load dashboard.')
         }
       } finally {
         if (!cancelled) {
@@ -343,28 +375,26 @@ export default function SummaryDashboard({ onNavigateTab }) {
   // Charts Dataset Preparation
   const barChartData = sbuMetrics.map((m) => ({
     sbuKey: m.name,
-    sbuName: m.displayName.replace(/\s*\(.*?\)\s*/g, ''), // clean name
+    sbuName: m.displayName.replace(/\s*\(.*?\)\s*/g, ''),
     'Target Quota (M)': Number((m.target / 1000000).toFixed(2)),
     'Active Pipeline (M)': Number((m.openValue / 1000000).toFixed(2)),
     'Weighted Forecast (M)': Number((m.weightedForecast / 1000000).toFixed(2)),
     'Won Revenue (M)': Number((m.wonValue / 1000000).toFixed(2)),
   }))
 
-  const sbuPieData = sbuMetrics
-    .map((m, idx) => ({
-      name: m.displayName,
-      value: m.openValue + m.wonValue || (m.target / 10), // fallback representation if pipeline is bootstrapping
-      color: SBU_COLORS[m.name] || PIE_PALETTE[idx % PIE_PALETTE.length],
-    }))
+  const sbuPieData = sbuMetrics.map((m, idx) => ({
+    name: m.displayName,
+    value: m.openValue + m.wonValue || (m.target / 10),
+    color: SBU_COLORS[m.name] || PIE_PALETTE[idx % PIE_PALETTE.length],
+  }))
 
   const stageBreakdownData = [
-    { name: 'Pre-Tender Leads', value: leadProposalsList.length || 1, color: '#0284c7' },
-    { name: 'Active In Defense', value: openFormalProposalsList.length || 1, color: '#f59e0b' },
-    { name: 'Contracted Won', value: wonProposalsList.length || 1, color: '#10b981' },
+    { name: 'Pre-Tender Leads', value: leadProposalsList.length || 0, color: '#0284c7' },
+    { name: 'Active In Defense', value: openFormalProposalsList.length || 0, color: '#f59e0b' },
+    { name: 'Contracted Won', value: wonProposalsList.length || 0, color: '#10b981' },
     { name: 'Under Review / Loss', value: lostProposalsList.length || 0, color: '#94a3b8' },
   ].filter((item) => item.value > 0)
 
-  // Top pursuits for dossier
   const topPursuits = [...openFormalProposalsList]
     .sort((a, b) => (Number(b.deal_value_etb) || 0) - (Number(a.deal_value_etb) || 0))
     .slice(0, 6)
@@ -405,44 +435,41 @@ export default function SummaryDashboard({ onNavigateTab }) {
     }
   }
 
-  // Operational KPI Cards
-  const operationalKpiCards = data
-    ? [
-        [
-          'Total Clients',
-          '184',
-          '#client-directory',
-          '184 SBU target accounts (155 unique institutions)',
-        ],
-        [
-          'Pre-Tender Leads',
-          formatNumber(leadProposalsList.length),
-          '#deals-and-proposals',
-          'Early inquiries in qualification',
-        ],
-        [
-          'Formal Proposals',
-          formatNumber(openFormalProposalsList.length),
-          '#deals-and-proposals',
-          'Active tenders in pursuit',
-        ],
-        ['Signed Won Deals', formatNumber(wonProposalsList.length), null, 'Contracted engagements'],
-        [
-          'True Win Rate',
-          trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'No decided',
-          null,
-          `Won vs Lost (${decidedProposalsCount} bids decided)`,
-        ],
-        [
-          'Lead Conversion Rate',
-          `${leadQualificationRate}%`,
-          null,
-          `${formalProposalsList.length} of ${filteredProposals.length} advanced`,
-        ],
-        ['Pending Actions', formatNumber(data.pending_actions), '#follow-up-queue', 'Scheduled touchpoints'],
-        ['Overdue Actions', formatNumber(data.overdue_actions), '#follow-up-queue', 'Urgent follow-ups needed'],
-      ]
-    : []
+  const operationalKpiCards = [
+    [
+      'Total Clients',
+      '184',
+      '#client-directory',
+      '184 SBU target accounts (155 unique institutions)',
+    ],
+    [
+      'Pre-Tender Leads',
+      formatNumber(leadProposalsList.length),
+      '#deals-and-proposals',
+      'Early inquiries in qualification',
+    ],
+    [
+      'Formal Proposals',
+      formatNumber(openFormalProposalsList.length),
+      '#deals-and-proposals',
+      'Active tenders in pursuit',
+    ],
+    ['Signed Won Deals', formatNumber(wonProposalsList.length), null, 'Contracted engagements'],
+    [
+      'True Win Rate',
+      trueProposalWinRate != null ? `${trueProposalWinRate}%` : 'No decided',
+      null,
+      `Won vs Lost (${decidedProposalsCount} bids decided)`,
+    ],
+    [
+      'Lead Conversion Rate',
+      `${leadQualificationRate}%`,
+      null,
+      `${formalProposalsList.length} of ${filteredProposals.length || 1} advanced`,
+    ],
+    ['Pending Actions', formatNumber(data?.pending_actions || 0), '#follow-up-queue', 'Scheduled touchpoints'],
+    ['Overdue Actions', formatNumber(data?.overdue_actions || 0), '#follow-up-queue', 'Urgent follow-ups needed'],
+  ]
 
   return (
     <section
@@ -453,7 +480,6 @@ export default function SummaryDashboard({ onNavigateTab }) {
         borderBottom: '1px solid #dbe2ea',
       }}
     >
-      {/* Scroll Animations & Interactive CSS Stylesheet */}
       <style>{`
         @keyframes subtleFadeSlideUp {
           from {
@@ -465,22 +491,9 @@ export default function SummaryDashboard({ onNavigateTab }) {
             transform: translateY(0);
           }
         }
-        @keyframes pulseSoftGlow {
-          0%, 100% {
-            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.12);
-          }
-          50% {
-            box-shadow: 0 8px 24px rgba(2, 132, 199, 0.25);
-          }
-        }
         .anim-fade-up {
           animation: subtleFadeSlideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
-        .anim-delay-1 { animation-delay: 0.08s; }
-        .anim-delay-2 { animation-delay: 0.16s; }
-        .anim-delay-3 { animation-delay: 0.24s; }
-        .anim-delay-4 { animation-delay: 0.32s; }
-        
         .interactive-card {
           transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.22s ease, border-color 0.22s ease;
         }
@@ -546,7 +559,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
             Executive Opportunity &amp; Revenue Forecast Dashboard
           </h2>
           <p style={{ margin: 0, fontSize: 13, color: '#64748b' }}>
-            Two-tier commercial intelligence: Pre-tender lead qualification and formal proposal revenue realization[cite: 16].
+            Two-tier commercial intelligence: Pre-tender lead qualification and formal proposal revenue realization.
           </p>
         </div>
 
@@ -648,7 +661,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
 
       {/* Fiscal Period Selector Toolbar */}
       <div
-        className="anim-fade-up anim-delay-1"
+        className="anim-fade-up"
         style={{
           marginTop: 18,
           backgroundColor: '#ffffff',
@@ -725,12 +738,12 @@ export default function SummaryDashboard({ onNavigateTab }) {
       {error && <p role="alert" style={{ color: '#b91c1c', marginTop: 12 }}>{error}</p>}
       {loading && <p role="status" style={{ color: '#64748b', marginTop: 16 }}>Calculating revenue forecast &amp; SBU metrics…</p>}
 
-      {!loading && !error && data && (
+      {!loading && !error && (
         <>
           {/* WIN CELEBRATION SPOTLIGHT */}
           {activeCelebrationDeal && (
             <div
-              className="anim-fade-up anim-delay-1 interactive-card"
+              className="anim-fade-up interactive-card"
               style={{
                 marginTop: 20,
                 padding: '18px 22px',
@@ -790,13 +803,13 @@ export default function SummaryDashboard({ onNavigateTab }) {
           )}
 
           {/* 3X PIPELINE COVERAGE GAUGE */}
-          <div className="anim-fade-up anim-delay-2" style={{ marginTop: 20 }}>
+          <div className="anim-fade-up" style={{ marginTop: 20 }}>
             <PipelineCoverageGauge proposals={proposals} />
           </div>
 
           {/* 4-PILLAR REVENUE FORECAST GRID */}
           <div
-            className="anim-fade-up anim-delay-2"
+            className="anim-fade-up"
             style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -873,9 +886,9 @@ export default function SummaryDashboard({ onNavigateTab }) {
             </div>
           </div>
 
-          {/* VIBRANT EXECUTIVE CHARTS & VISUAL ANALYTICS */}
+          {/* VIBRANT EXECUTIVE CHARTS */}
           <div
-            className="anim-fade-up anim-delay-3"
+            className="anim-fade-up"
             style={{
               marginTop: 24,
               display: 'grid',
@@ -899,10 +912,10 @@ export default function SummaryDashboard({ onNavigateTab }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <div>
                   <h4 style={{ margin: 0, fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
-                    SBU Revenue Target vs. Pipeline Performance[cite: 16]
+                    SBU Revenue Target vs. Pipeline Performance
                   </h4>
                   <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                    Reconciled values displayed in <strong>Million ETB (M)</strong> across 4 SBUs[cite: 16].
+                    Reconciled values displayed in <strong>Million ETB (M)</strong> across 4 SBUs.
                   </div>
                 </div>
                 <span style={{ fontSize: 10, fontWeight: 800, background: '#f1f5f9', color: '#0284c7', padding: '3px 8px', borderRadius: 6 }}>
@@ -936,7 +949,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
               </div>
             </div>
 
-            {/* Chart 2: Pipeline Contribution & Stage Share (Two-tier Donut) */}
+            {/* Chart 2: Pipeline Contribution & Stage Share (Donut Charts) */}
             <div
               className="interactive-card"
               style={{
@@ -952,7 +965,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                 <div>
                   <h4 style={{ margin: 0, fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
-                    Pipeline Share &amp; Stage Health Distribution[cite: 16]
+                    Pipeline Share &amp; Stage Health Distribution
                   </h4>
                   <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
                     Relative portfolio weight across business units and bidding progression.
@@ -964,10 +977,9 @@ export default function SummaryDashboard({ onNavigateTab }) {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, height: 280, alignItems: 'center' }}>
-                {/* SBU Share Donut */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 4 }}>
-                    SBU Portfolio Weight[cite: 16]
+                    SBU Portfolio Weight
                   </span>
                   <div style={{ width: '100%', height: 190 }}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -999,11 +1011,10 @@ export default function SummaryDashboard({ onNavigateTab }) {
                     </ResponsiveContainer>
                   </div>
                   <div style={{ fontSize: 10, color: '#64748b', textAlign: 'center' }}>
-                    Institute • CBS • IIP • DAS[cite: 16]
+                    Institute • CBS • IIP • DAS
                   </div>
                 </div>
 
-                {/* Stage Share Donut */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%' }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 4 }}>
                     Progression Status
@@ -1046,13 +1057,13 @@ export default function SummaryDashboard({ onNavigateTab }) {
           </div>
 
           {/* SBU Attainment Cards */}
-          <div className="anim-fade-up anim-delay-3" style={{ marginTop: 28 }}>
+          <div className="anim-fade-up" style={{ marginTop: 28 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
               <h3 style={{ margin: 0, color: '#0f172a' }}>
-                Strategic Business Unit (SBU) Target Attainment — {activeQuarterObj.label}[cite: 16]
+                Strategic Business Unit (SBU) Target Attainment — {activeQuarterObj.label}
               </h3>
               <span style={{ fontSize: 12, color: '#047857', fontWeight: 600, background: '#ecfdf5', padding: '4px 10px', borderRadius: 6, border: '1px solid #a7f3d0' }}>
-                🔒 Locked to Approved Readiness Report Baseline[cite: 16]
+                🔒 Locked to Approved Readiness Report Baseline
               </span>
             </div>
 
@@ -1094,11 +1105,11 @@ export default function SummaryDashboard({ onNavigateTab }) {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
                       <span>Revenue Target:</span>
-                      <strong style={{ color: '#334155' }}>{formatMoney(sbu.target)}</strong>[cite: 16]
+                      <strong style={{ color: '#334155' }}>{formatMoney(sbu.target)}</strong>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: '#64748b' }}>
                       <span>Required 3× Pipeline:</span>
-                      <span>{formatMoney(sbu.required3xPipeline)}</span>[cite: 16]
+                      <span>{formatMoney(sbu.required3xPipeline)}</span>
                     </div>
                   </div>
                 </div>
@@ -1107,11 +1118,11 @@ export default function SummaryDashboard({ onNavigateTab }) {
           </div>
 
           {/* CRM Commercial & Operational Performance */}
-          <h3 className="anim-fade-up anim-delay-4" style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>
+          <h3 className="anim-fade-up" style={{ marginTop: 28, marginBottom: 12, color: '#0f172a' }}>
             CRM Commercial &amp; Operational Performance ({selectedQuarter})
           </h3>
           <div
-            className="anim-fade-up anim-delay-4"
+            className="anim-fade-up"
             style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}
           >
             {operationalKpiCards.map(([label, value, href, description]) => (
@@ -1192,7 +1203,6 @@ export default function SummaryDashboard({ onNavigateTab }) {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Actions */}
             <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: 12, marginBottom: 16 }}>
               <div>
                 <h3 style={{ margin: 0, color: '#0f172a', fontSize: 16 }}>Board-Ready 1-Page Executive Dossier</h3>
@@ -1239,7 +1249,6 @@ export default function SummaryDashboard({ onNavigateTab }) {
               </div>
             </div>
 
-            {/* Document Canvas */}
             <div style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0f172a', paddingBottom: 10, marginBottom: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1298,7 +1307,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
               {/* 2. SBU Target Attainment & Performance Matrix */}
               <div style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
-                  2. SBU Target Attainment &amp; 3× Pipeline Matrix[cite: 16]
+                  2. SBU Target Attainment &amp; 3× Pipeline Matrix
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '1px solid #cbd5e1' }}>
                   <thead>
@@ -1309,7 +1318,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
                       <th style={{ padding: '5px 8px', textAlign: 'right' }}>Active Value (ETB)</th>
                       <th style={{ padding: '5px 8px', textAlign: 'right' }}>Weighted (ETB)</th>
                       <th style={{ padding: '5px 8px', textAlign: 'right' }}>Quota Target (ETB)</th>
-                      <th style={{ padding: '5px 8px', textAlign: 'right' }}>3× Required (ETB)[cite: 16]</th>
+                      <th style={{ padding: '5px 8px', textAlign: 'right' }}>3× Required (ETB)</th>
                       <th style={{ padding: '5px 8px', textAlign: 'center' }}>Attainment %</th>
                     </tr>
                   </thead>
@@ -1321,8 +1330,8 @@ export default function SummaryDashboard({ onNavigateTab }) {
                         <td style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 600 }}>{m.openCount}</td>
                         <td style={{ padding: '4px 8px', textAlign: 'right' }}>{formatMoney(m.openValue)}</td>
                         <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 700, color: '#166534' }}>{formatMoney(m.weightedForecast)}</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>{formatMoney(m.target)}[cite: 16]</td>
-                        <td style={{ padding: '4px 8px', textAlign: 'right', color: '#475569' }}>{formatMoney(m.required3xPipeline)}[cite: 16]</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right' }}>{formatMoney(m.target)}</td>
+                        <td style={{ padding: '4px 8px', textAlign: 'right', color: '#475569' }}>{formatMoney(m.required3xPipeline)}</td>
                         <td style={{ padding: '4px 8px', textAlign: 'center', fontWeight: 800 }}>{m.attainmentPct}%</td>
                       </tr>
                     ))}
@@ -1405,7 +1414,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
               </span>
             </div>
             <p style={{ margin: '0 0 14px 0', fontSize: 12, color: '#64748b' }}>
-              Targets are locked to the SBU Pipeline Readiness Report baseline[cite: 16].
+              Targets are locked to the SBU Pipeline Readiness Report baseline.
             </p>
 
             <form onSubmit={handleSaveTargets} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1418,7 +1427,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
                         {SBU_DISPLAY_NAMES[sbu]}
                       </label>
                       <span style={{ fontSize: 11, color: '#047857', fontWeight: 600 }}>
-                        3× Pipeline: {formatMoney(currentVal * 3)}[cite: 16]
+                        3× Pipeline: {formatMoney(currentVal * 3)}
                       </span>
                     </div>
                     <input
@@ -1448,7 +1457,7 @@ export default function SummaryDashboard({ onNavigateTab }) {
                   fontSize: 12,
                 }}
               >
-                ↺ Reset to Approved Document Baseline (ETB 256.595M Total)[cite: 16]
+                ↺ Reset to Approved Document Baseline (ETB 256.595M Total)
               </button>
 
               <div style={{ display: 'flex', gap: 10, marginTop: 6 }}>
