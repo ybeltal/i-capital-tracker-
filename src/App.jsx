@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { AuthRoleProvider, useAuthRole, ROLE_DEFINITIONS } from './AuthRoleContext'
+import RoleManagerModal from './RoleManagerModal'
+
+// Governance Drawers & Modals
 import TorClarificationChat from './TorClarificationChat'
 import ProposalDocumentEditor from './ProposalDocumentEditor'
 import StageGateEvidenceModal from './StageGateEvidenceModal'
@@ -25,7 +29,9 @@ import AiTenderParser from './AiTenderParser'
 // Team Avatar Component
 import UserAvatar from './UserAvatar'
 
-export default function App() {
+function DashboardShell() {
+  const { role, roleMeta, assignedSbu, isAdmin, isReadOnly } = useAuthRole()
+
   const [session, setSession] = useState(null)
   const [authChecking, setAuthChecking] = useState(true)
 
@@ -33,26 +39,27 @@ export default function App() {
   const [refreshVersion, setRefreshVersion] = useState(0)
 
   // Executive Role & View Switcher
-  const [viewMode, setViewMode] = useState('group') // 'group' (Executive Admin) | 'sbu' (BD Workbench)
-  const [selectedSbu, setSelectedSbu] = useState('Institute') // 'Institute' | 'CBS' | 'IIP' | 'DAS'
+  const [viewMode, setViewMode] = useState('group')
+  const [selectedSbu, setSelectedSbu] = useState(assignedSbu !== 'All' ? assignedSbu : 'Institute')
 
-  // User State
+  // User Identity
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('Ybeltal')
 
-  // Top Action Modals & Pre-fill State
+  // Modals State
+  const [showRoleModal, setShowRoleModal] = useState(false)
   const [showProposalModal, setShowProposalModal] = useState(false)
   const [showLeadModal, setShowLeadModal] = useState(false)
   const [showClientModal, setShowClientModal] = useState(false)
   const [showAiParserModal, setShowAiParserModal] = useState(false)
   const [targetContext, setTargetContext] = useState(null)
 
-  // Live Governance & Proposal Studio State
+  // Governance Modules State
   const [selectedProposal, setSelectedProposal] = useState(null)
   const [showTorChat, setShowTorChat] = useState(false)
   const [showProposalStudio, setShowProposalStudio] = useState(false)
 
-  // Stage-Gate Evidence Audit State
+  // Stage-Gate Evidence State
   const [gateDeal, setGateDeal] = useState(null)
   const [gateTargetStage, setGateTargetStage] = useState(null)
 
@@ -70,9 +77,7 @@ export default function App() {
       setAuthChecking(false)
     })
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, currentSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, currentSession) => {
       setSession(currentSession)
       if (currentSession?.user) {
         setUserEmail(currentSession.user.email || '')
@@ -81,9 +86,6 @@ export default function App() {
           currentSession.user.user_metadata?.name ||
           currentSession.user.email?.split('@')[0]
         if (metaName) setUserName(metaName)
-      } else {
-        setUserEmail('')
-        setUserName('User')
       }
       setAuthChecking(false)
     })
@@ -91,7 +93,7 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Listen for global custom events to trigger governance tools from any child screen
+  // Global listeners for child drawers
   useEffect(() => {
     function handleGlobalOpenChat(e) {
       if (e.detail) {
@@ -133,26 +135,22 @@ export default function App() {
   }
 
   function handleConvertTargetToLead(targetData) {
+    if (isReadOnly) return
     const ctx = typeof targetData === 'string' ? { client: targetData } : targetData
     setTargetContext(ctx)
     setShowLeadModal(true)
   }
 
   function handleConvertTargetToProposal(targetData) {
+    if (isReadOnly) return
     const ctx = typeof targetData === 'string' ? { client: targetData } : targetData
     setTargetContext(ctx)
     setShowProposalModal(true)
   }
 
   function handleApplyAiToProposal(aiData) {
-    setTargetContext({
-      client: aiData.client,
-      sbu: aiData.sbu,
-      product: aiData.product,
-      dealValue: aiData.dealValue,
-      deadline: aiData.deadline,
-      notes: aiData.notes,
-    })
+    if (isReadOnly) return
+    setTargetContext(aiData)
     setShowAiParserModal(false)
     setShowProposalModal(true)
   }
@@ -168,29 +166,18 @@ export default function App() {
   }
 
   function handleRequestStageAdvance(deal, targetStage) {
+    if (isReadOnly) {
+      alert('Read-only accounts cannot advance pipeline stages.')
+      return
+    }
     setGateDeal(deal)
     setGateTargetStage(targetStage)
   }
 
   if (authChecking) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#070d1e',
-          color: '#ffffff',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          gap: 12,
-        }}
-      >
-        <div style={{ fontSize: 28 }}>⚡</div>
-        <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.5px' }}>
-          Verifying security credentials…
-        </div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#070d1e', color: '#fff' }}>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Verifying institutional access credentials…</div>
       </div>
     )
   }
@@ -199,7 +186,6 @@ export default function App() {
     return <Login onLoginSuccess={(newSession) => setSession(newSession)} />
   }
 
-  // Navigation tab bar with Digital Marketing Leads included
   const navTabs = [
     { id: 'dashboard', label: viewMode === 'group' ? 'Executive Dashboard' : `${selectedSbu} Workbench`, icon: viewMode === 'group' ? '📊' : '💼' },
     { id: 'proposals', label: 'Deals & Proposals', icon: '📋' },
@@ -210,8 +196,8 @@ export default function App() {
   ]
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
-      {/* 1. TOP EXECUTIVE BRANDING & GOVERNANCE BAR */}
+    <div style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a' }}>
+      {/* 1. TOP BRANDING & ROLE STATUS BAR */}
       <header
         style={{
           background: 'linear-gradient(90deg, #070d1e 0%, #0f172a 60%, #1e293b 100%)',
@@ -227,24 +213,12 @@ export default function App() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <div
-            style={{
-              background: '#ffffff',
-              padding: '4px 10px',
-              borderRadius: 8,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+          <div style={{ background: '#ffffff', padding: '4px 10px', borderRadius: 8 }}>
             <img
               src="/logo.png"
               alt="i-Capital Africa Logo"
               style={{ height: '32px', width: 'auto', display: 'block', objectFit: 'contain' }}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
             />
           </div>
 
@@ -257,15 +231,14 @@ export default function App() {
                 style={{
                   fontSize: '10px',
                   fontWeight: 800,
-                  background: '#10b981',
-                  color: '#ffffff',
-                  padding: '2px 7px',
+                  background: roleMeta.badgeBg,
+                  color: roleMeta.badgeText,
+                  padding: '2px 8px',
                   borderRadius: 12,
-                  letterSpacing: '0.5px',
                   textTransform: 'uppercase',
                 }}
               >
-                ● Live Governance
+                ● {roleMeta.label}
               </span>
             </div>
             <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: 1 }}>
@@ -274,8 +247,31 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          {/* VIEW MODE TOGGLE */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          {/* Executive Administrator User Role Console Trigger */}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setShowRoleModal(true)}
+              style={{
+                background: '#dc2626',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: 6,
+                padding: '6px 12px',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <span>🛡️</span> Manage Roles
+            </button>
+          )}
+
+          {/* View Switcher */}
           <div
             style={{
               background: 'rgba(255, 255, 255, 0.08)',
@@ -334,36 +330,22 @@ export default function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <UserAvatar name={userName} size={34} />
             <div style={{ textAlign: 'right' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#f8fafc' }}>{userName}</span>
-                <span style={{ fontSize: '9px', fontWeight: 800, background: '#f59e0b', color: '#000', padding: '1px 5px', borderRadius: 4 }}>
-                  ADMIN
-                </span>
-              </div>
-              <div style={{ fontSize: '10px', color: '#64748b' }}>{userEmail || 'Addis Ababa, ET'}</div>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#f8fafc' }}>{userName}</div>
+              <div style={{ fontSize: '10px', color: '#94a3b8' }}>Scope: {assignedSbu}</div>
             </div>
           </div>
 
           <button
             type="button"
             onClick={handleSignOut}
-            style={{
-              padding: '6px 12px',
-              borderRadius: 6,
-              border: '1px solid #334155',
-              background: '#0f172a',
-              color: '#f87171',
-              fontSize: '11px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid #334155', background: '#0f172a', color: '#f87171', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
           >
             Sign out
           </button>
         </div>
       </header>
 
-      {/* 2. COMMAND HEADER & ACTIONS */}
+      {/* 2. ACTIONS HEADER (Restricted for Read-Only) */}
       <div style={{ padding: '20px 28px 0 28px', maxWidth: '1600px', margin: '0 auto' }}>
         <div
           style={{
@@ -371,7 +353,6 @@ export default function App() {
             border: '1px solid #e2e8f0',
             borderRadius: 12,
             padding: '16px 20px',
-            boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
@@ -385,17 +366,7 @@ export default function App() {
               <span style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
                 Welcome back, {userName}
               </span>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  background: '#f1f5f9',
-                  color: '#0284c7',
-                  border: '1px solid #bae6fd',
-                  padding: '2px 8px',
-                  borderRadius: 6,
-                }}
-              >
+              <span style={{ fontSize: '11px', fontWeight: 700, background: '#f1f5f9', color: '#0284c7', padding: '2px 8px', borderRadius: 6 }}>
                 Developed by Ybeltal Semagn
               </span>
             </div>
@@ -404,111 +375,93 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setShowAiParserModal(true)}
-              style={{
-                padding: '9px 16px',
-                borderRadius: 8,
-                border: '1px solid #0284c7',
-                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(2, 132, 199, 0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span>✨</span> AI Tender Parser
-            </button>
+          {!isReadOnly && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setShowAiParserModal(true)}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 8,
+                  border: '1px solid #0284c7',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>✨</span> AI Tender Parser
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setTargetContext(null)
-                setShowProposalModal(true)
-              }}
-              style={{
-                padding: '9px 16px',
-                borderRadius: 8,
-                border: 'none',
-                background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-                color: '#ffffff',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(234, 88, 12, 0.35)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>+</span> New Proposal
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetContext(null)
+                  setShowProposalModal(true)
+                }}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 8,
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>+</span> New Proposal
+              </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setTargetContext(null)
-                setShowLeadModal(true)
-              }}
-              style={{
-                padding: '9px 16px',
-                borderRadius: 8,
-                border: '1px solid #cbd5e1',
-                background: '#ffffff',
-                color: '#0f172a',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>+</span> New Lead
-            </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetContext(null)
+                  setShowLeadModal(true)
+                }}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 8,
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#0f172a',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
+              >
+                + New Lead
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setShowClientModal(true)}
-              style={{
-                padding: '9px 16px',
-                borderRadius: 8,
-                border: '1px solid #cbd5e1',
-                background: '#ffffff',
-                color: '#1e293b',
-                fontWeight: 700,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <span style={{ fontSize: '14px' }}>+</span> New Client
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => setShowClientModal(true)}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 8,
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#1e293b',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
+              >
+                + New Client
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tab Navigation */}
-        <div
-          style={{
-            background: '#ffffff',
-            padding: '6px',
-            borderRadius: 10,
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 1px 4px rgba(0,0,0,0.03)',
-            display: 'inline-flex',
-            flexWrap: 'wrap',
-            gap: 6,
-            marginBottom: 20,
-          }}
-        >
+        <div style={{ background: '#ffffff', padding: '6px', borderRadius: 10, border: '1px solid #e2e8f0', display: 'inline-flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
           {navTabs.map((tab) => {
             const isActive = activeTab === tab.id
             return (
@@ -528,8 +481,6 @@ export default function App() {
                   fontWeight: isActive ? 800 : 600,
                   fontSize: '13px',
                   cursor: 'pointer',
-                  boxShadow: isActive ? '0 3px 10px rgba(2, 132, 199, 0.3)' : 'none',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 <span>{tab.icon}</span>
@@ -567,18 +518,16 @@ export default function App() {
           )}
 
           {activeTab === 'leads' && (
-            <LeadList
-              refreshVersion={refreshVersion}
-              onRefresh={triggerGlobalRefresh}
-            />
+            <LeadList refreshVersion={refreshVersion} onRefresh={triggerGlobalRefresh} />
           )}
 
-          {/* MOUNTED DIGITAL MARKETING LEADS TAB */}
           {activeTab === 'marketing' && (
             <DigitalMarketingLeads
               onConvertToProposal={(leadCtx) => {
-                setTargetContext(leadCtx)
-                setShowProposalModal(true)
+                if (!isReadOnly) {
+                  setTargetContext(leadCtx)
+                  setShowProposalModal(true)
+                }
               }}
             />
           )}
@@ -593,97 +542,32 @@ export default function App() {
           )}
 
           {activeTab === 'queue' && (
-            <FollowUpQueue
-              refreshVersion={refreshVersion}
-              onRefresh={triggerGlobalRefresh}
-            />
+            <FollowUpQueue refreshVersion={refreshVersion} onRefresh={triggerGlobalRefresh} />
           )}
         </main>
       </div>
 
-      {/* CORE MODALS WITH PERSISTENCE (EXPLICIT X BUTTON CLOSE ONLY) */}
+      {/* ADMIN ROLE MANAGEMENT MODAL */}
+      <RoleManagerModal isOpen={showRoleModal} onClose={() => setShowRoleModal(false)} />
+
+      {/* CORE CREATION MODALS */}
       {showAiParserModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.7)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 12,
-              width: '100%',
-              maxWidth: 720,
-              padding: 24,
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.3)',
-              maxHeight: '92vh',
-              overflowY: 'auto',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 720, padding: 24, maxHeight: '92vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-              <button
-                type="button"
-                onClick={() => setShowAiParserModal(false)}
-                title="Close (X)"
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', padding: '4px 8px' }}
-              >
-                ✕
-              </button>
+              <button type="button" onClick={() => setShowAiParserModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>✕</button>
             </div>
-            <AiTenderParser
-              onApplyToProposal={handleApplyAiToProposal}
-              onClose={() => setShowAiParserModal(false)}
-            />
+            <AiTenderParser onApplyToProposal={handleApplyAiToProposal} onClose={() => setShowAiParserModal(false)} />
           </div>
         </div>
       )}
 
       {showProposalModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.7)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 12,
-              width: '100%',
-              maxWidth: 680,
-              padding: 24,
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)',
-              maxHeight: '92vh',
-              overflowY: 'auto',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 680, padding: 24, maxHeight: '92vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, color: '#0f172a' }}>
-                {targetContext ? `Convert to Proposal: ${targetContext.client || targetContext.name}` : 'Create Formal Proposal'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowProposalModal(false)}
-                title="Close (X)"
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', padding: '4px 8px' }}
-              >
-                ✕
-              </button>
+              <h3 style={{ margin: 0, color: '#0f172a' }}>{targetContext ? `Convert to Proposal: ${targetContext.client || targetContext.name}` : 'Create Formal Proposal'}</h3>
+              <button type="button" onClick={() => setShowProposalModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>✕</button>
             </div>
             <ProposalForm
               targetContext={targetContext}
@@ -699,106 +583,30 @@ export default function App() {
       )}
 
       {showLeadModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.7)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 12,
-              width: '100%',
-              maxWidth: 620,
-              padding: 24,
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 620, padding: 24, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, color: '#0f172a' }}>
-                {targetContext ? `Capture Pre-Tender Lead: ${targetContext.client || targetContext.name}` : 'Log New Pre-Tender Lead'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowLeadModal(false)}
-                title="Close (X)"
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', padding: '4px 8px' }}
-              >
-                ✕
-              </button>
+              <h3 style={{ margin: 0, color: '#0f172a' }}>Capture Pre-Tender Lead</h3>
+              <button type="button" onClick={() => setShowLeadModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>✕</button>
             </div>
-            <LeadForm
-              targetContext={targetContext}
-              currentUser={userName}
-              onSaved={() => {
-                setShowLeadModal(false)
-                triggerGlobalRefresh()
-              }}
-              onClose={() => setShowLeadModal(false)}
-            />
+            <LeadForm targetContext={targetContext} currentUser={userName} onSaved={() => { setShowLeadModal(false); triggerGlobalRefresh() }} onClose={() => setShowLeadModal(false)} />
           </div>
         </div>
       )}
 
       {showClientModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.7)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              background: '#fff',
-              borderRadius: 12,
-              width: '100%',
-              maxWidth: 540,
-              padding: 24,
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15, 23, 42, 0.7)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 12, width: '100%', maxWidth: 540, padding: 24, maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, color: '#0f172a' }}>Add Institutional Client</h3>
-              <button
-                type="button"
-                onClick={() => setShowClientModal(false)}
-                title="Close (X)"
-                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', padding: '4px 8px' }}
-              >
-                ✕
-              </button>
+              <button type="button" onClick={() => setShowClientModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>✕</button>
             </div>
-            <ClientForm
-              onSaved={() => {
-                setShowClientModal(false)
-                triggerGlobalRefresh()
-              }}
-              onClose={() => setShowClientModal(false)}
-            />
+            <ClientForm onSaved={() => { setShowClientModal(false); triggerGlobalRefresh() }} onClose={() => setShowClientModal(false)} />
           </div>
         </div>
       )}
 
-      {/* LIVE TOR CLARIFICATION CHAT DRAWER */}
+      {/* LIVE TOR CHAT */}
       <TorClarificationChat
         isOpen={showTorChat}
         onClose={() => setShowTorChat(false)}
@@ -809,7 +617,7 @@ export default function App() {
         currentUserName={userName || 'Ybeltal Semagn'}
       />
 
-      {/* PROPOSAL DOCUMENT EDITOR STUDIO */}
+      {/* PROPOSAL STUDIO */}
       {showProposalStudio && (
         <ProposalDocumentEditor
           proposal={selectedProposal}
@@ -821,7 +629,7 @@ export default function App() {
         />
       )}
 
-      {/* STAGE-GATE EVIDENCE AUDIT MODAL */}
+      {/* STAGE-GATE EVIDENCE AUDIT */}
       <StageGateEvidenceModal
         isOpen={Boolean(gateDeal)}
         deal={gateDeal}
@@ -837,5 +645,13 @@ export default function App() {
         }}
       />
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthRoleProvider>
+      <DashboardShell />
+    </AuthRoleProvider>
   )
 }
