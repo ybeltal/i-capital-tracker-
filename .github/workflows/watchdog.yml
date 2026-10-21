@@ -1,0 +1,31 @@
+name: Tender Deadline Watchdog
+
+on:
+  schedule:
+    # Runs at 05:00 UTC (08:00 AM East Africa Time) and 11:00 UTC (02:00 PM EAT) every day
+    - cron: '0 5,11 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  check-deadlines:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Execute Watchdog Engine
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          NOTIFICATION_EMAIL: 'ybeltalsemagn8899@gmail.com'
+        run: node scripts/checkDeadlinesWatchdog.js
