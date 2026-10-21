@@ -90,7 +90,7 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Global event listeners to allow any child screen to trigger the governance drawers
+  // Listen for global custom events to trigger governance tools from any child screen
   useEffect(() => {
     function handleGlobalOpenChat(e) {
       if (e.detail) {
@@ -156,7 +156,6 @@ export default function App() {
     setShowProposalModal(true)
   }
 
-  // Handlers for Live Governance Modals
   function handleOpenTorChat(proposal) {
     setSelectedProposal(proposal)
     setShowTorChat(true)
@@ -589,7 +588,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* CORE MODALS */}
+      {/* CORE MODALS WITH PERSISTENCE (WILL NOT DISMISS ACCIDENTALLY ON BACKDROP CLICKS) */}
       {showAiParserModal && (
         <div
           style={{
@@ -602,7 +601,6 @@ export default function App() {
             justifyContent: 'center',
             padding: 16,
           }}
-          onClick={() => setShowAiParserModal(false)}
         >
           <div
             style={{
@@ -621,7 +619,8 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowAiParserModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#64748b' }}
+                title="Close (X)"
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', padding: '4px 8px' }}
               >
                 ✕
               </button>
@@ -639,36 +638,36 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: 16,
           }}
-          onClick={() => setShowProposalModal(false)}
         >
           <div
             style={{
               background: '#fff',
               borderRadius: 12,
               width: '100%',
-              maxWidth: 640,
+              maxWidth: 680,
               padding: 24,
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-              maxHeight: '90vh',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)',
+              maxHeight: '92vh',
               overflowY: 'auto',
             }}
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, color: '#0f172a' }}>
-                {targetContext ? `Convert to Proposal: ${targetContext.client}` : 'Create Formal Proposal'}
+                {targetContext ? `Convert to Proposal: ${targetContext.client || targetContext.name}` : 'Create Formal Proposal'}
               </h3>
               <button
                 type="button"
                 onClick={() => setShowProposalModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#64748b' }}
+                title="Close (X)"
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', padding: '4px 8px' }}
               >
                 ✕
               </button>
@@ -691,14 +690,13 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: 16,
           }}
-          onClick={() => setShowLeadModal(false)}
         >
           <div
             style={{
@@ -715,12 +713,13 @@ export default function App() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <h3 style={{ margin: 0, color: '#0f172a' }}>
-                {targetContext ? `Capture Pre-Tender Lead: ${targetContext.client}` : 'Log New Pre-Tender Lead'}
+                {targetContext ? `Capture Pre-Tender Lead: ${targetContext.client || targetContext.name}` : 'Log New Pre-Tender Lead'}
               </h3>
               <button
                 type="button"
                 onClick={() => setShowLeadModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#64748b' }}
+                title="Close (X)"
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', padding: '4px 8px' }}
               >
                 ✕
               </button>
@@ -743,14 +742,13 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.6)',
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: 16,
           }}
-          onClick={() => setShowClientModal(false)}
         >
           <div
             style={{
@@ -770,7 +768,8 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowClientModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#64748b' }}
+                title="Close (X)"
+                style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#64748b', padding: '4px 8px' }}
               >
                 ✕
               </button>
@@ -786,7 +785,7 @@ export default function App() {
         </div>
       )}
 
-      {/* NEW GOVERNANCE MODULE 1: LIVE TOR CLARIFICATION CHAT DRAWER */}
+      {/* LIVE TOR CLARIFICATION CHAT DRAWER */}
       <TorClarificationChat
         isOpen={showTorChat}
         onClose={() => setShowTorChat(false)}
@@ -797,7 +796,7 @@ export default function App() {
         currentUserName={userName || 'Ybeltal Semagn'}
       />
 
-      {/* NEW GOVERNANCE MODULE 2: FULL PROPOSAL DOCUMENT EDITOR STUDIO */}
+      {/* PROPOSAL DOCUMENT EDITOR STUDIO */}
       {showProposalStudio && (
         <ProposalDocumentEditor
           proposal={selectedProposal}
@@ -809,7 +808,7 @@ export default function App() {
         />
       )}
 
-      {/* NEW GOVERNANCE MODULE 3: STAGE-GATE EVIDENCE AUDIT MODAL */}
+      {/* STAGE-GATE EVIDENCE AUDIT MODAL */}
       <StageGateEvidenceModal
         isOpen={Boolean(gateDeal)}
         deal={gateDeal}
