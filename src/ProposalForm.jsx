@@ -1,6 +1,54 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
+// Official Strategic Products and Route Engines from FY 2026/27 Pipeline Readiness Report
+const SBU_PRODUCT_ENGINES = {
+  Institute: [
+    'Master Builder Leadership Development Program',
+    'S-OJT (Structured On-the-Job Training)',
+    'PRIME Staff Development Program',
+    'Strategize',
+    'BDS (Business Development Services)',
+    'VSM (Value Stream Mapping)',
+    'Knowledge Management System',
+    'Afro Data',
+  ],
+  CBS: [
+    'Cross-Border Market Expansion',
+    'Regional Trade & AfCFTA Advisory',
+    'Diaspora Capital & Commercial Routing',
+    'International Institutional Partnerships',
+    'Global Supply Chain & Trade Facilitation',
+  ],
+  IIP: [
+    'Equity Market Access Route',
+    'Debt Market Access Route',
+    'Strategic Transactions & M&A Route',
+    'Capital Structure & Cross-Cutting Advisory',
+    'Investor Advisory & Wealth Route',
+    'Capital Market Readiness & Training',
+    'Corporate Bond Advisory',
+    'Commercial Paper Advisory',
+    'Rights Offer Advisory',
+    'Capital Market Advisory Services',
+    'DSB Route',
+  ],
+  DAS: [
+    'SHOFER Parking',
+    'SHOFER Car Wash',
+    'SHOFER Auto Care',
+    'SHOFER Insurance',
+    'SHOFER Learning',
+    'SHOFER Promotion',
+    'Investify ET',
+    'Afro Data',
+    'ERP Solutions',
+    'Micro-Credit Platform',
+    'Master Builder Leadership Development Program',
+    'Strategize',
+  ],
+}
+
 const INCEPTION_EVIDENCE_TYPES = [
   { id: 'TOR_RFP', label: '📄 Official TOR / RFP Document' },
   { id: 'INVITATION_LETTER', label: '✉️ Client Invitation to Bid (LOI / Letter)' },
@@ -26,11 +74,14 @@ export default function ProposalForm({
     code: '',
     client: '',
     sbu: 'Institute',
-    product: 'Executive Advisory',
+    product: 'Master Builder Leadership Development Program',
     title: '',
     deal_value: 1500000,
     stage: '1. TOR / RFP Identified',
     deadline: '',
+    commercial_owner_email: currentUser || 'ybeltalsemagn8899@gmail.com',
+    technical_lead_email: '',
+    next_action: 'Submit formal clarification request or review technical specifications',
     notes: '',
   })
 
@@ -46,30 +97,50 @@ export default function ProposalForm({
   const [attachedFile, setAttachedFile] = useState(null)
   const [attestationConfirmed, setAttestationConfirmed] = useState(false)
 
+  // Normalize initial SBU and auto-fill from targetContext
   useEffect(() => {
     const randomCode = `INST-2026-${Math.floor(100 + Math.random() * 900)}`
 
-    if (targetContext) {
-      setFormData({
-        code: targetContext.code || randomCode,
-        client: targetContext.client || targetContext.name || '',
-        sbu: targetContext.sbu?.includes('Institute') ? 'Institute' : (targetContext.sbu || 'Institute'),
-        product: targetContext.product || targetContext.fit || 'Executive Advisory',
-        title: targetContext.title || `${targetContext.client || targetContext.name || 'Commercial'} Proposal`,
-        deal_value: Number(targetContext.deal_value || targetContext.defaultValue || 1500000),
-        stage: '1. TOR / RFP Identified',
-        deadline: targetContext.deadline || '',
-        notes: targetContext.notes || `Target account mapped from Strategic Client Directory.`,
-      })
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        code: randomCode,
-      }))
+    let initialSbu = 'Institute'
+    if (targetContext?.sbu) {
+      const s = targetContext.sbu.toLowerCase()
+      if (s.includes('cross') || s.includes('cbs') || s.includes('border')) initialSbu = 'CBS'
+      else if (s.includes('invest') || s.includes('iip')) initialSbu = 'IIP'
+      else if (s.includes('digital') || s.includes('das')) initialSbu = 'DAS'
+      else initialSbu = 'Institute'
     }
-  }, [targetContext])
 
-  // Validation Checks
+    const availableEngines = SBU_PRODUCT_ENGINES[initialSbu] || SBU_PRODUCT_ENGINES.Institute
+    const matchedProduct = availableEngines.includes(targetContext?.product || targetContext?.fit)
+      ? (targetContext.product || targetContext.fit)
+      : availableEngines[0]
+
+    setFormData({
+      code: targetContext?.code || randomCode,
+      client: targetContext?.client || targetContext?.name || targetContext?.client_name || '',
+      sbu: initialSbu,
+      product: matchedProduct,
+      title: targetContext?.title || (targetContext?.client || targetContext?.name ? `${targetContext.client || targetContext.name} Proposal` : ''),
+      deal_value: Number(targetContext?.deal_value || targetContext?.defaultValue || 1500000),
+      stage: targetContext?.stage || '1. TOR / RFP Identified',
+      deadline: targetContext?.deadline || '',
+      commercial_owner_email: currentUser || 'ybeltalsemagn8899@gmail.com',
+      technical_lead_email: '',
+      next_action: 'Review technical specifications and formulate proposal response plan',
+      notes: targetContext?.notes || '',
+    })
+  }, [targetContext, currentUser])
+
+  function handleSbuChange(newSbu) {
+    const engines = SBU_PRODUCT_ENGINES[newSbu] || []
+    setFormData((prev) => ({
+      ...prev,
+      sbu: newSbu,
+      product: engines[0] || '',
+    }))
+  }
+
+  // Strict Validation Checks
   const clientValid = formData.client.trim().length >= 3
   const titleValid = formData.title.trim().length >= 5
   const valueValid = Number(formData.deal_value) > 0
@@ -84,7 +155,7 @@ export default function ProposalForm({
   const hasPhysicalFile = attachedFile !== null
   const proofProvided = hasPhysicalFile || hasValidUrl
 
-  // Master Lock: Form is strictly disabled until genuine evidence & declaration are complete
+  // Master Governance Lock
   const isFormLocked = !clientValid || !titleValid || !valueValid || !refTitleValid || !proofProvided || !attestationConfirmed
 
   async function handleFileUpload(file) {
@@ -95,20 +166,20 @@ export default function ProposalForm({
       const cleanFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`
       const filePath = `tender_inceptions/${cleanFileName}`
 
-      const { data, error } = await supabase.storage
+      const { error } = await supabase.storage
         .from('deal-evidence')
         .upload(filePath, file)
 
       if (error) {
-        console.warn('Storage upload warning, using local file name:', error.message)
-        return `local-attachment://${file.name}`
+        console.warn('Storage upload notice, falling back to local file reference:', error.message)
+        return `attachment://${file.name}`
       }
 
       const { data: urlData } = supabase.storage.from('deal-evidence').getPublicUrl(filePath)
       return urlData?.publicUrl || filePath
     } catch (err) {
       console.error('File upload error:', err)
-      return `local-attachment://${file.name}`
+      return `attachment://${file.name}`
     } finally {
       setUploadingFile(false)
     }
@@ -119,7 +190,7 @@ export default function ProposalForm({
     setErrorMsg('')
 
     if (isFormLocked) {
-      setErrorMsg('Pipeline Governance Lock: You must upload an authentic document or valid URL, provide an authentic reference code, and sign the integrity declaration.')
+      setErrorMsg('Pipeline Governance Lock: You must upload an authentic document or valid URL, provide a genuine reference code, and sign the integrity declaration.')
       return
     }
 
@@ -133,6 +204,11 @@ export default function ProposalForm({
         if (uploadedUrl) finalFileUrl = uploadedUrl
       }
 
+      const targetValue = Number(formData.deal_value) || 0
+      const calculatedProbability = formData.stage.includes('Defense') ? 60 : 30
+      const defaultNextDueDate = formData.deadline || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+
+      // 1. Opportunities Payload with Strict Financial Metric Separation & Human Accountability
       const opportunityPayload = {
         code: formData.code.trim() || `INST-2026-${Math.floor(100 + Math.random() * 900)}`,
         client: formData.client.trim(),
@@ -140,19 +216,33 @@ export default function ProposalForm({
         sbu: formData.sbu,
         product: formData.product.trim(),
         title: formData.title.trim() || `${formData.client} Proposal`,
-        deal_value: Number(formData.deal_value) || 0,
-        stage: '1. TOR / RFP Identified',
+        
+        // Non-interchangeable financial measures
+        deal_value: targetValue,
+        submitted_proposal_value: targetValue,
+        win_probability_pct: calculatedProbability,
+        awarded_contract_value: formData.stage.includes('Won') ? targetValue : 0,
+        recognized_revenue: 0,
+        cash_collected: 0,
+        
+        stage: formData.stage || '1. TOR / RFP Identified',
         deadline: formData.deadline || null,
         submission_deadline: formData.deadline || null,
         notes: formData.notes.trim(),
-        commercial_owner: currentUser || 'ybeltalsemagn8899@gmail.com',
+        
+        // Human accountability and governance tracking
+        commercial_owner_email: formData.commercial_owner_email || currentUser || 'ybeltalsemagn8899@gmail.com',
+        technical_lead_email: formData.technical_lead_email.trim() || 'Dr. Gemechu Waktola / Lead SME',
+        next_action: formData.next_action.trim(),
+        next_action_due_date: defaultNextDueDate,
+        last_authorized_by: currentUser || 'ybeltalsemagn8899@gmail.com',
+        
         alert_48h_sent: false,
         evidence_status: 'Verified',
         last_evidence_title: evidenceData.document_title.trim(),
         last_evidence_url: finalFileUrl || null,
       }
 
-      // 1. Insert Proposal Record
       const { data: newDeal, error: dealError } = await supabase
         .from('opportunities')
         .insert([opportunityPayload])
@@ -161,10 +251,10 @@ export default function ProposalForm({
 
       if (dealError) throw dealError
 
-      // 2. Insert Mandatory Evidence Locker Record
+      // 2. Insert Mandatory Evidence Locker Entry
       const evidencePayload = {
         opportunity_id: newDeal.id,
-        stage_name: '1. TOR / RFP Identified',
+        stage_name: formData.stage || '1. TOR / RFP Identified',
         evidence_type: evidenceData.evidence_type,
         document_title: evidenceData.document_title.trim(),
         file_url: finalFileUrl || null,
@@ -180,8 +270,8 @@ export default function ProposalForm({
         user_email: currentUser || 'ybeltalsemagn8899@gmail.com',
         action: 'PROPOSAL_REGISTERED_WITH_STRICT_EVIDENCE',
         from_stage: 'Inception',
-        to_stage: '1. TOR / RFP Identified',
-        evidence_summary: `${evidenceData.evidence_type}: ${evidenceData.document_title.trim()} (${finalFileUrl ? 'Link/File Verified' : 'Document Verified'})`,
+        to_stage: formData.stage || '1. TOR / RFP Identified',
+        evidence_summary: `${evidenceData.evidence_type}: ${evidenceData.document_title.trim()} (${formData.sbu} - ${formData.product}) | Owner: ${formData.commercial_owner_email}`,
       }
 
       await supabase.from('deal_governance_logs').insert([auditPayload])
@@ -189,11 +279,13 @@ export default function ProposalForm({
       onSaved?.(newDeal)
     } catch (err) {
       console.error('Submission failed:', err)
-      setErrorMsg(err.message || 'Failed to register opportunity. Check required fields.')
+      setErrorMsg(err.message || 'Failed to register opportunity. Please check required fields.')
     } finally {
       setLoading(false)
     }
   }
+
+  const currentProductOptions = SBU_PRODUCT_ENGINES[formData.sbu] || SBU_PRODUCT_ENGINES.Institute
 
   return (
     <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -214,8 +306,8 @@ export default function ProposalForm({
         </div>
       )}
 
-      {/* Basic Opportunity Details */}
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+      {/* Account & SBU Tier */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1.2fr', gap: 12 }}>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 4 }}>
             Client Account / Procuring Entity *
@@ -244,7 +336,7 @@ export default function ProposalForm({
           </label>
           <select
             value={formData.sbu}
-            onChange={(e) => setFormData({ ...formData, sbu: e.target.value })}
+            onChange={(e) => handleSbuChange(e.target.value)}
             style={{
               width: '100%',
               padding: '8px 10px',
@@ -254,28 +346,45 @@ export default function ProposalForm({
               fontWeight: 700,
               background: '#fff',
               boxSizing: 'border-box',
+              cursor: 'pointer',
             }}
           >
             <option value="Institute">The i-Capital Institute</option>
-            <option value="CBS">Corporate Business Solutions (CBS)</option>
-            <option value="IIP">Investment Platform (IIP)</option>
+            <option value="CBS">Cross Border Solutions (CBS)</option>
+            <option value="IIP">Investment Partners (IIP)</option>
             <option value="DAS">Digital &amp; AI Solutions (DAS)</option>
           </select>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      {/* Dynamic Catalogue Product / Route Engine Dropdown */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 12 }}>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 4 }}>
-            Catalogue Product / Route Engine
+            Catalogue Product / Route Engine * ({formData.sbu})
           </label>
-          <input
-            type="text"
-            placeholder="e.g., Master Builder Leadership (MBL)"
+          <select
             value={formData.product}
             onChange={(e) => setFormData({ ...formData, product: e.target.value })}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, boxSizing: 'border-box' }}
-          />
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 6,
+              border: '1px solid #0284c7',
+              background: '#f0f9ff',
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#0369a1',
+              boxSizing: 'border-box',
+              cursor: 'pointer',
+            }}
+          >
+            {currentProductOptions.map((prod) => (
+              <option key={prod} value={prod}>
+                {prod}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div>
@@ -301,6 +410,7 @@ export default function ProposalForm({
         </div>
       </div>
 
+      {/* Commercial Value & Submission Deadline */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
           <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 4 }}>
@@ -313,7 +423,16 @@ export default function ProposalForm({
             step="1000"
             value={formData.deal_value}
             onChange={(e) => setFormData({ ...formData, deal_value: e.target.value })}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, fontWeight: 800, color: '#166534', boxSizing: 'border-box' }}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              fontSize: 12,
+              fontWeight: 800,
+              color: '#166534',
+              boxSizing: 'border-box',
+            }}
           />
         </div>
 
@@ -325,12 +444,84 @@ export default function ProposalForm({
             type="date"
             value={formData.deadline}
             onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, boxSizing: 'border-box' }}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              fontSize: 12,
+              boxSizing: 'border-box',
+            }}
           />
         </div>
       </div>
 
-      {/* STRICT EVIDENCE GATE LOCKER */}
+      {/* Human Accountability: Assigned Owners & Action Gating */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 4 }}>
+            Commercial Relationship Owner *
+          </label>
+          <input
+            type="email"
+            required
+            value={formData.commercial_owner_email}
+            onChange={(e) => setFormData({ ...formData, commercial_owner_email: e.target.value })}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              fontSize: 12,
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        <div>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 4 }}>
+            Designated Technical Lead / Expert Lead
+          </label>
+          <input
+            type="text"
+            placeholder="e.g., Dr. Gemechu Waktola / Lead SME"
+            value={formData.technical_lead_email}
+            onChange={(e) => setFormData({ ...formData, technical_lead_email: e.target.value })}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              fontSize: 12,
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Next Milestone Action */}
+      <div>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 4 }}>
+          Next Immediate Milestone Action *
+        </label>
+        <input
+          type="text"
+          required
+          placeholder="e.g., Conduct stakeholder alignment session or submit formal clarification questions"
+          value={formData.next_action}
+          onChange={(e) => setFormData({ ...formData, next_action: e.target.value })}
+          style={{
+            width: '100%',
+            padding: '8px 10px',
+            borderRadius: 6,
+            border: '1px solid #cbd5e1',
+            fontSize: 12,
+            boxSizing: 'border-box',
+          }}
+        />
+      </div>
+
+      {/* STRICT INCEPTION EVIDENCE LOCKER */}
       <div
         style={{
           background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
@@ -365,7 +556,7 @@ export default function ProposalForm({
         </div>
 
         <div style={{ fontSize: 11, color: '#166534', lineHeight: 1.4 }}>
-          To prevent phantom forecasting, you must provide verifiable proof of solicitation. Dummy text is blocked.
+          To prevent phantom forecasting and pipeline inflation, verifiable proof of solicitation is strictly required. Generic placeholder text is automatically blocked.
         </div>
 
         {/* Dynamic Verification Progress Checklist */}
@@ -383,17 +574,17 @@ export default function ProposalForm({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: refTitleValid ? '#15803d' : '#94a3b8' }}>
             <span>{refTitleValid ? '✓' : '○'}</span>
-            <span>Document Reference Code / Email Title (Minimum 6 characters, no test dummy text)</span>
+            <span>Document Reference Code / Email Title (Minimum 6 characters, no test placeholder text)</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: proofProvided ? '#15803d' : '#94a3b8' }}>
             <span>{proofProvided ? '✓' : '○'}</span>
-            <span>Proof of Tender Attached: Upload physical file (PDF/Doc) OR provide active portal/Drive URL</span>
+            <span>Proof of Solicitation Attached: Upload document file (PDF/Doc) OR provide verifiable URL</span>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: attestationConfirmed ? '#15803d' : '#94a3b8' }}>
             <span>{attestationConfirmed ? '✓' : '○'}</span>
-            <span>Signed Commercial Governance Declaration</span>
+            <span>Signed Institutional Commercial Governance Declaration</span>
           </div>
         </div>
 
@@ -485,7 +676,7 @@ export default function ProposalForm({
         {/* Alternative URL Link Field */}
         <div>
           <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
-            Option B: Or Direct Verifiable Link (Google Drive / e-GP Tender URL) *
+            Option B: Or Direct Verifiable Link (Google Drive / e-GP Tender Portal URL) *
           </label>
           <input
             type="url"
@@ -504,7 +695,7 @@ export default function ProposalForm({
           />
         </div>
 
-        {/* Commercial Attestation Checkbox */}
+        {/* Institutional Attestation */}
         <label
           style={{
             display: 'flex',
@@ -530,7 +721,7 @@ export default function ProposalForm({
         </label>
       </div>
 
-      {/* Deliverable Notes */}
+      {/* Scope Deliverables & Notes */}
       <div>
         <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 4 }}>
           Scope Deliverables &amp; Additional Notes
@@ -540,7 +731,15 @@ export default function ProposalForm({
           placeholder="Key deliverables, committee notes, or initial compliance observations..."
           value={formData.notes}
           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-          style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, boxSizing: 'border-box', resize: 'none' }}
+          style={{
+            width: '100%',
+            padding: '8px 10px',
+            borderRadius: 6,
+            border: '1px solid #cbd5e1',
+            fontSize: 12,
+            boxSizing: 'border-box',
+            resize: 'none',
+          }}
         />
       </div>
 
