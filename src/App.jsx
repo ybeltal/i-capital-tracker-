@@ -6,6 +6,7 @@ import Login from './Login'
 
 // Core CRM Screens
 import SummaryDashboard from './SummaryDashboard'
+import SbuWorkbench from './SbuWorkbench'
 import ProposalList from './ProposalList'
 import LeadList from './LeadList'
 import ClientDirectory from './ClientDirectory'
@@ -27,6 +28,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [refreshVersion, setRefreshVersion] = useState(0)
 
+  // Executive Role & View Switcher
+  const [viewMode, setViewMode] = useState('group') // 'group' (Executive Admin) | 'sbu' (BD Workbench)
+  const [selectedSbu, setSelectedSbu] = useState('Institute') // 'Institute' | 'CBS' | 'IIP' | 'DAS'
+
   // User State
   const [userEmail, setUserEmail] = useState('')
   const [userName, setUserName] = useState('Ybeltal')
@@ -39,7 +44,6 @@ export default function App() {
   const [targetContext, setTargetContext] = useState(null)
 
   useEffect(() => {
-    // 1. Check existing session on load
     supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
       setSession(existingSession)
       if (existingSession?.user) {
@@ -53,7 +57,6 @@ export default function App() {
       setAuthChecking(false)
     })
 
-    // 2. Listen for sign-in / sign-out events in real time
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, currentSession) => {
@@ -109,7 +112,6 @@ export default function App() {
     setShowProposalModal(true)
   }
 
-  // 1. Loading screen while checking authentication credentials
   if (authChecking) {
     return (
       <div
@@ -122,34 +124,31 @@ export default function App() {
           background: '#070d1e',
           color: '#ffffff',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          gap: '12px',
+          gap: 12,
         }}
       >
-        <div style={{ fontSize: '28px' }}>⚡</div>
-        <div style={{ fontSize: '14px', fontWeight: 700, letterSpacing: '0.5px' }}>
+        <div style={{ fontSize: 28 }}>⚡</div>
+        <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.5px' }}>
           Verifying security credentials…
         </div>
       </div>
     )
   }
 
-  // 2. Auth Guard: If not signed in, show the Login screen
   if (!session) {
     return <Login onLoginSuccess={(newSession) => setSession(newSession)} />
   }
 
   const navTabs = [
-    { id: 'dashboard', label: 'Summary Dashboard', icon: '📊' },
+    { id: 'dashboard', label: viewMode === 'group' ? 'Executive Dashboard' : `${selectedSbu} Workbench`, icon: viewMode === 'group' ? '📊' : '💼' },
     { id: 'proposals', label: 'Deals & Proposals', icon: '📋' },
     { id: 'leads', label: 'Lead Intake', icon: '🎯' },
     { id: 'clients', label: 'Client Directory', icon: '🏢' },
     { id: 'queue', label: 'Follow-up Queue', icon: '⏰' },
   ]
 
-  // 3. Render Authenticated Group CRM Platform
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', color: '#0f172a' }}>
-      
       {/* 1. TOP EXECUTIVE BRANDING & GOVERNANCE BAR */}
       <header
         style={{
@@ -214,6 +213,62 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          {/* VIEW MODE TOGGLE (Executive Admin vs SBU Workbench) */}
+          <div
+            style={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              padding: '4px 8px',
+              borderRadius: 8,
+              border: '1px solid rgba(255, 255, 255, 0.12)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase' }}>
+              View:
+            </span>
+            <select
+              value={viewMode}
+              onChange={(e) => setViewMode(e.target.value)}
+              style={{
+                background: '#0f172a',
+                color: '#38bdf8',
+                border: '1px solid #334155',
+                borderRadius: 6,
+                padding: '4px 8px',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              <option value="group">🏛️ Executive Admin (Group)</option>
+              <option value="sbu">💼 SBU BD Workbench</option>
+            </select>
+
+            {viewMode === 'sbu' && (
+              <select
+                value={selectedSbu}
+                onChange={(e) => setSelectedSbu(e.target.value)}
+                style={{
+                  background: '#0f172a',
+                  color: '#fbbf24',
+                  border: '1px solid #334155',
+                  borderRadius: 6,
+                  padding: '4px 8px',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="Institute">The i-Capital Institute</option>
+                <option value="CBS">Cross Border Solutions (CBS)</option>
+                <option value="IIP">Investment Partners (IIP)</option>
+                <option value="DAS">Digital &amp; AI Solutions (DAS)</option>
+              </select>
+            )}
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <UserAvatar name={userName} size={34} />
             <div style={{ textAlign: 'right' }}>
@@ -239,17 +294,14 @@ export default function App() {
               fontSize: '11px',
               fontWeight: 700,
               cursor: 'pointer',
-              transition: 'all 0.15s ease',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1e293b')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#0f172a')}
           >
             Sign out
           </button>
         </div>
       </header>
 
-      {/* 2. COMMAND HEADER: ATTRIBUTION & ACTIONS */}
+      {/* 2. COMMAND HEADER & ACTIONS */}
       <div style={{ padding: '20px 28px 0 28px', maxWidth: '1600px', margin: '0 auto' }}>
         <div
           style={{
@@ -351,7 +403,6 @@ export default function App() {
                 fontWeight: 700,
                 fontSize: '12px',
                 cursor: 'pointer',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
@@ -372,7 +423,6 @@ export default function App() {
                 fontWeight: 700,
                 fontSize: '12px',
                 cursor: 'pointer',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 6,
@@ -430,7 +480,15 @@ export default function App() {
         {/* 3. ACTIVE TAB CONTENT VIEW */}
         <main style={{ paddingBottom: '40px' }}>
           {activeTab === 'dashboard' && (
-            <SummaryDashboard onNavigateTab={setActiveTab} />
+            viewMode === 'group' ? (
+              <SummaryDashboard onNavigateTab={setActiveTab} />
+            ) : (
+              <SbuWorkbench
+                userSbu={selectedSbu}
+                onNavigateTab={setActiveTab}
+                onOpenAiParser={() => setShowAiParserModal(true)}
+              />
+            )
           )}
 
           {activeTab === 'proposals' && (
@@ -465,7 +523,7 @@ export default function App() {
         </main>
       </div>
 
-      {/* 4. MODALS */}
+      {/* MODALS */}
       {showAiParserModal && (
         <div
           style={{
@@ -661,7 +719,6 @@ export default function App() {
           </div>
         </div>
       )}
-
     </div>
   )
 }
