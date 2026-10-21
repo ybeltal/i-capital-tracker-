@@ -1,25 +1,34 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './supabase'
+import { MASTER_184_DIRECTORY } from './ClientDirectory'
 
-const SBU_CONTEXTS = {
+const SBU_CONFIG = {
   Institute: {
     name: 'The i-Capital Institute',
+    badgeBg: '#e0f2fe',
+    color: '#0284c7',
     offerings: 'Master Builder Leadership (MBL), Structured On-the-Job Training (S-OJT), and PRIME Talent Development',
     executiveAngle: 'Executive competency frameworks and leadership succession amid rapid institutional transformation.',
   },
   CBS: {
     name: 'Cross Border Solutions (CBS)',
+    badgeBg: '#e0e7ff',
+    color: '#6366f1',
     offerings: 'Overseas Board Study Tours and Executive Immersion (Dubai, Singapore, Istanbul, Nairobi)',
     executiveAngle: 'International benchmarking for Board of Directors and C-Suite leaders navigating open banking and regional competitiveness.',
   },
   IIP: {
     name: 'i-Capital Investment Partners (IIP)',
+    badgeBg: '#ccfbf1',
+    color: '#0d9488',
     offerings: 'Capital Market Readiness, Commercial Paper, Corporate Bonds, and ESX Listing Advisory',
     executiveAngle: 'Alternative debt financing, capital structuring, and balance sheet optimization under the new capital market directives.',
   },
   DAS: {
     name: 'Digital & AI Solutions (DAS)',
-    offerings: 'Enterprise Digital Transformation, Workflow AI Automation, and Core Analytics',
+    badgeBg: '#fef3c7',
+    color: '#d97706',
+    offerings: 'Enterprise Digital Transformation, SHOFER Platform, and Investify ET Automation',
     executiveAngle: 'Operational cost efficiency and digital customer workflows via automated enterprise solutions.',
   },
 }
@@ -28,6 +37,7 @@ export default function DormantAccountReviver({ onClose, onLogToQueue }) {
   const [loading, setLoading] = useState(true)
   const [dormantAccounts, setDormantAccounts] = useState([])
   const [selectedAccount, setSelectedAccount] = useState(null)
+  const [selectedSbuFilter, setSelectedSbuFilter] = useState('ALL')
   const [generating, setGenerating] = useState(false)
   const [generatedPitch, setGeneratedPitch] = useState(null)
   const [copied, setCopied] = useState(false)
@@ -39,57 +49,36 @@ export default function DormantAccountReviver({ onClose, onLogToQueue }) {
   async function scanDormantAccounts() {
     setLoading(true)
 
-    // 1. Fetch active deals from opportunities to track recent activities
+    // Fetch active pipeline deals
     const { data: opportunities } = await supabase
       .from('opportunities')
       .select('client, client_name, sbu, updated_at, created_at')
 
-    // 2. Fetch baseline client accounts
-    let clientRecords = []
-    const { data: clientsFromDb } = await supabase.from('clients').select('*')
-
-    if (clientsFromDb && clientsFromDb.length > 0) {
-      clientRecords = clientsFromDb
-    } else {
-      clientRecords = [
-        { name: 'Commercial Bank of Ethiopia (CBE)', sbu: 'Institute', sector: 'Banking', contact_person: 'VP of Human Capital' },
-        { name: 'Awash Bank', sbu: 'Institute', sector: 'Banking', contact_person: 'Chief Strategy Officer' },
-        { name: 'Dashen Bank', sbu: 'CBS', sector: 'Banking', contact_person: 'VP of Strategic Transformation' },
-        { name: 'Hibret Bank', sbu: 'IIP', sector: 'Banking', contact_person: 'Director of Treasury & Investment' },
-        { name: 'Wegagen Bank', sbu: 'Institute', sector: 'Banking', contact_person: 'Head of Learning & Dev.' },
-        { name: 'Nib International Bank', sbu: 'CBS', sector: 'Banking', contact_person: 'Executive Board Secretariat' },
-        { name: 'Enat Bank', sbu: 'Institute', sector: 'Banking', contact_person: 'Chief Operating Officer' },
-        { name: 'Ethiopian Airlines Group', sbu: 'CBS', sector: 'Aviation', contact_person: 'Managing Director of Aviation Academy' },
-        { name: 'Ethio Telecom', sbu: 'DAS', sector: 'Telecom', contact_person: 'Chief Business Development Officer' },
-        { name: 'MIDROC Investment Group', sbu: 'Institute', sector: 'Conglomerate', contact_person: 'Cluster Human Capital Lead' },
-        { name: 'BGI Ethiopia', sbu: 'Institute', sector: 'FMCG & Manufacturing', contact_person: 'Corporate Affairs Director' },
-        { name: 'Nyala Insurance', sbu: 'IIP', sector: 'Insurance', contact_person: 'Managing Director' },
-      ]
-    }
-
     const now = new Date()
 
-    // 3. Compute inactivity duration
-    const evaluated = clientRecords.map((client) => {
-      const clientName = client.name || client.institution_name || client.client
+    // Map against the official 184 Target Directory to ensure all SBUs are represented
+    const evaluated = MASTER_184_DIRECTORY.map((client) => {
+      const clientName = client.name
       const matchingDeals = (opportunities || []).filter((opp) => {
-        const oppName = opp.client || opp.client_name || ''
-        return oppName.toLowerCase().includes(clientName.toLowerCase().split(' ')[0])
+        const oppName = (opp.client || opp.client_name || '').toLowerCase()
+        return oppName.includes(clientName.toLowerCase().split(' ')[0])
       })
 
       let lastActive = null
       if (matchingDeals.length > 0) {
-        const sorted = matchingDeals.sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at))
+        const sorted = matchingDeals.sort(
+          (a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at)
+        )
         lastActive = new Date(sorted[0].updated_at || sorted[0].created_at)
       }
 
-      const daysInactive = lastActive ? Math.floor((now - lastActive) / (1000 * 60 * 60 * 24)) : 95
+      const daysInactive = lastActive
+        ? Math.floor((now - lastActive) / (1000 * 60 * 60 * 24))
+        : 95
 
       return {
         ...client,
         displayName: clientName,
-        sbu: client.sbu || 'Institute',
-        sector: client.sector || 'Financial Services',
         daysInactive,
         status: daysInactive >= 60 ? 'Dormant' : 'Active',
       }
@@ -104,19 +93,23 @@ export default function DormantAccountReviver({ onClose, onLogToQueue }) {
     setLoading(false)
   }
 
-  // Generate Personalized Executive Outreach via Gemini API
+  // Filter accounts by SBU
+  const filteredDormant = dormantAccounts.filter(
+    (acc) => selectedSbuFilter === 'ALL' || acc.sbu === selectedSbuFilter
+  )
+
   async function generateReengagementPitch() {
     if (!selectedAccount) return
     setGenerating(true)
     setGeneratedPitch(null)
     setCopied(false)
 
-    const sbuData = SBU_CONTEXTS[selectedAccount.sbu] || SBU_CONTEXTS.Institute
+    const sbuData = SBU_CONFIG[selectedAccount.sbu] || SBU_CONFIG.Institute
 
     try {
       const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY
       if (!geminiApiKey) {
-        throw new Error('Gemini API key not detected. Generating offline template.')
+        throw new Error('Gemini API key not configured.')
       }
 
       const prompt = `
@@ -131,9 +124,9 @@ Strategic Executive Focus: ${sbuData.executiveAngle}
 Target Executive Contact: ${selectedAccount.contact_person || 'Leadership Team'}
 
 Requirements:
-1. Subject line must be high-priority, executive, and non-spammy (e.g., Strategic Alignment / Executive Exploration).
-2. Reference the current market developments in Ethiopia (financial sector liberalization, digital competitiveness, or leadership capacity under transformation).
-3. Frame i-Capital's proven capability as a high-value advisory partner without sounding transactional or pushy.
+1. Subject line must be high-priority, executive, and non-spammy.
+2. Reference the current market developments in Ethiopia (financial sector liberalization, digital competitiveness, or capital market readiness).
+3. Frame i-Capital's proven capability as a high-value advisory partner.
 4. Conclude with a low-friction invitation for a 20-minute exploratory briefing.
 5. Return clean JSON with two fields: "subject" and "body".
 `
@@ -153,12 +146,11 @@ Requirements:
       const result = await response.json()
       const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text
       const parsed = JSON.parse(rawText)
-
       setGeneratedPitch(parsed)
     } catch {
       setGeneratedPitch({
         subject: `Strategic Dialogue: Enhancing Institutional Readiness & Leadership for ${selectedAccount.displayName}`,
-        body: `Dear Leadership Team,\n\nI hope this communication finds you well.\n\nOver the past months, Ethiopia's commercial environment has accelerated towards greater liberalization, heightened governance demands, and digital-first operations. In this context, institutions like ${selectedAccount.displayName} face both unique expansion horizons and strategic operational demands.\n\nAt The i-Capital Africa Group, we have recently expanded our ${sbuData.name} mandates—specifically structuring ${sbuData.offerings}.\n\nGiven your strategic positioning, we would welcome the opportunity to convene a concise, 20-minute exploratory discussion with your executive team to explore high-impact synergies.\n\nPlease let us know if your calendar permits an introductory engagement in the coming week.\n\nWith highest professional regards,\n\nSenior Business Development Officer\nThe i-Capital Africa Group\nAddis Ababa, Ethiopia`,
+        body: `Dear ${selectedAccount.contact_person || 'Executive Leadership'},\n\nI hope this communication finds you well.\n\nOver the past months, Ethiopia's commercial environment has accelerated towards greater liberalization, heightened governance demands, and digital-first operations. In this context, institutions like ${selectedAccount.displayName} face both unique expansion horizons and strategic operational demands.\n\nAt The i-Capital Africa Group, we have recently expanded our ${sbuData.name} mandates—specifically structuring ${sbuData.offerings}.\n\nGiven your strategic positioning, we would welcome the opportunity to convene a concise, 20-minute exploratory discussion with your executive team to explore high-impact synergies.\n\nPlease let us know if your calendar permits an introductory engagement in the coming week.\n\nWith highest professional regards,\n\nSenior Business Development Officer\nThe i-Capital Africa Group\nAddis Ababa, Ethiopia`,
       })
     } finally {
       setGenerating(false)
@@ -192,7 +184,7 @@ Requirements:
           background: '#ffffff',
           borderRadius: 16,
           width: '100%',
-          maxWidth: '1060px',
+          maxWidth: '1100px',
           maxHeight: '92vh',
           display: 'flex',
           flexDirection: 'column',
@@ -224,7 +216,7 @@ Requirements:
                 </span>
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                Identifies inactive high-value accounts (60+ days) and synthesizes tailored C-suite pitches.
+                Multi-SBU reactivation across the 184 directory baseline (60+ days silent).
               </div>
             </div>
           </div>
@@ -238,9 +230,74 @@ Requirements:
           </button>
         </div>
 
-        {/* Content Split: Account List & AI Pitch Builder */}
+        {/* Multi-SBU Category Filter Bar */}
+        <div
+          style={{
+            background: '#f8fafc',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '10px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase', marginRight: 4 }}>
+            FILTER SBU:
+          </span>
+          {[
+            { id: 'ALL', label: 'All SBUs', count: dormantAccounts.length },
+            { id: 'Institute', label: 'The i-Capital Institute', count: dormantAccounts.filter((d) => d.sbu === 'Institute').length },
+            { id: 'IIP', label: 'Investment Partners (IIP)', count: dormantAccounts.filter((d) => d.sbu === 'IIP').length },
+            { id: 'DAS', label: 'Digital & AI Solutions (DAS)', count: dormantAccounts.filter((d) => d.sbu === 'DAS').length },
+            { id: 'CBS', label: 'Cross Border Solutions (CBS)', count: dormantAccounts.filter((d) => d.sbu === 'CBS').length },
+          ].map((sbu) => {
+            const isSel = selectedSbuFilter === sbu.id
+            return (
+              <button
+                key={sbu.id}
+                type="button"
+                onClick={() => {
+                  setSelectedSbuFilter(sbu.id)
+                  const list = dormantAccounts.filter((d) => sbu.id === 'ALL' || d.sbu === sbu.id)
+                  if (list.length > 0) setSelectedAccount(list[0])
+                  setGeneratedPitch(null)
+                }}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: 6,
+                  border: isSel ? '1px solid #0284c7' : '1px solid #cbd5e1',
+                  background: isSel ? '#0284c7' : '#ffffff',
+                  color: isSel ? '#ffffff' : '#334155',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span>{sbu.label}</span>
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    background: isSel ? 'rgba(255,255,255,0.25)' : '#f1f5f9',
+                    color: isSel ? '#ffffff' : '#64748b',
+                    padding: '1px 5px',
+                    borderRadius: 8,
+                  }}
+                >
+                  {sbu.count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Content Split */}
         <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', flex: 1, minHeight: 0 }}>
-          {/* Left Column: Dormant Accounts List */}
+          {/* Account List */}
           <div
             style={{
               borderRight: '1px solid #e2e8f0',
@@ -252,22 +309,19 @@ Requirements:
               gap: 10,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: '#475569', textTransform: 'uppercase' }}>
-                Inactive Directory Accounts ({dormantAccounts.length})
-              </span>
-              <span style={{ fontSize: 10, color: '#ea580c', fontWeight: 700 }}>
-                60+ Days Inactive
-              </span>
-            </div>
-
             {loading ? (
               <div style={{ padding: 30, textAlign: 'center', fontSize: 12, color: '#64748b' }}>
-                Scanning Client Directory &amp; Proposals…
+                Scanning 184 Target Baseline…
+              </div>
+            ) : filteredDormant.length === 0 ? (
+              <div style={{ padding: 30, textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>
+                No dormant accounts found for {selectedSbuFilter}.
               </div>
             ) : (
-              dormantAccounts.map((acc, i) => {
+              filteredDormant.map((acc, i) => {
                 const isSelected = selectedAccount?.displayName === acc.displayName
+                const conf = SBU_CONFIG[acc.sbu] || SBU_CONFIG.Institute
+
                 return (
                   <div
                     key={i}
@@ -277,17 +331,26 @@ Requirements:
                     }}
                     style={{
                       background: '#ffffff',
-                      border: isSelected ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                      borderLeft: isSelected ? '5px solid #0284c7' : '3px solid #94a3b8',
+                      border: isSelected ? `2px solid ${conf.color}` : '1px solid #cbd5e1',
+                      borderLeft: `5px solid ${conf.color}`,
                       borderRadius: 10,
                       padding: 12,
                       cursor: 'pointer',
-                      boxShadow: isSelected ? '0 4px 10px rgba(2, 132, 199, 0.15)' : 'none',
+                      boxShadow: isSelected ? '0 4px 10px rgba(0,0,0,0.08)' : 'none',
                       transition: 'all 0.15s ease',
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: 9, fontWeight: 800, background: '#f1f5f9', color: '#334155', padding: '1px 6px', borderRadius: 4 }}>
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 800,
+                          background: conf.badgeBg,
+                          color: conf.color,
+                          padding: '2px 6px',
+                          borderRadius: 4,
+                        }}
+                      >
                         {acc.sbu}
                       </span>
                       <span style={{ fontSize: 10, fontWeight: 800, color: '#ea580c' }}>
@@ -300,7 +363,7 @@ Requirements:
                     </div>
 
                     <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                      {acc.sector} • Contact: {acc.contact_person || 'Executive Office'}
+                      {acc.sector} • Quarter: <strong>{acc.quarter}</strong>
                     </div>
                   </div>
                 )
@@ -308,21 +371,28 @@ Requirements:
             )}
           </div>
 
-          {/* Right Column: AI Pitch Generator & Preview */}
+          {/* AI Pitch Generator Panel */}
           <div style={{ padding: 24, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {selectedAccount ? (
               <>
                 <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16, border: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div>
-                      <span style={{ fontSize: 10, fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>
-                        Target Entity Strategy
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 800,
+                          color: SBU_CONFIG[selectedAccount.sbu]?.color || '#0284c7',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Target Strategic Pathway
                       </span>
                       <h4 style={{ margin: '4px 0 2px 0', fontSize: 18, color: '#0f172a', fontWeight: 900 }}>
                         {selectedAccount.displayName}
                       </h4>
                       <div style={{ fontSize: 12, color: '#64748b' }}>
-                        Strategic SBU Match: <strong>{SBU_CONTEXTS[selectedAccount.sbu]?.name}</strong>
+                        Strategic SBU: <strong>{SBU_CONFIG[selectedAccount.sbu]?.name}</strong> • Target Quarter: <strong>{selectedAccount.quarter}</strong>
                       </div>
                     </div>
 
