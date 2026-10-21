@@ -1,219 +1,134 @@
 import React from 'react'
-import { SBU_PIPELINE_TARGETS, calculatePipelineCoverage } from './pipelineConfig'
+
+const SBU_TARGETS = {
+  Institute: { name: 'The i-Capital Institute', target: 63000000, req3x: 189000000 },
+  CBS: { name: 'Cross Border Solutions', target: 35000000, req3x: 105000000 },
+  IIP: { name: 'i-Capital Investment Partners', target: 140300000, req3x: 420900000 },
+  DAS: { name: 'Digital & AI Solutions', target: 18295000, req3x: 54885000 },
+}
 
 export default function PipelineCoverageGauge({ proposals = [] }) {
-  // Filter active pipeline deals in pursuit (exclude Lost and Won)
+  // Normalize SBU naming
+  function normalizeSbu(rawSbu) {
+    if (!rawSbu) return 'Institute'
+    const s = String(rawSbu).toLowerCase()
+    if (s.includes('cross') || s.includes('cbs') || s.includes('border')) return 'CBS'
+    if (s.includes('invest') || s.includes('iip') || s.includes('partner')) return 'IIP'
+    if (s.includes('digital') || s.includes('das') || s.includes('ai')) return 'DAS'
+    return 'Institute'
+  }
+
+  // Active proposals includes Stage 1, Stage 2, and formal in-progress tenders
   const activeProposals = proposals.filter((p) => {
-    const st = (p.status || '').toLowerCase()
-    return st !== 'lost' && st !== 'closed' && st !== 'won' && st !== 'contracted won'
+    const stg = (p.status || '').toLowerCase()
+    return !stg.includes('won') && !stg.includes('lost') && !stg.includes('cancel')
   })
 
-  // Helper to resolve SBU code from proposal or linked lead
-  const getSbuCode = (p) => {
-    const code = p.sbus?.code || p.opportunities?.sbus?.code || ''
-    if (code) return code.toUpperCase()
-    // Fallback detection from title or notes
-    const txt = `${p.title || ''} ${p.product_engine || ''} ${p.notes || ''}`.toUpperCase()
-    if (txt.includes('CBS') || txt.includes('CROSS BORDER')) return 'CBS'
-    if (txt.includes('IIP') || txt.includes('INVESTMENT')) return 'IIP'
-    if (txt.includes('DAS') || txt.includes('SHOFER') || txt.includes('DIGITAL')) return 'DAS'
-    return 'INST' // Default to Institute
-  }
-
-  // Calculate active pipeline value per SBU
-  const sbuActiveValues = {
-    INST: 0,
-    CBS: 0,
-    IIP: 0,
-    DAS: 0,
-  }
-
-  // Track Direct vs Tender for Institute and Cross Border Solutions
-  const sourcingBreakdown = {
-    INST: { direct: 0, tender: 0 },
-    CBS: { direct: 0, tender: 0 },
-  }
-
-  activeProposals.forEach((p) => {
-    const val = parseFloat(p.deal_value_etb) || 0
-    const sbu = getSbuCode(p)
-    if (sbuActiveValues[sbu] !== undefined) {
-      sbuActiveValues[sbu] += val
-    }
-
-    const isTender =
-      (p.title && /bid|tender|rfp|eoi/i.test(p.title)) ||
-      (p.notes && /tender|bid|portal/i.test(p.notes)) ||
-      p.submission_deadline
-
-    if (sbu === 'INST' || sbu === 'CBS') {
-      if (isTender) {
-        sourcingBreakdown[sbu].tender += val
-      } else {
-        sourcingBreakdown[sbu].direct += val
-      }
-    }
-  })
-
-  const groupTotalActive = Object.values(sbuActiveValues).reduce((a, b) => a + b, 0)
-  const groupCoverage = calculatePipelineCoverage(
-    groupTotalActive,
-    SBU_PIPELINE_TARGETS.GROUP_TOTAL.requiredPipelineTarget
-  )
-
-  const formatM = (num) => `ETB ${(num / 1000000).toFixed(2)}M`
-
-  const getStatusColor = (status) => {
-    if (status === 'green') return { bg: '#ecfdf5', text: '#047857', border: '#a7f3d0' }
-    if (status === 'amber') return { bg: '#fffbeb', text: '#b45309', border: '#fde68a' }
-    return { bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' }
-  }
-
-  const groupColors = getStatusColor(groupCoverage.status)
-
-  const sbus = [
-    { key: 'INST', config: SBU_PIPELINE_TARGETS.INSTITUTE, hasSplit: true },
-    { key: 'CBS', config: SBU_PIPELINE_TARGETS.CBS, hasSplit: true },
-    { key: 'IIP', config: SBU_PIPELINE_TARGETS.IIP, hasSplit: false },
-    { key: 'DAS', config: SBU_PIPELINE_TARGETS.DAS, hasSplit: false },
-  ]
+  const groupTarget = 256595000 // ETB 256.60M
+  const groupReq3x = 769785000   // ETB 769.78M
+  const groupActiveValue = activeProposals.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+  const groupCoverage = groupTarget > 0 ? (groupActiveValue / groupTarget).toFixed(2) : '0.00'
+  const groupGap = groupActiveValue - groupReq3x
 
   return (
-    <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: 18, marginBottom: 20 }}>
-      {/* Top Banner: Group 3x Coverage Real-Time Gauge */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+    <div
+      style={{
+        background: '#ffffff',
+        borderRadius: 12,
+        border: '1px solid #e2e8f0',
+        padding: 20,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 14 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>
-              3× Required Pipeline Coverage & Gap Gauge
+            <h3 style={{ margin: 0, fontSize: 15, fontWeight: 900, color: '#0f172a' }}>
+              3× Required Pipeline Coverage &amp; Gap Gauge
             </h3>
             <span
               style={{
-                fontSize: 11,
-                fontWeight: 700,
+                fontSize: 10,
+                fontWeight: 800,
                 padding: '2px 8px',
-                borderRadius: 4,
-                background: groupColors.bg,
-                color: groupColors.text,
-                border: `1px solid ${groupColors.border}`,
+                borderRadius: 6,
+                background: Number(groupCoverage) >= 3 ? '#dcfce7' : '#fee2e2',
+                color: Number(groupCoverage) >= 3 ? '#15803d' : '#b91c1c',
               }}
             >
-              {groupCoverage.ratio}× Coverage ({groupCoverage.status.toUpperCase()})
+              {groupCoverage}× Coverage ({Number(groupCoverage) >= 3 ? 'HEALTHY' : 'DEFICIT'})
             </span>
           </div>
-          <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b' }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
             Group Governance Rule: 3.0× active pipeline required to secure the ETB 256.60M revenue target.
-          </p>
+          </div>
         </div>
 
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>GROUP PIPELINE GAP TO 3×</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: groupCoverage.gap > 0 ? '#b91c1c' : '#047857' }}>
-            {groupCoverage.gap > 0 ? `- ${formatM(groupCoverage.gap)}` : 'TARGET COVERED ✓'}
+          <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+            GROUP PIPELINE GAP TO 3×
+          </div>
+          <div style={{ fontSize: 22, fontWeight: 900, color: groupGap >= 0 ? '#166534' : '#dc2626', marginTop: 2 }}>
+            {groupGap >= 0 ? '+' : '-'}ETB {new Intl.NumberFormat('en-US').format(Math.abs(groupGap))}
+          </div>
+          <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>
+            Benchmark (3× Target): <strong>ETB 769.78M</strong>
           </div>
         </div>
       </div>
 
-      {/* Group Progress Bar */}
-      <div style={{ marginTop: 12, background: '#f1f5f9', borderRadius: 999, height: 10, overflow: 'hidden' }}>
-        <div
-          style={{
-            width: `${groupCoverage.coveragePercent}%`,
-            height: '100%',
-            background: groupCoverage.status === 'green' ? '#10b981' : groupCoverage.status === 'amber' ? '#f59e0b' : '#ef4444',
-            transition: 'width 0.5s ease',
-          }}
-        />
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', marginTop: 4 }}>
-        <span>Active: <strong>{formatM(groupTotalActive)}</strong></span>
-        <span>Benchmark (3× Target): <strong>{formatM(SBU_PIPELINE_TARGETS.GROUP_TOTAL.requiredPipelineTarget)}</strong></span>
-      </div>
-
-      {/* SBU Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12, marginTop: 16 }}>
-        {sbus.map(({ key, config, hasSplit }) => {
-          const activeVal = sbuActiveValues[key] || 0
-          const cov = calculatePipelineCoverage(activeVal, config.requiredPipelineTarget)
-          const col = getStatusColor(cov.status)
-          const displayName = key === 'CBS' ? 'Cross Border Solutions' : config.name
+      {/* SBU Micro-Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 }}>
+        {Object.entries(SBU_TARGETS).map(([key, cfg]) => {
+          const sbuDeals = activeProposals.filter((p) => {
+            const sbuName = p.opportunities?.sbus?.name || p.sbu || ''
+            return normalizeSbu(sbuName) === key
+          })
+          const sbuActiveVal = sbuDeals.reduce((sum, p) => sum + (Number(p.deal_value_etb) || 0), 0)
+          const sbuCov = cfg.target > 0 ? (sbuActiveVal / cfg.target).toFixed(2) : '0.00'
+          const sbuGap = sbuActiveVal - cfg.req3x
+          const pctFill = Math.min(100, Math.round((sbuActiveVal / cfg.req3x) * 100))
 
           return (
             <div
               key={key}
               style={{
-                border: '1px solid #e2e8f0',
-                borderRadius: 6,
-                padding: 12,
                 background: '#f8fafc',
+                border: '1px solid #e2e8f0',
+                borderRadius: 8,
+                padding: 12,
                 display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'space-between',
+                gap: 5,
               }}
             >
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong style={{ fontSize: 13, color: '#1e293b' }}>{displayName}</strong>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: '2px 6px',
-                      borderRadius: 4,
-                      background: col.bg,
-                      color: col.text,
-                      border: `1px solid ${col.border}`,
-                    }}
-                  >
-                    {cov.ratio}×
-                  </span>
-                </div>
-
-                <div style={{ marginTop: 8, fontSize: 12, color: '#475569' }}>
-                  <div>Active: <strong>{formatM(activeVal)}</strong></div>
-                  <div style={{ fontSize: 11, color: '#64748b' }}>
-                    3× Target: {formatM(config.requiredPipelineTarget)}
-                  </div>
-                </div>
-
-                {/* Direct vs Tender Split for Institute & Cross Border Solutions */}
-                {hasSplit && (
-                  <div
-                    style={{
-                      marginTop: 8,
-                      paddingTop: 6,
-                      borderTop: '1px dashed #cbd5e1',
-                      fontSize: 10,
-                      color: '#475569',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span>Direct Outreach:</span>
-                      <strong>{formatM(sourcingBreakdown[key].direct)}</strong>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
-                      <span>Competitive Bids:</span>
-                      <strong>{formatM(sourcingBreakdown[key].tender)}</strong>
-                    </div>
-                  </div>
-                )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{cfg.name}</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: Number(sbuCov) >= 3 ? '#15803d' : '#ea580c' }}>
+                  {sbuCov}×
+                </span>
               </div>
 
-              {/* SBU Mini Progress Bar */}
-              <div style={{ marginTop: 10 }}>
-                <div style={{ background: '#e2e8f0', borderRadius: 999, height: 6, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${cov.coveragePercent}%`,
-                      height: '100%',
-                      background: cov.status === 'green' ? '#10b981' : cov.status === 'amber' ? '#f59e0b' : '#ef4444',
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#64748b', marginTop: 2 }}>
-                  <span>{cov.coveragePercent}% filled</span>
-                  <span>{cov.gap > 0 ? `Gap: ${formatM(cov.gap)}` : 'Ready ✓'}</span>
-                </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: '#64748b' }}>Active:</span>
+                <strong style={{ color: '#0f172a' }}>
+                  ETB {new Intl.NumberFormat('en-US').format(sbuActiveVal)}
+                </strong>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#64748b' }}>
+                <span>3× Target: ETB {(cfg.req3x / 1000000).toFixed(2)}M</span>
+                <span>Gap: {(sbuGap / 1000000).toFixed(1)}M</span>
+              </div>
+
+              <div style={{ width: '100%', height: 5, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden', marginTop: 4 }}>
+                <div
+                  style={{
+                    width: `${pctFill}%`,
+                    height: '100%',
+                    background: pctFill >= 100 ? '#10b981' : pctFill >= 30 ? '#0284c7' : '#ea580c',
+                  }}
+                />
               </div>
             </div>
           )
