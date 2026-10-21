@@ -63,7 +63,7 @@ export function AuthRoleProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        fetchUserProfile(session.user.id)
+        fetchUserProfile(session.user)
       } else {
         setProfile(null)
         setLoading(false)
@@ -73,34 +73,44 @@ export function AuthRoleProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  async function fetchUserProfile(userId = null) {
+  async function fetchUserProfile(currentUser = null) {
     try {
-      let targetId = userId
-      if (!targetId) {
-        const { data: { user } } = await supabase.auth.getUser()
-        targetId = user?.id
+      let user = currentUser
+      if (!user) {
+        const { data: authData } = await supabase.auth.getUser()
+        user = authData?.user
       }
 
-      if (!targetId) {
+      if (!user) {
         setProfile(null)
         setLoading(false)
         return
       }
 
+      const email = user.email ? user.email.toLowerCase() : ''
+      const isYbeltalAdmin = email.includes('ybeltal') || email === 'ybeltalsemagn8899@gmail.com'
+
+      // Query database profile
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', targetId)
+        .eq('id', user.id)
         .maybeSingle()
 
       if (!error && data) {
-        setProfile(data)
-      } else {
-        // Fallback profile if row is being synced
         setProfile({
-          id: targetId,
-          role: 'read_only',
-          assigned_sbu: 'Institute',
+          ...data,
+          // Guarantee admin permissions for your primary account
+          role: isYbeltalAdmin ? 'admin' : data.role,
+          assigned_sbu: isYbeltalAdmin ? 'All' : data.assigned_sbu,
+        })
+      } else {
+        // Immediate fallback with Admin guarantee for Ybeltal
+        setProfile({
+          id: user.id,
+          email: user.email,
+          role: isYbeltalAdmin ? 'admin' : 'read_only',
+          assigned_sbu: isYbeltalAdmin ? 'All' : 'Institute',
           is_active: true,
         })
       }
