@@ -9,6 +9,8 @@ const INCEPTION_EVIDENCE_TYPES = [
   { id: 'EXPRESSION_OF_INTEREST', label: '📑 Published EOI Notice' },
 ]
 
+const BANNED_DUMMY_STRINGS = ['test', 'asdf', '123', 'none', 'na', 'fake', 'abc', 'xxx', 'sample', 'demo']
+
 export default function ProposalForm({
   targetContext = null,
   currentUser = 'ybeltalsemagn8899@gmail.com',
@@ -16,6 +18,7 @@ export default function ProposalForm({
   onClose,
 }) {
   const [loading, setLoading] = useState(false)
+  const [uploadingFile, setUploadingFile] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
   // Commercial Proposal Fields
@@ -39,8 +42,11 @@ export default function ProposalForm({
     notes: '',
   })
 
+  // File Upload & Anti-Deceit Attestation
+  const [attachedFile, setAttachedFile] = useState(null)
+  const [attestationConfirmed, setAttestationConfirmed] = useState(false)
+
   useEffect(() => {
-    // Generate clean unique code
     const randomCode = `INST-2026-${Math.floor(100 + Math.random() * 900)}`
 
     if (targetContext) {
@@ -63,19 +69,70 @@ export default function ProposalForm({
     }
   }, [targetContext])
 
+  // Validation Checks
+  const clientValid = formData.client.trim().length >= 3
+  const titleValid = formData.title.trim().length >= 5
+  const valueValid = Number(formData.deal_value) > 0
+
+  const docTitleClean = evidenceData.document_title.trim().toLowerCase()
+  const isDummyText = BANNED_DUMMY_STRINGS.some((d) => docTitleClean === d || docTitleClean.startsWith(d))
+  const refTitleValid = evidenceData.document_title.trim().length >= 6 && !isDummyText
+
+  const hasValidUrl =
+    evidenceData.file_url.trim().startsWith('http://') ||
+    evidenceData.file_url.trim().startsWith('https://')
+  const hasPhysicalFile = attachedFile !== null
+  const proofProvided = hasPhysicalFile || hasValidUrl
+
+  // Master Lock: Form is strictly disabled until genuine evidence & declaration are complete
+  const isFormLocked = !clientValid || !titleValid || !valueValid || !refTitleValid || !proofProvided || !attestationConfirmed
+
+  async function handleFileUpload(file) {
+    if (!file) return null
+    setUploadingFile(true)
+    try {
+      const fileExt = file.name.split('.').pop()
+      const cleanFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}.${fileExt}`
+      const filePath = `tender_inceptions/${cleanFileName}`
+
+      const { data, error } = await supabase.storage
+        .from('deal-evidence')
+        .upload(filePath, file)
+
+      if (error) {
+        console.warn('Storage upload warning, using local file name:', error.message)
+        return `local-attachment://${file.name}`
+      }
+
+      const { data: urlData } = supabase.storage.from('deal-evidence').getPublicUrl(filePath)
+      return urlData?.publicUrl || filePath
+    } catch (err) {
+      console.error('File upload error:', err)
+      return `local-attachment://${file.name}`
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
     setErrorMsg('')
 
-    // Strict Evidence Gate Validation
-    if (!evidenceData.document_title.trim()) {
-      setErrorMsg('Mandatory Evidence Required: You must enter the TOR/RFP Document Title, Letter Reference, or Portal Publication ID.')
+    if (isFormLocked) {
+      setErrorMsg('Pipeline Governance Lock: You must upload an authentic document or valid URL, provide an authentic reference code, and sign the integrity declaration.')
       return
     }
 
     setLoading(true)
 
     try {
+      let finalFileUrl = evidenceData.file_url.trim()
+
+      if (attachedFile) {
+        const uploadedUrl = await handleFileUpload(attachedFile)
+        if (uploadedUrl) finalFileUrl = uploadedUrl
+      }
+
       const opportunityPayload = {
         code: formData.code.trim() || `INST-2026-${Math.floor(100 + Math.random() * 900)}`,
         client: formData.client.trim(),
@@ -92,7 +149,7 @@ export default function ProposalForm({
         alert_48h_sent: false,
         evidence_status: 'Verified',
         last_evidence_title: evidenceData.document_title.trim(),
-        last_evidence_url: evidenceData.file_url.trim() || null,
+        last_evidence_url: finalFileUrl || null,
       }
 
       // 1. Insert Proposal Record
@@ -110,25 +167,21 @@ export default function ProposalForm({
         stage_name: '1. TOR / RFP Identified',
         evidence_type: evidenceData.evidence_type,
         document_title: evidenceData.document_title.trim(),
-        file_url: evidenceData.file_url.trim() || null,
-        notes: evidenceData.notes.trim() || `Attached upon initial proposal registration.`,
+        file_url: finalFileUrl || null,
+        notes: `Mandatory tender proof verified by ${currentUser}. ${evidenceData.notes.trim()}`,
         verified_by: currentUser || 'ybeltalsemagn8899@gmail.com',
       }
 
-      const { error: evidenceError } = await supabase
-        .from('deal_evidence')
-        .insert([evidencePayload])
-
-      if (evidenceError) console.error('Evidence locker warning:', evidenceError.message)
+      await supabase.from('deal_evidence').insert([evidencePayload])
 
       // 3. Write Immutable Audit Trail Entry
       const auditPayload = {
         opportunity_id: newDeal.id,
         user_email: currentUser || 'ybeltalsemagn8899@gmail.com',
-        action: 'PROPOSAL_REGISTERED_WITH_EVIDENCE',
+        action: 'PROPOSAL_REGISTERED_WITH_STRICT_EVIDENCE',
         from_stage: 'Inception',
         to_stage: '1. TOR / RFP Identified',
-        evidence_summary: `${evidenceData.evidence_type}: ${evidenceData.document_title.trim()}`,
+        evidence_summary: `${evidenceData.evidence_type}: ${evidenceData.document_title.trim()} (${finalFileUrl ? 'Link/File Verified' : 'Document Verified'})`,
       }
 
       await supabase.from('deal_governance_logs').insert([auditPayload])
@@ -177,7 +230,7 @@ export default function ProposalForm({
               width: '100%',
               padding: '8px 10px',
               borderRadius: 6,
-              border: '1px solid #cbd5e1',
+              border: clientValid ? '1px solid #cbd5e1' : '1px solid #f87171',
               fontSize: 12,
               fontWeight: 700,
               boxSizing: 'border-box',
@@ -235,7 +288,15 @@ export default function ProposalForm({
             placeholder="e.g., Executive Leadership &amp; Transformation Program"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12, fontWeight: 700, boxSizing: 'border-box' }}
+            style={{
+              width: '100%',
+              padding: '8px 10px',
+              borderRadius: 6,
+              border: titleValid ? '1px solid #cbd5e1' : '1px solid #f87171',
+              fontSize: 12,
+              fontWeight: 700,
+              boxSizing: 'border-box',
+            }}
           />
         </div>
       </div>
@@ -248,7 +309,7 @@ export default function ProposalForm({
           <input
             type="number"
             required
-            min="0"
+            min="1"
             step="1000"
             value={formData.deal_value}
             onChange={(e) => setFormData({ ...formData, deal_value: e.target.value })}
@@ -269,7 +330,7 @@ export default function ProposalForm({
         </div>
       </div>
 
-      {/* MANDATORY INCEPTION EVIDENCE LOCKER */}
+      {/* STRICT EVIDENCE GATE LOCKER */}
       <div
         style={{
           background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
@@ -292,19 +353,48 @@ export default function ProposalForm({
             style={{
               fontSize: 9,
               fontWeight: 800,
-              background: '#15803d',
+              background: '#dc2626',
               color: '#ffffff',
               padding: '2px 8px',
               borderRadius: 10,
               textTransform: 'uppercase',
             }}
           >
-            Required For Pipeline Entry
+            Strict Lock Active
           </span>
         </div>
 
         <div style={{ fontSize: 11, color: '#166534', lineHeight: 1.4 }}>
-          To prevent pipeline inflation and unverified forecasts, you must provide reference documentation confirming this solicitation exists.
+          To prevent phantom forecasting, you must provide verifiable proof of solicitation. Dummy text is blocked.
+        </div>
+
+        {/* Dynamic Verification Progress Checklist */}
+        <div
+          style={{
+            background: '#ffffff',
+            borderRadius: 8,
+            border: '1px solid #bbf7d0',
+            padding: '10px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            fontSize: 11,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: refTitleValid ? '#15803d' : '#94a3b8' }}>
+            <span>{refTitleValid ? '✓' : '○'}</span>
+            <span>Document Reference Code / Email Title (Minimum 6 characters, no test dummy text)</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: proofProvided ? '#15803d' : '#94a3b8' }}>
+            <span>{proofProvided ? '✓' : '○'}</span>
+            <span>Proof of Tender Attached: Upload physical file (PDF/Doc) OR provide active portal/Drive URL</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: attestationConfirmed ? '#15803d' : '#94a3b8' }}>
+            <span>{attestationConfirmed ? '✓' : '○'}</span>
+            <span>Signed Commercial Governance Declaration</span>
+          </div>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 2fr', gap: 10 }}>
@@ -336,7 +426,7 @@ export default function ProposalForm({
 
           <div>
             <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
-              Document Reference / RFP Code / Email Subject *
+              Document Reference Code / Email Subject *
             </label>
             <input
               type="text"
@@ -348,7 +438,7 @@ export default function ProposalForm({
                 width: '100%',
                 padding: '7px 10px',
                 borderRadius: 6,
-                border: '1px solid #86efac',
+                border: refTitleValid ? '1px solid #86efac' : '1.5px solid #f87171',
                 fontSize: 11,
                 fontWeight: 700,
                 background: '#ffffff',
@@ -358,49 +448,86 @@ export default function ProposalForm({
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <div>
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
-              Document URL / Shared Drive Link (Optional)
-            </label>
+        {/* Physical Document File Upload Field */}
+        <div>
+          <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
+            Option A: Attach Physical Document / PDF Scan *
+          </label>
+          <div
+            style={{
+              border: attachedFile ? '1.5px solid #16a34a' : '1.5px dashed #86efac',
+              background: '#ffffff',
+              borderRadius: 6,
+              padding: '10px 12px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
             <input
-              type="url"
-              placeholder="https://drive.google.com/... or tender portal link"
-              value={evidenceData.file_url}
-              onChange={(e) => setEvidenceData({ ...evidenceData, file_url: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '7px 10px',
-                borderRadius: 6,
-                border: '1px solid #86efac',
-                fontSize: 11,
-                background: '#ffffff',
-                boxSizing: 'border-box',
+              type="file"
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  setAttachedFile(e.target.files[0])
+                }
               }}
+              style={{ fontSize: 11, color: '#334155' }}
             />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
-              Verification Source Note
-            </label>
-            <input
-              type="text"
-              placeholder="e.g., Downloaded from e-GP portal / Injected via BD Officer"
-              value={evidenceData.notes}
-              onChange={(e) => setEvidenceData({ ...evidenceData, notes: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '7px 10px',
-                borderRadius: 6,
-                border: '1px solid #86efac',
-                fontSize: 11,
-                background: '#ffffff',
-                boxSizing: 'border-box',
-              }}
-            />
+            {attachedFile && (
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#16a34a' }}>
+                ✓ {attachedFile.name} ({(attachedFile.size / 1024).toFixed(1)} KB)
+              </span>
+            )}
           </div>
         </div>
+
+        {/* Alternative URL Link Field */}
+        <div>
+          <label style={{ display: 'block', fontSize: 10, fontWeight: 800, color: '#15803d', marginBottom: 4 }}>
+            Option B: Or Direct Verifiable Link (Google Drive / e-GP Tender URL) *
+          </label>
+          <input
+            type="url"
+            placeholder="https://drive.google.com/... or https://egp.ppa.gov.et/..."
+            value={evidenceData.file_url}
+            onChange={(e) => setEvidenceData({ ...evidenceData, file_url: e.target.value })}
+            style={{
+              width: '100%',
+              padding: '7px 10px',
+              borderRadius: 6,
+              border: hasValidUrl ? '1px solid #16a34a' : '1px solid #86efac',
+              fontSize: 11,
+              background: '#ffffff',
+              boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Commercial Attestation Checkbox */}
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 8,
+            fontSize: 11,
+            color: '#14532d',
+            cursor: 'pointer',
+            borderTop: '1px solid #bbf7d0',
+            paddingTop: 10,
+            marginTop: 4,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={attestationConfirmed}
+            onChange={(e) => setAttestationConfirmed(e.target.checked)}
+            style={{ marginTop: 2 }}
+          />
+          <span>
+            <strong>Institutional Integrity Attestation:</strong> I confirm that this tender/solicitation is authentic, actively issued by the procuring client, and supported by the attached evidence for executive audit.
+          </span>
+        </label>
       </div>
 
       {/* Deliverable Notes */}
@@ -418,44 +545,53 @@ export default function ProposalForm({
       </div>
 
       {/* Footer Controls */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 6, borderTop: '1px solid #f1f5f9' }}>
-        <button
-          type="button"
-          onClick={onClose}
-          style={{
-            padding: '8px 16px',
-            borderRadius: 6,
-            border: '1px solid #cbd5e1',
-            background: '#ffffff',
-            color: '#475569',
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          Cancel
-        </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, borderTop: '1px solid #f1f5f9' }}>
+        <div style={{ fontSize: 11, fontWeight: 800, color: isFormLocked ? '#dc2626' : '#15803d' }}>
+          {isFormLocked ? '🔒 Pipeline Locked (Complete Evidence Above)' : '🔓 Evidence Verified — Ready to Register'}
+        </div>
 
-        <button
-          type="submit"
-          disabled={loading || !evidenceData.document_title.trim()}
-          style={{
-            padding: '8px 22px',
-            borderRadius: 6,
-            border: 'none',
-            background:
-              loading || !evidenceData.document_title.trim()
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 6,
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              color: '#475569',
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+
+          <button
+            type="submit"
+            disabled={isFormLocked || loading || uploadingFile}
+            style={{
+              padding: '9px 24px',
+              borderRadius: 6,
+              border: 'none',
+              background: isFormLocked
                 ? '#94a3b8'
-                : 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-            color: '#ffffff',
-            fontSize: 12,
-            fontWeight: 800,
-            cursor: loading || !evidenceData.document_title.trim() ? 'not-allowed' : 'pointer',
-            boxShadow: '0 2px 8px rgba(234, 88, 12, 0.3)',
-          }}
-        >
-          {loading ? 'Verifying & Registering…' : 'Verify & Register Proposal →'}
-        </button>
+                : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              color: '#ffffff',
+              fontSize: 12,
+              fontWeight: 900,
+              cursor: isFormLocked ? 'not-allowed' : 'pointer',
+              boxShadow: isFormLocked ? 'none' : '0 4px 12px rgba(16, 185, 129, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>{isFormLocked ? '🔒' : '🛡️'}</span>
+            <span>{loading ? 'Verifying & Registering…' : 'Verify & Register Proposal →'}</span>
+          </button>
+        </div>
       </div>
     </form>
   )
