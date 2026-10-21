@@ -11,9 +11,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
+    "dotenv": "^18.0.8",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "recharts": "^3.10.1"
+    "recharts": "^3.10.1",
+    "resend": "^6.34.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",
