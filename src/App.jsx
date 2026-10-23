@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import SummaryDashboard from './SummaryDashboard'
 import RoleManagerModal from './RoleManagerModal'
-import UserGuideModal from './UserManualModal'
+import UserGuideModal from './UserGuideModal'
 
 const ROLE_CONFIGS = {
   admin: {
