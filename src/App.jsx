@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 
-// Core Dashboard & Governance
+// Core Governance & Dashboards
 import SummaryDashboard from './SummaryDashboard'
 import RoleManagerModal from './RoleManagerModal'
 import UserGuideModal from './UserManualModal'
+import SpotlightTour from './SpotlightTour'
 
 // Real Feature Components
 import ProposalList from './ProposalList'
@@ -79,12 +80,13 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true)
 
   // Navigation & View State
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState('proposals')
   const [previewRole, setPreviewRole] = useState('')
 
   // Active Modals & Selected Records
   const [showRoleManager, setShowRoleManager] = useState(false)
   const [showUserGuide, setShowUserGuide] = useState(false)
+  const [showTour, setShowTour] = useState(false)
   const [showNewProposalModal, setShowNewProposalModal] = useState(false)
   const [showNewLeadModal, setShowNewLeadModal] = useState(false)
   const [showNewClientModal, setShowNewClientModal] = useState(false)
@@ -170,9 +172,7 @@ export default function App() {
         password: passwordInput,
       })
       if (error) throw error
-      if (data?.session) {
-        setSession(data.session)
-      }
+      if (data?.session) setSession(data.session)
     } catch (err) {
       setLoginError(err.message || 'Invalid credentials. Please verify your email and password.')
     } finally {
@@ -185,9 +185,7 @@ export default function App() {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: window.location.origin,
-        },
+        options: { redirectTo: window.location.origin },
       })
       if (error) throw error
     } catch (err) {
@@ -224,15 +222,13 @@ export default function App() {
         }}
       >
         <div style={{ fontSize: 32, marginBottom: 12 }}>⚡</div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>
-          THE i-CAPITAL CRM
-        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>THE i-CAPITAL CRM</div>
         <div style={{ fontSize: 12, marginTop: 4 }}>Authenticating institutional session…</div>
       </div>
     )
   }
 
-  // 1. DUAL-PANEL LOGIN SCREEN WITH INSTITUTIONAL LOGO
+  // Dual-Panel Login Gateway
   if (!session) {
     return (
       <div
@@ -259,7 +255,7 @@ export default function App() {
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.65)',
           }}
         >
-          {/* Left Hero Column */}
+          {/* Left Column */}
           <div
             style={{
               flex: '1 1 420px',
@@ -273,7 +269,6 @@ export default function App() {
           >
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-                {/* Official Logo Graphic */}
                 <div style={{ background: '#ffffff', padding: '6px 12px', borderRadius: 8, display: 'flex', alignItems: 'center' }}>
                   <img
                     src="/logo.png"
@@ -359,7 +354,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Right Sign-In Form */}
+          {/* Right Form */}
           <div
             style={{
               flex: '1 1 360px',
@@ -488,17 +483,13 @@ export default function App() {
                 {submittingLogin ? 'Verifying Credentials…' : 'Sign In to Platform →'}
               </button>
             </form>
-
-            <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8', marginTop: 22 }}>
-              Authorized Personnel Only • The i-Capital Africa Group
-            </div>
           </div>
         </div>
       </div>
     )
   }
 
-  // 2. AUTHENTICATED WORKSPACE
+  // Authenticated Platform
   return (
     <div
       style={{
@@ -508,7 +499,7 @@ export default function App() {
         color: '#0f172a',
       }}
     >
-      {/* Top Header */}
+      {/* 1. Header */}
       <header
         style={{
           background: 'linear-gradient(90deg, #060b18 0%, #0a1128 50%, #0f172a 100%)',
@@ -523,7 +514,6 @@ export default function App() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* Logo Graphic in Header */}
           <div style={{ background: '#ffffff', padding: '3px 8px', borderRadius: 4, display: 'flex', alignItems: 'center' }}>
             <img
               src="/logo.png"
@@ -536,9 +526,7 @@ export default function App() {
             />
           </div>
 
-          <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.5px' }}>
-            THE I-CAPITAL CRM
-          </span>
+          <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.5px' }}>THE I-CAPITAL CRM</span>
 
           <span
             style={{
@@ -556,6 +544,27 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setShowTour(true)}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#10b981',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: 11,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>⚡</span>
+            <span>Take 60s Tour</span>
+          </button>
+
           <button
             type="button"
             onClick={() => setShowUserGuide(true)}
@@ -649,7 +658,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Quick Action Bar */}
+      {/* 2. Quick Actions */}
       <section
         style={{
           background: '#ffffff',
@@ -746,7 +755,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Navigation Tabs */}
+      {/* 3. Navigation Tabs */}
       <nav
         style={{
           background: '#ffffff',
@@ -786,13 +795,12 @@ export default function App() {
         })}
       </nav>
 
-      {/* Real Feature Component Mounting */}
+      {/* 4. Active Tab Content */}
       <main style={{ padding: '24px 28px', maxWidth: 1440, margin: '0 auto' }}>
         {activeTab === 'dashboard' && (
           <SummaryDashboard onNavigateTab={(tab) => setActiveTab(tab)} />
         )}
 
-        {/* Tab 1: Deals & Proposals with List and Editor */}
         {activeTab === 'proposals' && (
           <div>
             {selectedProposal ? (
@@ -811,7 +819,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 2: Lead Intake with List and Editor */}
         {activeTab === 'leads' && (
           <div>
             {selectedLead ? (
@@ -830,12 +837,10 @@ export default function App() {
           </div>
         )}
 
-        {/* Tab 3: Digital Marketing Leads */}
         {activeTab === 'marketing' && (
           <DigitalMarketingLeads userProfile={profile} />
         )}
 
-        {/* Tab 4: Client Directory */}
         {activeTab === 'clients' && (
           <ClientDirectory
             userProfile={profile}
@@ -843,43 +848,237 @@ export default function App() {
           />
         )}
 
-        {/* Tab 5: Follow-up Queue */}
         {activeTab === 'queue' && (
           <FollowUpQueue userProfile={profile} />
         )}
       </main>
 
-      {/* Real Modal Dialogs */}
+      {/* ========================================================= */}
+      {/* 5. FLOATING MODAL OVERLAYS (PROPER POPUP VIEWPORTS)       */}
+      {/* ========================================================= */}
+
+      {/* AI Tender Parser Modal */}
+      {showAiParserModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            overflowY: 'auto',
+          }}
+          onClick={() => setShowAiParserModal(false)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: 14,
+              width: '100%',
+              maxWidth: 960,
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20 }}>✨</span>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                  AI TOR / RFP Tender Document Parser
+                </h3>
+                <span style={{ fontSize: 10, fontWeight: 700, background: '#e0f2fe', color: '#0284c7', padding: '2px 8px', borderRadius: 10 }}>
+                  Gemini Multimodal Engine
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAiParserModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: 22, color: '#64748b', cursor: 'pointer', padding: 4 }}
+              >
+                ✕
+              </button>
+            </div>
+            <AiTenderParser
+              userProfile={profile}
+              onClose={() => setShowAiParserModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* New Proposal Modal */}
+      {showNewProposalModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            overflowY: 'auto',
+          }}
+          onClick={() => setShowNewProposalModal(false)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: 14,
+              width: '100%',
+              maxWidth: 1080,
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20 }}>📑</span>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                  Register New Proposal Mandate
+                </h3>
+                <span style={{ fontSize: 10, fontWeight: 700, background: '#ffedd5', color: '#ea580c', padding: '2px 8px', borderRadius: 10 }}>
+                  Stage-Gate Verification
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewProposalModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: 22, color: '#64748b', cursor: 'pointer', padding: 4 }}
+              >
+                ✕
+              </button>
+            </div>
+            <ProposalForm
+              userProfile={profile}
+              onClose={() => setShowNewProposalModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* New Lead Modal */}
+      {showNewLeadModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            overflowY: 'auto',
+          }}
+          onClick={() => setShowNewLeadModal(false)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: 14,
+              width: '100%',
+              maxWidth: 780,
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20 }}>🎯</span>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                  Capture Pre-Tender Lead
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewLeadModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: 22, color: '#64748b', cursor: 'pointer', padding: 4 }}
+              >
+                ✕
+              </button>
+            </div>
+            <LeadForm
+              userProfile={profile}
+              onClose={() => setShowNewLeadModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* New Client Modal */}
+      {showNewClientModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+            overflowY: 'auto',
+          }}
+          onClick={() => setShowNewClientModal(false)}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: 14,
+              width: '100%',
+              maxWidth: 780,
+              maxHeight: '92vh',
+              overflowY: 'auto',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              padding: 24,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 20 }}>🏢</span>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                  Register New Client / Procuring Entity
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowNewClientModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: 22, color: '#64748b', cursor: 'pointer', padding: 4 }}
+              >
+                ✕
+              </button>
+            </div>
+            <ClientForm
+              userProfile={profile}
+              onClose={() => setShowNewClientModal(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Other System Modals */}
+      <SpotlightTour isOpen={showTour} onClose={() => setShowTour(false)} />
       <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
       <RoleManagerModal isOpen={showRoleManager} onClose={() => setShowRoleManager(false)} />
-
-      {showAiParserModal && (
-        <AiTenderParser
-          userProfile={profile}
-          onClose={() => setShowAiParserModal(false)}
-        />
-      )}
-
-      {showNewProposalModal && (
-        <ProposalForm
-          userProfile={profile}
-          onClose={() => setShowNewProposalModal(false)}
-        />
-      )}
-
-      {showNewLeadModal && (
-        <LeadForm
-          userProfile={profile}
-          onClose={() => setShowNewLeadModal(false)}
-        />
-      )}
-
-      {showNewClientModal && (
-        <ClientForm
-          userProfile={profile}
-          onClose={() => setShowNewClientModal(false)}
-        />
-      )}
     </div>
   )
 }
