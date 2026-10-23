@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import SummaryDashboard from './SummaryDashboard'
 import RoleManagerModal from './RoleManagerModal'
-import UserGuideModal from './UserGuideModal'
+import UserGuideModal from './UserManualModal'
 import SpotlightTour from './SpotlightTour'
 
 const ROLE_CONFIGS = {
@@ -123,6 +123,7 @@ export default function App() {
         .single()
 
       if (error && !data) {
+        // Fallback profile if record is loading
         setProfile({
           id: user.id,
           email: user.email,
@@ -221,7 +222,7 @@ export default function App() {
     )
   }
 
-  // Dual-Panel Login Screen
+  // Dual-Panel Login Screen (Matches Governance Gateway Design)
   if (!session) {
     return (
       <div
@@ -561,7 +562,7 @@ export default function App() {
 
         {/* Header Action Tools */}
         <div id="tour-executive-dossier" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {/* 60-SECOND SPOTLIGHT TOUR BUTTON */}
+          {/* ⚡ TAKE 60S SPOTLIGHT TOUR */}
           <button
             type="button"
             onClick={() => setShowTour(true)}
@@ -607,7 +608,7 @@ export default function App() {
             <span>User Manual &amp; SOP</span>
           </button>
 
-          {/* MANAGE ROLES (Admin Only) */}
+          {/* MANAGE ROLES (Visible to Admins) */}
           {isActualAdmin && (
             <button
               type="button"
@@ -631,7 +632,7 @@ export default function App() {
             </button>
           )}
 
-          {/* ROLE VIEW SELECTOR (For Admin Previews) */}
+          {/* ROLE VIEW SELECTOR (For Testing & Previews) */}
           {isActualAdmin && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#1e293b', padding: '3px 8px', borderRadius: 6 }}>
               <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 800 }}>VIEW:</span>
@@ -741,7 +742,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Global Quick Action Buttons (Targeted by Tour) */}
+        {/* Global Quick Action Buttons */}
         <div id="tour-quick-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -816,7 +817,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* 3. NAVIGATION TAB STRIP (Targeted by Tour) */}
+      {/* 3. NAVIGATION TAB STRIP */}
       <nav
         id="tour-pipeline-tabs"
         style={{
@@ -925,25 +926,25 @@ export default function App() {
         )}
       </main>
 
-      {/* 5. INTERACTIVE 60-SECOND SPOTLIGHT TOUR */}
-      <SpotlightTour
-        isOpen={showTour}
-        onClose={() => setShowTour(false)}
-      />
-
-      {/* 6. USER MANUAL & SOP MODAL */}
+      {/* 5. USER MANUAL & SOP MODAL */}
       <UserGuideModal
         isOpen={showUserGuide}
         onClose={() => setShowUserGuide(false)}
       />
 
-      {/* 7. INSTITUTIONAL ROLE MANAGER MODAL */}
+      {/* 6. INSTITUTIONAL ROLE MANAGER MODAL */}
       <RoleManagerModal
         isOpen={showRoleManager}
         onClose={() => setShowRoleManager(false)}
       />
 
-      {/* 8. QUICK ACTION DIALOGS */}
+      {/* 7. SPOTLIGHT TOUR MODAL */}
+      <SpotlightTour
+        isOpen={showTour}
+        onClose={() => setShowTour(false)}
+      />
+
+      {/* 8. QUICK ACTION PLACEHOLDER DIALOGS */}
       {(showNewProposalModal || showNewLeadModal || showNewClientModal || showAiParserModal) && (
         <div
           style={{
