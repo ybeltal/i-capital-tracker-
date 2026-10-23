@@ -1,8 +1,23 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
+
+// Core Dashboard & Governance
 import SummaryDashboard from './SummaryDashboard'
 import RoleManagerModal from './RoleManagerModal'
-import UserGuideModal from './UserGuideModal'
+import UserGuideModal from './UserManualModal'
+
+// Real Feature Components
+import ProposalList from './ProposalList'
+import ProposalForm from './ProposalForm'
+import ProposalEditor from './ProposalEditor'
+import LeadList from './LeadList'
+import LeadForm from './LeadForm'
+import LeadEditor from './LeadEditor'
+import DigitalMarketingLeads from './DigitalMarketingLeads'
+import ClientDirectory from './ClientDirectory'
+import ClientForm from './ClientForm'
+import FollowUpQueue from './FollowUpQueue'
+import AiTenderParser from './AiTenderParser'
 
 const ROLE_CONFIGS = {
   admin: {
@@ -63,8 +78,11 @@ export default function App() {
   const [profile, setProfile] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
 
-  // Navigation & Modals
+  // Navigation & View State
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [previewRole, setPreviewRole] = useState('')
+
+  // Active Modals & Selected Records
   const [showRoleManager, setShowRoleManager] = useState(false)
   const [showUserGuide, setShowUserGuide] = useState(false)
   const [showNewProposalModal, setShowNewProposalModal] = useState(false)
@@ -72,8 +90,8 @@ export default function App() {
   const [showNewClientModal, setShowNewClientModal] = useState(false)
   const [showAiParserModal, setShowAiParserModal] = useState(false)
 
-  // Role Simulation for Testing / Previews
-  const [previewRole, setPreviewRole] = useState('')
+  const [selectedProposal, setSelectedProposal] = useState(null)
+  const [selectedLead, setSelectedLead] = useState(null)
 
   // Login Form States
   const [emailInput, setEmailInput] = useState('')
@@ -81,7 +99,6 @@ export default function App() {
   const [loginError, setLoginError] = useState('')
   const [submittingLogin, setSubmittingLogin] = useState(false)
 
-  // Listen to Supabase Auth State
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
@@ -121,7 +138,6 @@ export default function App() {
         .single()
 
       if (error && !data) {
-        // Fallback profile if record is loading
         setProfile({
           id: user.id,
           email: user.email,
@@ -158,7 +174,7 @@ export default function App() {
         setSession(data.session)
       }
     } catch (err) {
-      setLoginError(err.message || 'Invalid login credentials. Please check your email and password.')
+      setLoginError(err.message || 'Invalid credentials. Please verify your email and password.')
     } finally {
       setSubmittingLogin(false)
     }
@@ -186,7 +202,6 @@ export default function App() {
     setPreviewRole('')
   }
 
-  // Active role determination
   const effectiveRole = previewRole || profile?.role || 'read_only'
   const activeRoleConfig = ROLE_CONFIGS[effectiveRole] || ROLE_CONFIGS.read_only
   const isActualAdmin =
@@ -194,7 +209,6 @@ export default function App() {
     profile?.email === 'ybeltalsemagn8899@gmail.com' ||
     profile?.email === 'ybeltal@icapitalafrica.org'
 
-  // Loading Screen
   if (authLoading) {
     return (
       <div
@@ -213,14 +227,12 @@ export default function App() {
         <div style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>
           THE i-CAPITAL CRM
         </div>
-        <div style={{ fontSize: 12, marginTop: 4 }}>
-          Authenticating institutional session…
-        </div>
+        <div style={{ fontSize: 12, marginTop: 4 }}>Authenticating institutional session…</div>
       </div>
     )
   }
 
-  // Dual-Panel Login Screen (Matches Governance Gateway Design)
+  // 1. DUAL-PANEL LOGIN SCREEN WITH INSTITUTIONAL LOGO
   if (!session) {
     return (
       <div
@@ -260,20 +272,19 @@ export default function App() {
             }}
           >
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-                <span
-                  style={{
-                    fontWeight: 900,
-                    fontSize: 16,
-                    letterSpacing: '0.5px',
-                    padding: '4px 8px',
-                    background: '#ffffff',
-                    color: '#0f172a',
-                    borderRadius: 4,
-                  }}
-                >
-                  i-CAPITAL
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
+                {/* Official Logo Graphic */}
+                <div style={{ background: '#ffffff', padding: '6px 12px', borderRadius: 8, display: 'flex', alignItems: 'center' }}>
+                  <img
+                    src="/logo.png"
+                    alt="The i-Capital Africa Institute"
+                    onError={(e) => {
+                      e.target.style.display = 'none'
+                      e.target.parentNode.innerText = 'i-CAPITAL'
+                    }}
+                    style={{ height: 28, objectFit: 'contain' }}
+                  />
+                </div>
                 <span
                   style={{
                     fontSize: 10,
@@ -359,9 +370,7 @@ export default function App() {
               backgroundColor: '#ffffff',
             }}
           >
-            <h3 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 900, color: '#0f172a' }}>
-              Sign In
-            </h3>
+            <h3 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 900, color: '#0f172a' }}>Sign In</h3>
             <p style={{ margin: '0 0 20px 0', fontSize: 12, color: '#64748b' }}>
               Access your group pipeline, proposals, and target metrics.
             </p>
@@ -406,7 +415,6 @@ export default function App() {
                 justifyContent: 'center',
                 gap: 10,
                 marginBottom: 16,
-                boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
               }}
             >
               <span style={{ fontWeight: 900, color: '#4285f4' }}>G</span>
@@ -415,9 +423,7 @@ export default function App() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 16px 0' }}>
               <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8', letterSpacing: '0.5px' }}>
-                OR SIGN IN WITH EMAIL
-              </span>
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>OR SIGN IN WITH EMAIL</span>
               <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
             </div>
 
@@ -439,7 +445,6 @@ export default function App() {
                     border: '1px solid #cbd5e1',
                     fontSize: 13,
                     boxSizing: 'border-box',
-                    outline: 'none',
                   }}
                 />
               </div>
@@ -461,7 +466,6 @@ export default function App() {
                     border: '1px solid #cbd5e1',
                     fontSize: 13,
                     boxSizing: 'border-box',
-                    outline: 'none',
                   }}
                 />
               </div>
@@ -479,7 +483,6 @@ export default function App() {
                   fontWeight: 800,
                   fontSize: 13,
                   cursor: submittingLogin ? 'not-allowed' : 'pointer',
-                  transition: 'background 0.15s ease',
                 }}
               >
                 {submittingLogin ? 'Verifying Credentials…' : 'Sign In to Platform →'}
@@ -495,7 +498,7 @@ export default function App() {
     )
   }
 
-  // Authenticated Application Workspace
+  // 2. AUTHENTICATED WORKSPACE
   return (
     <div
       style={{
@@ -505,7 +508,7 @@ export default function App() {
         color: '#0f172a',
       }}
     >
-      {/* 1. TOP EXECUTIVE HEADER */}
+      {/* Top Header */}
       <header
         style={{
           background: 'linear-gradient(90deg, #060b18 0%, #0a1128 50%, #0f172a 100%)',
@@ -520,24 +523,22 @@ export default function App() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span
-              style={{
-                fontWeight: 900,
-                fontSize: 13,
-                padding: '3px 6px',
-                background: '#ffffff',
-                color: '#0f172a',
-                borderRadius: 4,
-                letterSpacing: '0.5px',
+          {/* Logo Graphic in Header */}
+          <div style={{ background: '#ffffff', padding: '3px 8px', borderRadius: 4, display: 'flex', alignItems: 'center' }}>
+            <img
+              src="/logo.png"
+              alt="i-Capital"
+              onError={(e) => {
+                e.target.style.display = 'none'
+                e.target.parentNode.innerText = 'i-CAPITAL'
               }}
-            >
-              i-CAPITAL
-            </span>
-            <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.5px' }}>
-              THE I-CAPITAL CRM
-            </span>
+              style={{ height: 20, objectFit: 'contain' }}
+            />
           </div>
+
+          <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.5px' }}>
+            THE I-CAPITAL CRM
+          </span>
 
           <span
             style={{
@@ -552,15 +553,9 @@ export default function App() {
           >
             {activeRoleConfig.label}
           </span>
-
-          <span style={{ fontSize: 11, color: '#94a3b8', display: 'none', md: 'inline' }}>
-            Group Commercial Intelligence &amp; Multi-SBU Pipeline Tracker
-          </span>
         </div>
 
-        {/* Header Action Tools */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {/* USER MANUAL & SOP BUTTON */}
           <button
             type="button"
             onClick={() => setShowUserGuide(true)}
@@ -576,14 +571,12 @@ export default function App() {
               display: 'flex',
               alignItems: 'center',
               gap: 6,
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
             }}
           >
             <span>📘</span>
             <span>User Manual &amp; SOP</span>
           </button>
 
-          {/* MANAGE ROLES (Visible to Admins) */}
           {isActualAdmin && (
             <button
               type="button"
@@ -607,7 +600,6 @@ export default function App() {
             </button>
           )}
 
-          {/* ROLE VIEW SELECTOR (For Testing & Previews) */}
           {isActualAdmin && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#1e293b', padding: '3px 8px', borderRadius: 6 }}>
               <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 800 }}>VIEW:</span>
@@ -624,7 +616,7 @@ export default function App() {
                   outline: 'none',
                 }}
               >
-                <option value="admin" style={{ background: '#0f172a' }}>Executive Admin (Group)</option>
+                <option value="admin" style={{ background: '#0f172a' }}>Executive Admin</option>
                 <option value="exec_mgmt" style={{ background: '#0f172a' }}>Senior Management</option>
                 <option value="bd_manager" style={{ background: '#0f172a' }}>BD Manager</option>
                 <option value="tech_lead" style={{ background: '#0f172a' }}>Technical Lead</option>
@@ -633,42 +625,9 @@ export default function App() {
             </div>
           )}
 
-          {/* USER ACCOUNT PILL */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              background: '#1e293b',
-              padding: '4px 10px',
-              borderRadius: 20,
-              fontSize: 11,
-            }}
-          >
-            <div
-              style={{
-                width: 20,
-                height: 20,
-                borderRadius: '50%',
-                background: '#0284c7',
-                color: '#fff',
-                fontSize: 10,
-                fontWeight: 900,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {(profile?.full_name || profile?.email || 'U')[0].toUpperCase()}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontWeight: 700, color: '#f1f5f9' }}>
-                {profile?.email?.split('@')[0]}
-              </span>
-            </div>
-            <span style={{ fontSize: 9, color: '#38bdf8', fontWeight: 700 }}>
-              Scope: {profile?.assigned_sbu || 'All'}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1e293b', padding: '4px 10px', borderRadius: 20, fontSize: 11 }}>
+            <span style={{ fontWeight: 700, color: '#f1f5f9' }}>{profile?.email?.split('@')[0]}</span>
+            <span style={{ fontSize: 9, color: '#38bdf8', fontWeight: 700 }}>Scope: {profile?.assigned_sbu || 'All'}</span>
           </div>
 
           <button
@@ -690,7 +649,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. SUB-BANNER WITH QUICK ACTION SHORTCUTS */}
+      {/* Quick Action Bar */}
       <section
         style={{
           background: '#ffffff',
@@ -705,19 +664,14 @@ export default function App() {
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
-              Welcome back, {profile?.full_name || profile?.email?.split('@')[0]}
-            </span>
-            <span style={{ fontSize: 11, color: '#0284c7', fontWeight: 600 }}>
-              Developed by Ybeltal Semagn
-            </span>
+            <span style={{ fontSize: 14, fontWeight: 800 }}>Welcome back, {profile?.full_name || profile?.email?.split('@')[0]}</span>
+            <span style={{ fontSize: 11, color: '#0284c7', fontWeight: 600 }}>Developed by Ybeltal Semagn</span>
           </div>
           <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
             The i-Capital Africa Group • Commercial Governance &amp; Revenue Operations Platform
           </div>
         </div>
 
-        {/* Global Quick Action Buttons */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -792,7 +746,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* 3. NAVIGATION TAB STRIP */}
+      {/* Navigation Tabs */}
       <nav
         style={{
           background: '#ffffff',
@@ -832,175 +786,99 @@ export default function App() {
         })}
       </nav>
 
-      {/* 4. MAIN CONTENT ROUTER */}
+      {/* Real Feature Component Mounting */}
       <main style={{ padding: '24px 28px', maxWidth: 1440, margin: '0 auto' }}>
         {activeTab === 'dashboard' && (
           <SummaryDashboard onNavigateTab={(tab) => setActiveTab(tab)} />
         )}
 
+        {/* Tab 1: Deals & Proposals with List and Editor */}
         {activeTab === 'proposals' && (
-          <div style={{ background: '#fff', padding: 24, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-              <div>
-                <h3 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}>Deals &amp; Proposals Pipeline</h3>
-                <div style={{ fontSize: 12, color: '#64748b' }}>
-                  Stage-Gate governance from TOR Identified to Contract Signed.
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowNewProposalModal(true)}
-                style={{ padding: '8px 14px', background: '#ea580c', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
-              >
-                + Register Proposal Mandate
-              </button>
-            </div>
-            <p style={{ fontSize: 12, color: '#64748b' }}>
-              Select an opportunity to view Go/No-Go scorecards, financial schedules, and technical requirements.
-            </p>
+          <div>
+            {selectedProposal ? (
+              <ProposalEditor
+                proposal={selectedProposal}
+                userProfile={profile}
+                onClose={() => setSelectedProposal(null)}
+              />
+            ) : (
+              <ProposalList
+                userProfile={profile}
+                onSelectProposal={(p) => setSelectedProposal(p)}
+                onNewProposal={() => setShowNewProposalModal(true)}
+              />
+            )}
           </div>
         )}
 
+        {/* Tab 2: Lead Intake with List and Editor */}
         {activeTab === 'leads' && (
-          <div style={{ background: '#fff', padding: 24, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}>Pre-Tender Lead Qualification</h3>
-            <p style={{ fontSize: 12, color: '#64748b' }}>
-              Early-stage institutional inquiries undergoing initial discovery and commercial relationship management.
-            </p>
+          <div>
+            {selectedLead ? (
+              <LeadEditor
+                lead={selectedLead}
+                userProfile={profile}
+                onClose={() => setSelectedLead(null)}
+              />
+            ) : (
+              <LeadList
+                userProfile={profile}
+                onSelectLead={(l) => setSelectedLead(l)}
+                onNewLead={() => setShowNewLeadModal(true)}
+              />
+            )}
           </div>
         )}
 
+        {/* Tab 3: Digital Marketing Leads */}
         {activeTab === 'marketing' && (
-          <div style={{ background: '#fff', padding: 24, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}>Digital Marketing Leads</h3>
-            <p style={{ fontSize: 12, color: '#64748b' }}>
-              Inbound executive training and consulting inquiries captured via web forms and institutional landing pages.
-            </p>
-          </div>
+          <DigitalMarketingLeads userProfile={profile} />
         )}
 
+        {/* Tab 4: Client Directory */}
         {activeTab === 'clients' && (
-          <div style={{ background: '#fff', padding: 24, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}>Client Directory (184 Mapped Targets)</h3>
-            <p style={{ fontSize: 12, color: '#64748b' }}>
-              Institutional accounts across Ethiopian financial services, state enterprises, NGOs, and corporate groups.
-            </p>
-          </div>
+          <ClientDirectory
+            userProfile={profile}
+            onNewClient={() => setShowNewClientModal(true)}
+          />
         )}
 
+        {/* Tab 5: Follow-up Queue */}
         {activeTab === 'queue' && (
-          <div style={{ background: '#fff', padding: 24, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: 0, fontSize: 16, color: '#0f172a' }}>Commercial Follow-up Queue</h3>
-            <p style={{ fontSize: 12, color: '#64748b' }}>
-              Time-sensitive touchpoints, TOR clarification deadlines, and proposal submission countdowns.
-            </p>
-          </div>
+          <FollowUpQueue userProfile={profile} />
         )}
       </main>
 
-      {/* 5. USER MANUAL & SOP MODAL */}
-      <UserGuideModal
-        isOpen={showUserGuide}
-        onClose={() => setShowUserGuide(false)}
-      />
+      {/* Real Modal Dialogs */}
+      <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
+      <RoleManagerModal isOpen={showRoleManager} onClose={() => setShowRoleManager(false)} />
 
-      {/* 6. INSTITUTIONAL ROLE MANAGER MODAL */}
-      <RoleManagerModal
-        isOpen={showRoleManager}
-        onClose={() => setShowRoleManager(false)}
-      />
+      {showAiParserModal && (
+        <AiTenderParser
+          userProfile={profile}
+          onClose={() => setShowAiParserModal(false)}
+        />
+      )}
 
-      {/* 7. QUICK ACTION PLACEHOLDER DIALOGS */}
-      {(showNewProposalModal || showNewLeadModal || showNewClientModal || showAiParserModal) && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.65)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-          onClick={() => {
-            setShowNewProposalModal(false)
-            setShowNewLeadModal(false)
-            setShowNewClientModal(false)
-            setShowAiParserModal(false)
-          }}
-        >
-          <div
-            style={{
-              background: '#ffffff',
-              borderRadius: 12,
-              padding: 24,
-              width: '100%',
-              maxWidth: 440,
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 style={{ margin: '0 0 8px 0', fontSize: 16, color: '#0f172a' }}>
-              {showAiParserModal
-                ? '✨ AI Tender Parser'
-                : showNewProposalModal
-                ? '+ New Proposal Mandate'
-                : showNewLeadModal
-                ? '+ Register New Lead'
-                : '+ Register New Client'}
-            </h3>
-            <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 16px 0' }}>
-              {showAiParserModal
-                ? 'Upload an institutional TOR or RFP document to extract deliverables, evaluation criteria, and key expert profiles.'
-                : 'Enter opportunity details. All registered records link directly to the opportunities table and update your SBU quota gauges.'}
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowNewProposalModal(false)
-                  setShowNewLeadModal(false)
-                  setShowNewClientModal(false)
-                  setShowAiParserModal(false)
-                }}
-                style={{
-                  padding: '8px 14px',
-                  borderRadius: 6,
-                  border: '1px solid #cbd5e1',
-                  background: '#fff',
-                  fontSize: 12,
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  alert('Form submission active. Records write directly to the opportunities table.')
-                  setShowNewProposalModal(false)
-                  setShowNewLeadModal(false)
-                  setShowNewClientModal(false)
-                  setShowAiParserModal(false)
-                }}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 6,
-                  border: 'none',
-                  background: '#0284c7',
-                  color: '#fff',
-                  fontSize: 12,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Proceed
-              </button>
-            </div>
-          </div>
-        </div>
+      {showNewProposalModal && (
+        <ProposalForm
+          userProfile={profile}
+          onClose={() => setShowNewProposalModal(false)}
+        />
+      )}
+
+      {showNewLeadModal && (
+        <LeadForm
+          userProfile={profile}
+          onClose={() => setShowNewLeadModal(false)}
+        />
+      )}
+
+      {showNewClientModal && (
+        <ClientForm
+          userProfile={profile}
+          onClose={() => setShowNewClientModal(false)}
+        />
       )}
     </div>
   )
