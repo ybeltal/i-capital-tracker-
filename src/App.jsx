@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
 import SummaryDashboard from './SummaryDashboard'
 import RoleManagerModal from './RoleManagerModal'
-import UserGuideModal from './UserManualModal'
+import UserGuideModal from './UserGuideModal'
+import SpotlightTour from './SpotlightTour'
 
 const ROLE_CONFIGS = {
   admin: {
@@ -67,6 +68,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [showRoleManager, setShowRoleManager] = useState(false)
   const [showUserGuide, setShowUserGuide] = useState(false)
+  const [showTour, setShowTour] = useState(false)
   const [showNewProposalModal, setShowNewProposalModal] = useState(false)
   const [showNewLeadModal, setShowNewLeadModal] = useState(false)
   const [showNewClientModal, setShowNewClientModal] = useState(false)
@@ -121,7 +123,6 @@ export default function App() {
         .single()
 
       if (error && !data) {
-        // Fallback profile if record is loading
         setProfile({
           id: user.id,
           email: user.email,
@@ -220,7 +221,7 @@ export default function App() {
     )
   }
 
-  // Dual-Panel Login Screen (Matches Governance Gateway Design)
+  // Dual-Panel Login Screen
   if (!session) {
     return (
       <div
@@ -559,7 +560,30 @@ export default function App() {
         </div>
 
         {/* Header Action Tools */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div id="tour-executive-dossier" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* 60-SECOND SPOTLIGHT TOUR BUTTON */}
+          <button
+            type="button"
+            onClick={() => setShowTour(true)}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: '#10b981',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              fontWeight: 700,
+              fontSize: 11,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            }}
+          >
+            <span>⚡</span>
+            <span>Take 60s Tour</span>
+          </button>
+
           {/* USER MANUAL & SOP BUTTON */}
           <button
             type="button"
@@ -583,7 +607,7 @@ export default function App() {
             <span>User Manual &amp; SOP</span>
           </button>
 
-          {/* MANAGE ROLES (Visible to Admins) */}
+          {/* MANAGE ROLES (Admin Only) */}
           {isActualAdmin && (
             <button
               type="button"
@@ -607,7 +631,7 @@ export default function App() {
             </button>
           )}
 
-          {/* ROLE VIEW SELECTOR (For Testing & Previews) */}
+          {/* ROLE VIEW SELECTOR (For Admin Previews) */}
           {isActualAdmin && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#1e293b', padding: '3px 8px', borderRadius: 6 }}>
               <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 800 }}>VIEW:</span>
@@ -717,8 +741,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Global Quick Action Buttons */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {/* Global Quick Action Buttons (Targeted by Tour) */}
+        <div id="tour-quick-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button
             type="button"
             onClick={() => setShowAiParserModal(true)}
@@ -792,8 +816,9 @@ export default function App() {
         </div>
       </section>
 
-      {/* 3. NAVIGATION TAB STRIP */}
+      {/* 3. NAVIGATION TAB STRIP (Targeted by Tour) */}
       <nav
+        id="tour-pipeline-tabs"
         style={{
           background: '#ffffff',
           padding: '0 24px',
@@ -835,7 +860,9 @@ export default function App() {
       {/* 4. MAIN CONTENT ROUTER */}
       <main style={{ padding: '24px 28px', maxWidth: 1440, margin: '0 auto' }}>
         {activeTab === 'dashboard' && (
-          <SummaryDashboard onNavigateTab={(tab) => setActiveTab(tab)} />
+          <div id="tour-coverage-gauge">
+            <SummaryDashboard onNavigateTab={(tab) => setActiveTab(tab)} />
+          </div>
         )}
 
         {activeTab === 'proposals' && (
@@ -898,19 +925,25 @@ export default function App() {
         )}
       </main>
 
-      {/* 5. USER MANUAL & SOP MODAL */}
+      {/* 5. INTERACTIVE 60-SECOND SPOTLIGHT TOUR */}
+      <SpotlightTour
+        isOpen={showTour}
+        onClose={() => setShowTour(false)}
+      />
+
+      {/* 6. USER MANUAL & SOP MODAL */}
       <UserGuideModal
         isOpen={showUserGuide}
         onClose={() => setShowUserGuide(false)}
       />
 
-      {/* 6. INSTITUTIONAL ROLE MANAGER MODAL */}
+      {/* 7. INSTITUTIONAL ROLE MANAGER MODAL */}
       <RoleManagerModal
         isOpen={showRoleManager}
         onClose={() => setShowRoleManager(false)}
       />
 
-      {/* 7. QUICK ACTION PLACEHOLDER DIALOGS */}
+      {/* 8. QUICK ACTION DIALOGS */}
       {(showNewProposalModal || showNewLeadModal || showNewClientModal || showAiParserModal) && (
         <div
           style={{
