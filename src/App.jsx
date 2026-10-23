@@ -121,6 +121,7 @@ export default function App() {
         .single()
 
       if (error && !data) {
+        // Fallback profile if record is loading
         setProfile({
           id: user.id,
           email: user.email,
@@ -185,6 +186,7 @@ export default function App() {
     setPreviewRole('')
   }
 
+  // Active role determination
   const effectiveRole = previewRole || profile?.role || 'read_only'
   const activeRoleConfig = ROLE_CONFIGS[effectiveRole] || ROLE_CONFIGS.read_only
   const isActualAdmin =
@@ -192,6 +194,7 @@ export default function App() {
     profile?.email === 'ybeltalsemagn8899@gmail.com' ||
     profile?.email === 'ybeltal@icapitalafrica.org'
 
+  // Loading Screen
   if (authLoading) {
     return (
       <div
@@ -217,6 +220,7 @@ export default function App() {
     )
   }
 
+  // Dual-Panel Login Screen (Matches Governance Gateway Design)
   if (!session) {
     return (
       <div
