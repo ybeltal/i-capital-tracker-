@@ -1,153 +1,246 @@
 // src/crmAssistantKnowledge.js
 
-export const SUGGESTED_QUESTIONS = [
-  "How do I add a new Lead?",
-  "How do I create and log a Proposal?",
-  "What do the Stage Gates (Stage 1, 2, 3) mean?",
-  "What is the 3.0× Coverage target?",
-  "Where does my saved data go?",
-  "How does the Executive Briefing work?"
+export const QUICK_TOPIC_CATEGORIES = [
+  { label: '🌟 Full Overview', query: 'explain the entire crm flow' },
+  { label: '🎯 Lead Intake', query: 'how to capture and qualify leads' },
+  { label: '📑 Deals & Proposals', query: 'how to create and track proposals' },
+  { label: '📈 3.0× Target Rule', query: 'how does the 3.0x pipeline coverage work' },
+  { label: '🏛️ 4 SBUs Quotas', query: 'what are the sbu targets and quotas' },
+  { label: '✨ AI Tender Parser', query: 'how does the ai tender parser work' },
+  { label: '🏢 Client Directory', query: 'how does the client 360 drawer work' },
+  { label: '⏰ Follow-up Queue', query: 'how does the follow up queue work' }
 ]
 
-const KNOWLEDGE_TOPICS = [
+const CRM_KNOWLEDGE_BASE = [
   {
-    keywords: ['lead', 'add lead', 'new lead', 'create lead', 'lead form'],
-    title: 'How to Capture and Manage a Lead',
-    answer: `
-**Step-by-Step: Adding a New Lead**
-1. Click the **"+ New Lead"** button on the top navigation bar or inside the **Lead Management** tab.
-2. Fill in the essential details:
-   • **Client / Organization Name:** e.g., *Awash Bank, Ethiopian Capital Market Authority*.
-   • **Sector:** Choose Financial, Public Sector, Mining, Development Partner, etc.
-   • **Assigned SBU:** Select the responsible business unit (*Institute, CBS, IIP, or DAS*).
-   • **Focal Contact Person:** Full name, designation/role, phone number, and work email.
-   • **Lead Source:** Direct inquiry, referral, tender publication, or relationship outreach.
-   • **Qualification Status:** Mark as *Initiated, Qualified, or In Discussion*.
+    id: 'crm_overview',
+    title: 'The i-Capital Commercial Platform — Complete Flow & Purpose',
+    keywords: ['explain', 'overview', 'crm', 'about', 'flow', 'what is', 'purpose', 'how it works', 'guide', 'introduction', 'start'],
+    content: `
+### Executive Platform Overview
+**The i-Capital CRM** is the institutional revenue governance and commercial operations platform for **The i-Capital Africa Group**. It unites four Strategic Business Units (SBUs) under a single pipeline model to achieve the corporate annual target of **ETB 256.60 Million**.
+
+#### End-to-End Operational Flow:
+1. **Intake (Lead Generation):** Capture early-stage intelligence from tender advertisements, client referrals, or direct discussions in **Lead Intake** or **Digital Marketing Leads**.
+2. **Analysis (AI Parsing):** Upload RFP/TOR PDFs to the **✨ AI Tender Parser** to extract scopes, submission deadlines, and eligibility criteria in seconds.
+3. **Execution (Proposal Mandate):** Register formal bids in **Deals & Proposals**, assigning them to an SBU and advancing them through Stage 1 (TOR/RFP), Stage 2 (Technical Defense), and Stage 3 (Contract Won).
+4. **Governance (Executive Dashboard):** Real-time monitoring of commercial health, tracking whether each SBU maintains its mandatory **3.0× pipeline coverage**.
+5. **Follow-up & Watchdogs:** The **Follow-up Queue** and background watchdogs track upcoming submission deadlines and client touchpoints.
+6. **Executive Dispatch:** Automated reporting generates weekly executive dossiers sent directly to **Dr. Gemechu Waktola**.
+    `
+  },
+  {
+    id: 'lead_flow',
+    title: 'Capturing, Qualifying & Managing Leads',
+    keywords: ['lead', 'add lead', 'new lead', 'create lead', 'lead form', 'qualification', 'intake', 'focal'],
+    content: `
+### How to Capture and Manage a Lead
+Leads represent pre-tender opportunities, exploratory conversations, and early institutional relationships.
+
+#### Step-by-Step Instructions:
+1. Click the white **"+ New Lead"** button in the top action bar or navigate to the **Lead Intake** tab.
+2. Fill out the core intake fields:
+   • **Client / Organization Name:** e.g., *Awash Bank, Ethiopian Capital Market Authority (ECMA)*.
+   • **Sector:** Select Banking & Finance, Public Sector, Mining, Development Partner, etc.
+   • **Assigned SBU:** Allocate to *The Institute, CBS, IIP, or DAS*.
+   • **Focal Contact Person:** Name, job title, work email, and direct phone number.
+   • **Lead Source:** Referral, direct meeting, public tender, or marketing campaign.
+   • **Qualification Status:** Select *Initiated (Unqualified), Qualified, or In Discussion*.
 3. Click **"Save Lead"**.
 
-*Where does it go?*
-The record is immediately saved into your Supabase \`leads\` table and becomes visible in the **Lead Directory** and **Follow-up Queue** for scheduled outreach.
+*Where is it stored?*
+Data is saved instantly to the Supabase \`leads\` table. It becomes actionable in the **Lead Directory** and **Follow-up Queue**. Once an official TOR/RFP is released, convert the lead into a formal proposal.
     `
   },
   {
-    keywords: ['proposal', 'add proposal', 'new proposal', 'submit proposal', 'create proposal', 'bid'],
-    title: 'How to Register and Track a Proposal',
-    answer: `
-**Step-by-Step: Creating a Proposal**
-1. Navigate to the **Proposal Management** tab and click **"+ Create Proposal"**.
-2. Complete the required mandate fields:
-   • **Proposal Code:** Automatically generated or custom (e.g., \`INST-2026-685\`).
-   • **Mandate Title:** Clear, full title of the technical assignment or training.
-   • **Client:** Select an existing client from your directory or type the entity name.
-   • **Strategic Business Unit (SBU):** Allocate to *The Institute, CBS, IIP, or DAS*.
-   • **Commercial Value (ETB):** Enter the fee/contract value in Ethiopian Birr.
-   • **Current Stage Gate:** Choose where the proposal currently stands (Stage 1, Stage 2, etc.).
-   • **Submission Deadline:** Tender deadline or client defense date.
+    id: 'proposal_flow',
+    title: 'Creating and Managing Proposal Mandates',
+    keywords: ['proposal', 'add proposal', 'new proposal', 'submit', 'create proposal', 'bid', 'mandate', 'commercial value', 'fee'],
+    content: `
+### How to Register and Track a Proposal Mandate
+Proposals represent active bids, formal technical submissions, and contracted consulting or training assignments.
+
+#### Step-by-Step Instructions:
+1. Click the orange **"+ New Proposal"** button in the top action bar or open the **Deals & Proposals** tab.
+2. Enter the mandatory contract parameters:
+   • **Proposal Code:** Auto-assigned or custom (e.g., \`INST-2026-685\`).
+   • **Mandate Title:** Full descriptive title of the assignment.
+   • **Procuring Entity / Client:** Select from the Client Directory or type a new entity.
+   • **Responsible SBU:** *The Institute, CBS, IIP, or DAS*.
+   • **Commercial Value (ETB):** The proposed professional fee or contract value in Ethiopian Birr.
+   • **Current Stage Gate:** Stage 1, Stage 2, or Stage 3.
+   • **Submission Deadline:** The client's submission date or oral defense date.
 3. Click **"Save Proposal"**.
 
-*Flow:* Once saved, the commercial value is instantly added to your live pipeline calculations on the **Executive Dashboard**.
+*System Impact:* Saving immediately recalculates the live SBU pipeline, updates the **Executive Dashboard**, and adjusts group quota realization figures.
     `
   },
   {
-    keywords: ['stage', 'stage gate', 'tor', 'rfp', 'defense', 'won', 'lost', 'status'],
-    title: 'Understanding CRM Stage Gates & Probabilities',
-    answer: `
-The CRM follows a strict 3-tier Stage-Gate governance model:
+    id: 'stage_gates',
+    title: 'Stage-Gate Governance & Probability Weightings',
+    keywords: ['stage', 'stage gate', 'probability', 'weight', 'defense', 'won', 'lost', 'status', 'tor', 'rfp'],
+    content: `
+### Stage-Gate Governance Model
+To prevent revenue distortion, opportunities carry probability weightings based on their verification stage:
 
 • **Stage 1: TOR / RFP Identified (30% Probability Weight)**
-  The bidding opportunity is open, terms of reference are being analyzed, or technical proposals are in preparation.
-
+  Opportunity identified, tender documents purchased, or technical proposal in development.
 • **Stage 2: Proposal In Defense (70% Probability Weight)**
-  The technical & financial proposal has been submitted to the client. The team is presenting defenses, negotiations, or waiting for contract awards.
-
-• **Stage 3: Contract Won / Signed (100% Realized)**
-  The contract is awarded, signed, and transitioning to execution. Its value counts directly toward your annual closed revenue quota.
-
+  Technical and financial proposals delivered to client. Active commercial defense, negotiations, or evaluation ongoing.
+• **Stage 3: Contract Won / Signed (100% Realized Revenue)**
+  Award letter received or service contract fully signed. Contributes 100% to the annual realized revenue quota.
 • **Closed Lost / Disqualified (0% Weight)**
-  The bid was dropped or awarded to a competitor. These are retained for post-mortem analysis and win-rate calculation.
+  Opportunity dropped, tender canceled, or lost to a competitor. Kept for historical conversion and win-rate analysis.
     `
   },
   {
-    keywords: ['3.0x', 'coverage', 'target', 'quota', 'benchmark', '769', '256', 'sbu'],
-    title: 'SBU Targets & the 3.0× Pipeline Rule',
-    answer: `
-**Group Annual Target:** **ETB 256.60 Million**
-**Group 3.0× Required Pipeline:** **ETB 769.78 Million**
+    id: 'coverage_rule',
+    title: 'Group Target (ETB 256.6M) & The 3.0× Pipeline Rule',
+    keywords: ['3.0x', 'coverage', 'target', 'gap', 'quota', '256', '769', 'math', 'benchmark', 'calculation'],
+    content: `
+### Corporate Targets & The 3.0× Pipeline Rule
+• **Annual Closed Target:** **ETB 256.60 Million** across all 4 SBUs.
+• **Mandatory Group Pipeline Requirement:** **ETB 769.78 Million** (3.0× coverage).
 
-To safely hit corporate revenue quotas, each SBU must maintain **3.0 times its annual target** in active, unqualified bids to absorb client drop-offs:
+#### Why 3.0× Coverage?
+In institutional consulting, professional education, and advisory services, client procurement cycles experience delays, cancellations, or competitive losses. Maintaining a pipeline equal to three times the target provides the necessary buffer to hit the ETB 256.6M revenue goal.
 
-1. **The Institute:** Target = ETB 105.00M | Healthy Pipeline ≥ **ETB 315.00M**
-2. **Corporate & Business Solutions (CBS):** Target = ETB 42.00M | Healthy Pipeline ≥ **ETB 126.00M**
-3. **i-Capital Investment Partners (IIP):** Target = ETB 54.80M | Healthy Pipeline ≥ **ETB 164.40M**
-4. **Digital & AI Solutions (DAS):** Target = ETB 54.80M | Healthy Pipeline ≥ **ETB 164.40M**
+#### The Gap Gauge:
+• **Green (+):** The active pipeline meets or exceeds 3.0× of the annual target.
+• **Red Deficit (-):** The pipeline is below the required 3.0× threshold, signaling a need for immediate BD outreach.
+    `
+  },
+  {
+    id: 'sbu_breakdown',
+    title: 'The 4 Strategic Business Units (SBUs) & Quotas',
+    keywords: ['sbu', 'institute', 'cbs', 'iip', 'das', 'units', 'divisions', 'cross border', 'investment', 'digital'],
+    content: `
+### Strategic Business Units (SBUs) Allocation
 
-*Green Status:* Active Bids ≥ 3.0× Target
-*Red Deficit Status:* Active Bids < 3.0× Target
+1. **The i-Capital Africa Institute**
+   • Core Focus: Executive leadership development, specialized corporate training, and research.
+   • Annual Quota: **ETB 105.00 Million** | 3.0× Pipeline Target: **ETB 315.00 Million**
+
+2. **Corporate & Business Solutions (CBS)**
+   • Core Focus: Strategy consulting, operational restructuring, institutional diagnostics, and advisory.
+   • Annual Quota: **ETB 42.00 Million** | 3.0× Pipeline Target: **ETB 126.00 Million**
+
+3. **i-Capital Investment Partners (IIP)**
+   • Core Focus: Capital markets advisory, transaction structuring, investor readiness, and M&A.
+   • Annual Quota: **ETB 54.80 Million** | 3.0× Pipeline Target: **ETB 164.40 Million**
+
+4. **Digital & AI Solutions (DAS)**
+   • Core Focus: Enterprise digital transformation, AI workflows, and software implementations.
+   • Annual Quota: **ETB 54.80 Million** | 3.0× Pipeline Target: **ETB 164.40 Million**
     `
   },
   {
-    keywords: ['executive', 'briefing', 'brief', 'email', 'ceo', 'dr gemechu', 'gemechu', 'dispatch'],
-    title: 'Executive Briefing Automation',
-    answer: `
-**Automated Executive Briefing Workflow:**
-• **Purpose:** Generates a real-time revenue realization and 3.0× governance report and dispatches it directly to Dr. Gemechu Waktola (\`gemechu@icapitalafrica.org\`) with a CC to Ybeltal Semagn.
-• **Trigger:** Run via the automated backend script:
-  \`node scripts/sendExecutiveBrief.js\`
-• **Delivery Engine:** Dispatched via Resend API from your domain (\`icapitalcrm.pro.et\`).
-• **Content:** Real-time won totals, active pipeline coverage per SBU, and high-value mandates in technical defense.
+    id: 'ai_tender_parser',
+    title: '✨ AI TOR / RFP Tender Document Parser',
+    keywords: ['parser', 'ai tender', 'gemini', 'pdf', 'word', 'extract', 'tor parser', 'rfp parser'],
+    content: `
+### AI Tender Document Parser
+The blue **"✨ AI Tender Parser"** button opens an automated extraction modal powered by Gemini Multimodal processing:
+
+• **Input:** Upload tender documents in PDF or DOCX format.
+• **Automated Extraction:** Identifies procuring entity, scope of services, eligibility criteria, submission deadlines, bid bond specifications, and evaluation scoring weights.
+• **One-Click Convert:** Automatically populates the **New Proposal** modal with extracted data, saving manual data-entry time.
     `
   },
   {
-    keywords: ['database', 'where', 'storage', 'supabase', 'lost data', 'safety', 'rls'],
-    title: 'Where CRM Data Is Stored & System Security',
-    answer: `
-**Data Architecture & Security:**
-• **Backend:** Hosted securely in PostgreSQL on **Supabase** (project: \`qljmgleaxfmrurrpmjkz\`).
-• **Tables:**
-  - \`leads\`: Stores incoming institutional contacts, sectors, and relationship status.
-  - \`proposals\`: Stores all active bids, commercial values, SBUs, and stage gates.
-  - \`clients\`: Manages institutional client directory and historical engagements.
-• **Security:** Row-Level Security (RLS) is fully active with clean 0-warning database health. Your historical data cannot be overwritten or accidentally purged.
+    id: 'client_directory',
+    title: 'Client Directory & Client 360° Financial Drawer',
+    keywords: ['client', 'directory', 'drawer', '360', 'customer', 'bank', 'history', 'lifetime'],
+    content: `
+### Client Directory & 360° Financial Drawer
+The **Client Directory** manages the group's institutional relationships (banks, regulatory authorities, mining corporations, and NGOs):
+
+• **Adding Clients:** Click **"+ New Client"** to register an institution, address, sector, and website.
+• **Client 360° Drawer:** Clicking any client row opens a drawer displaying their relationship history:
+  - Total lifetime contract value awarded.
+  - Active proposals currently in defense.
+  - Historic assignments and key contact persons.
     `
   },
   {
-    keywords: ['client', 'directory', 'drawer', '360', 'history'],
-    title: 'Client 360° Financial Drawer',
-    answer: `
-**Viewing Client History:**
-1. Open the **Client Directory** tab.
-2. Click on any institutional client (e.g., *Dashen Bank*, *Bank of Abyssinia*, or *ECMA*).
-3. The **Client 360° Financial Drawer** slides open from the right, showing:
-   • Total lifetime commercial value.
-   • Won contracts vs active proposals.
-   • Historical touchpoints and contact persons.
+    id: 'queue_and_watchdogs',
+    title: 'Follow-up Queue & Deadline Watchdogs',
+    keywords: ['queue', 'follow-up', 'follow up', 'watchdog', 'reminder', 'schedule', 'touchpoint', 'deadline'],
+    content: `
+### Follow-up Queue & Watchdogs
+• **Follow-up Queue:** Displays scheduled client interactions, pitch dates, and required updates.
+• **Deadline Watchdogs:** Automated system routines track RFP closing dates and alert officers 72 hours and 24 hours prior to submission deadlines.
+    `
+  },
+  {
+    id: 'roles_and_security',
+    title: 'User Roles, Permissions & Supabase Security',
+    keywords: ['role', 'permission', 'admin', 'manage roles', 'security', 'supabase', 'rls', 'access'],
+    content: `
+### Security & Role Governance
+• **Executive Admin:** Unrestricted access, target modification, user role management.
+• **Senior Management:** Global pipeline visibility, executive reporting, audit access.
+• **BD Manager:** Pipeline management, lead qualification, proposal assignment across SBUs.
+• **Technical Lead:** Proposal defense documentation, technical bid submission.
+• **Sales Officer:** Lead intake, client meeting logs, scheduled follow-ups.
+• **Database Security:** Hosted on PostgreSQL via **Supabase**. Row-Level Security (RLS) is active across all tables.
     `
   }
 ]
 
-export function getCrmAssistantResponse(query) {
-  if (!query || !query.trim()) {
-    return "Hello! I am your i-Capital CRM Assistant. Ask me anything about creating leads, logging proposals, tracking stage gates, or calculating SBU 3.0× pipeline coverage."
+// Intelligent relevance-scoring engine
+export function getCrmAssistantResponse(rawQuery) {
+  if (!rawQuery || !rawQuery.trim()) {
+    return CRM_KNOWLEDGE_BASE[0].content.trim()
   }
 
-  const cleanQuery = query.toLowerCase()
+  const query = rawQuery.toLowerCase().trim()
+  const queryTokens = query.split(/\s+/).filter((w) => w.length > 2)
 
-  // Match against knowledge topics
-  for (const topic of KNOWLEDGE_TOPICS) {
-    if (topic.keywords.some((kw) => cleanQuery.includes(kw))) {
-      return topic.answer.trim()
+  let bestMatch = null
+  let highestScore = 0
+
+  for (const topic of CRM_KNOWLEDGE_BASE) {
+    let score = 0
+
+    // Exact keyword matching (highest priority)
+    for (const kw of topic.keywords) {
+      if (query === kw) {
+        score += 30
+      } else if (query.includes(kw)) {
+        score += 15
+      }
+    }
+
+    // Tokenized word matching across keywords and title
+    for (const token of queryTokens) {
+      if (topic.keywords.some((kw) => kw.includes(token))) score += 5
+      if (topic.title.toLowerCase().includes(token)) score += 8
+      if (topic.content.toLowerCase().includes(token)) score += 1
+    }
+
+    if (score > highestScore) {
+      highestScore = score
+      bestMatch = topic
     }
   }
 
-  // Fallback reply with clear navigation tips
+  // Return best matching topic if score meets confidence threshold
+  if (bestMatch && highestScore >= 5) {
+    return bestMatch.content.trim()
+  }
+
+  // Fallback with full system summary and quick navigation
   return `
-I didn't find an exact match for that specific question, but here is a quick guide to common tasks:
+### The i-Capital CRM Navigation Guide
+I could not match that query to a single section. Here is a quick reference for common actions:
 
-• **To add a lead:** Click **"+ New Lead"** in the top navigation bar.
-• **To add a proposal:** Open **Proposal Management** and click **"+ Create Proposal"**.
-• **To view SBU health:** Check the **Executive Dashboard** for the 3.0× pipeline coverage meters.
-• **To check database records:** All data is safely stored in the Supabase \`leads\` and \`proposals\` tables.
+• **To add a lead:** Click **"+ New Lead"** in the top action bar or visit the **Lead Intake** tab.
+• **To log a proposal:** Click **"+ New Proposal"** to enter the commercial value and stage gate.
+• **To parse tender documents:** Click **"✨ AI Tender Parser"** to extract RFP/TOR files using Gemini.
+• **To check SBU health:** Review the **Executive Dashboard** for 3.0× coverage ratios.
+• **To view client history:** Open **Client Directory** and click any client row for their 360° drawer.
 
-Try asking: *"How do I create a proposal?"* or *"What does 3.0× coverage mean?"*
+*Try asking about:* **"3.0x rule"**, **"how to add proposal"**, **"sbu targets"**, or **"stage gates"**.
   `.trim()
 }

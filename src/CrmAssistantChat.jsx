@@ -1,13 +1,13 @@
 // src/CrmAssistantChat.jsx
 import React, { useState, useRef, useEffect } from 'react'
-import { getCrmAssistantResponse, SUGGESTED_QUESTIONS } from './crmAssistantKnowledge'
+import { getCrmAssistantResponse, QUICK_TOPIC_CATEGORIES } from './crmAssistantKnowledge'
 
 export default function CrmAssistantChat() {
   const [isOpen, setIsOpen] = useState(false)
   const [messages, setMessages] = useState([
     {
       sender: 'bot',
-      text: 'Hello! I am your **i-Capital CRM Guide**. What would you like to know about navigating the tracker, adding leads, or logging proposals?'
+      text: '### Welcome to The i-Capital CRM Assistant\nI am your interactive user guide. Ask me anything about logging leads, creating proposals, SBU targets, or stage-gate governance.'
     }
   ])
   const [input, setInput] = useState('')
@@ -37,58 +37,83 @@ export default function CrmAssistantChat() {
     }
   }
 
-  // Format simple markdown into clean HTML (bolding, lists, linebreaks)
+  // Basic markdown formatter for headings, bold, code, and lists
   const renderFormattedText = (text) => {
     const formatted = text
+      .replace(/### (.*?)\n/g, '<div style="font-weight: 800; font-size: 14px; margin-bottom: 6px; color: #0284c7;">$1</div>')
+      .replace(/#### (.*?)\n/g, '<div style="font-weight: 800; font-size: 12.5px; margin: 6px 0 3px 0; color: #0f172a;">$1</div>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`([^`]+)`/g, '<code style="background: rgba(15,23,42,0.08); padding: 1px 4px; border-radius: 4px; font-size: 11px;">$1</code>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code style="background: rgba(2,132,199,0.1); color: #0369a1; padding: 2px 5px; border-radius: 4px; font-weight: 700; font-size: 11px;">$1</code>')
       .replace(/\n/g, '<br/>')
 
     return <span dangerouslySetInnerHTML={{ __html: formatted }} />
   }
 
   return (
-    <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      {/* Floating Trigger Button */}
+    <div style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 99999, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      {/* 1. BOLD FLOATING LAUNCHER BUTTON */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
           style={{
             background: 'linear-gradient(135deg, #070d1e 0%, #0f172a 100%)',
-            color: '#38bdf8',
-            border: '1px solid #38bdf8',
-            padding: '12px 18px',
+            color: '#ffffff',
+            border: '2px solid #38bdf8',
+            padding: '12px 20px',
             borderRadius: '50px',
             fontWeight: 800,
             fontSize: '13px',
             cursor: 'pointer',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+            boxShadow: '0 8px 28px rgba(2, 132, 199, 0.4), 0 4px 12px rgba(0,0,0,0.3)',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            transition: 'transform 0.2s ease',
+            gap: '10px',
+            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.04)')}
-          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1.0)')}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-3px) scale(1.03)'
+            e.currentTarget.style.boxShadow = '0 12px 32px rgba(2, 132, 199, 0.55)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0) scale(1)'
+            e.currentTarget.style.boxShadow = '0 8px 28px rgba(2, 132, 199, 0.4)'
+          }}
         >
-          <span style={{ fontSize: '16px' }}>💬</span>
-          <span>CRM Assistant</span>
+          {/* Pulsing indicator light */}
+          <span
+            style={{
+              width: '10px',
+              height: '10px',
+              borderRadius: '50%',
+              backgroundColor: '#10b981',
+              boxShadow: '0 0 10px #10b981',
+              display: 'inline-block',
+            }}
+          />
+          <span style={{ fontSize: '15px' }}>💬</span>
+          <span style={{ letterSpacing: '0.3px', textTransform: 'uppercase', color: '#f8fafc', fontWeight: 900 }}>
+            CRM Assistant Guide
+          </span>
         </button>
       )}
 
-      {/* Main Chat Box Panel */}
+      {/* 2. EXPANDED CHAT PANEL */}
       {isOpen && (
         <div
           style={{
-            width: '380px',
-            height: '520px',
+            width: '430px',
+            height: '600px',
+            maxWidth: '92vw',
+            maxHeight: '85vh',
             background: '#ffffff',
             borderRadius: '16px',
-            boxShadow: '0 12px 36px rgba(0,0,0,0.22)',
+            boxShadow: '0 20px 50px rgba(0, 0, 0, 0.35)',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
-            border: '1px solid #cbd5e1',
+            border: '2px solid #0284c7',
+            animation: 'fadeIn 0.2s ease-out',
           }}
         >
           {/* Header */}
@@ -96,37 +121,82 @@ export default function CrmAssistantChat() {
             style={{
               background: 'linear-gradient(135deg, #070d1e 0%, #0f172a 100%)',
               color: '#ffffff',
-              padding: '16px',
+              padding: '16px 18px',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
+              borderBottom: '2px solid #0284c7',
             }}
           >
             <div>
-              <div style={{ fontSize: '10px', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-                The i-Capital Africa Group
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 900, color: '#38bdf8', letterSpacing: '1px', textTransform: 'uppercase' }}>
+                  THE i-CAPITAL AFRICA GROUP
+                </span>
+                <span style={{ background: '#10b981', color: '#ffffff', fontSize: '9px', fontWeight: 800, padding: '1px 6px', borderRadius: '8px' }}>
+                  ACTIVE
+                </span>
               </div>
-              <div style={{ fontSize: '15px', fontWeight: 900, marginTop: '2px' }}>
-                CRM Flow Assistant
+              <div style={{ fontSize: '16px', fontWeight: 900, marginTop: '2px', color: '#ffffff' }}>
+                CRM Flow &amp; Operations Assistant
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
               style={{
-                background: 'transparent',
+                background: 'rgba(255,255,255,0.1)',
                 border: 'none',
-                color: '#94a3b8',
-                fontSize: '18px',
+                color: '#ffffff',
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                fontSize: '14px',
+                fontWeight: 800,
                 cursor: 'pointer',
-                padding: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
-              title="Close Assistant"
+              title="Close Guide"
             >
               ✕
             </button>
           </div>
 
-          {/* Messages Area */}
+          {/* Quick Filter Ribbon */}
+          <div
+            style={{
+              background: '#f1f5f9',
+              padding: '8px 12px',
+              borderBottom: '1px solid #cbd5e1',
+              display: 'flex',
+              gap: '6px',
+              overflowX: 'auto',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {QUICK_TOPIC_CATEGORIES.map((cat, i) => (
+              <button
+                key={i}
+                onClick={() => handleSend(cat.query)}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid #94a3b8',
+                  borderRadius: '14px',
+                  padding: '4px 10px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Messages Body */}
           <div
             style={{
               flex: 1,
@@ -143,56 +213,24 @@ export default function CrmAssistantChat() {
                 key={idx}
                 style={{
                   alignSelf: m.sender === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: '85%',
+                  maxWidth: '90%',
                   background: m.sender === 'user' ? '#0284c7' : '#ffffff',
                   color: m.sender === 'user' ? '#ffffff' : '#1e293b',
-                  padding: '10px 14px',
-                  borderRadius: m.sender === 'user' ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                  padding: '12px 14px',
+                  borderRadius: m.sender === 'user' ? '14px 14px 2px 14px' : '14px 14px 14px 2px',
                   fontSize: '12.5px',
-                  lineHeight: '1.5',
+                  lineHeight: '1.55',
                   border: m.sender === 'user' ? 'none' : '1px solid #e2e8f0',
-                  boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                 }}
               >
                 {renderFormattedText(m.text)}
               </div>
             ))}
-
-            {/* Quick Prompt Pills (shown at top) */}
-            {messages.length === 1 && (
-              <div style={{ marginTop: '4px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', marginBottom: '6px' }}>
-                  Quick topics to explore:
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {SUGGESTED_QUESTIONS.map((q, i) => (
-                    <button
-                      key={i}
-                      onClick={() => handleSend(q)}
-                      style={{
-                        textAlign: 'left',
-                        background: '#ffffff',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '6px',
-                        padding: '6px 10px',
-                        fontSize: '11.5px',
-                        color: '#0f172a',
-                        cursor: 'pointer',
-                        transition: 'background 0.15s ease',
-                      }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
-                    >
-                      💡 {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Footer Input Field */}
+          {/* Input Footer */}
           <div
             style={{
               padding: '12px',
@@ -204,14 +242,14 @@ export default function CrmAssistantChat() {
           >
             <input
               type="text"
-              placeholder="Ask how to use the CRM..."
+              placeholder="Ask anything about the CRM (e.g., explain, 3.0x rule, add lead)..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               style={{
                 flex: 1,
-                padding: '9px 12px',
-                border: '1px solid #cbd5e1',
+                padding: '10px 14px',
+                border: '1.5px solid #cbd5e1',
                 borderRadius: '8px',
                 fontSize: '12.5px',
                 outline: 'none',
@@ -224,13 +262,13 @@ export default function CrmAssistantChat() {
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: '8px',
-                padding: '0 14px',
-                fontWeight: 700,
-                fontSize: '12px',
+                padding: '0 18px',
+                fontWeight: 800,
+                fontSize: '12.5px',
                 cursor: 'pointer',
               }}
             >
-              Send
+              Ask
             </button>
           </div>
         </div>
