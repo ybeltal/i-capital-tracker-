@@ -6,6 +6,7 @@ import SummaryDashboard from './SummaryDashboard'
 import RoleManagerModal from './RoleManagerModal'
 import UserGuideModal from './UserManualModal'
 import SpotlightTour from './SpotlightTour'
+import CrmAssistantChat from './CrmAssistantChat'
 
 // Real Feature Components
 import ProposalList from './ProposalList'
@@ -1079,6 +1080,9 @@ export default function App() {
       <SpotlightTour isOpen={showTour} onClose={() => setShowTour(false)} />
       <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
       <RoleManagerModal isOpen={showRoleManager} onClose={() => setShowRoleManager(false)} />
+
+      {/* CRM Assistant Chat Widget */}
+      <CrmAssistantChat />
     </div>
   )
 }
