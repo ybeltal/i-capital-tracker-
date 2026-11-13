@@ -1,6 +1,7 @@
 /**
  * THE i-CAPITAL AFRICA GROUP — COMMERCIAL GOVERNANCE & REVOPS PLATFORM
  * Split-Screen Institutional Landing Portal, 2-Hour Security Gate & Welcome Hub
+ * (100% Self-Contained Embedded CSS — Zero External Framework Dependencies)
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -16,6 +17,350 @@ import {
   lockAndSignOutSession,
   formatRemainingTime,
 } from '../utils/sessionSecurity';
+
+const PORTAL_STYLES = `
+  .icap-portal-root {
+    min-height: 100vh;
+    width: 100%;
+    background-color: #070b14;
+    color: #f8fafc;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  .icap-portal-root *, .icap-portal-root *::before, .icap-portal-root *::after {
+    box-sizing: border-box;
+  }
+  .icap-split-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    width: 100%;
+  }
+  @media (min-width: 1024px) {
+    .icap-split-container {
+      flex-direction: row;
+    }
+  }
+  .icap-left-showcase {
+    flex: 1.35;
+    padding: 40px 48px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border-bottom: 1px solid #1e293b;
+    background:
+      radial-gradient(circle at 12% 18%, rgba(16, 185, 129, 0.16), transparent 45%),
+      radial-gradient(circle at 85% 82%, rgba(59, 130, 246, 0.14), transparent 50%),
+      #090d16;
+  }
+  @media (min-width: 1024px) {
+    .icap-left-showcase {
+      border-bottom: none;
+      border-right: 1px solid #1e293b;
+      padding: 48px 56px;
+    }
+  }
+  .icap-right-auth {
+    flex: 1;
+    padding: 40px 28px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: #050811;
+  }
+  .icap-badge-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .icap-brand-pill {
+    background-color: #ffffff;
+    color: #090d16;
+    font-weight: 900;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    padding: 6px 14px;
+    border-radius: 8px;
+    box-shadow: 0 4px 14px rgba(255, 255, 255, 0.12);
+  }
+  .icap-gov-pill {
+    background-color: rgba(16, 185, 129, 0.14);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 5px 12px;
+    border-radius: 999px;
+  }
+  .icap-lock-pill {
+    background-color: #1e293b;
+    color: #cbd5e1;
+    border: 1px solid #334155;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 11px;
+    border-radius: 999px;
+  }
+  .icap-hero-title {
+    font-size: 32px;
+    line-height: 1.2;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 0 0 14px 0;
+    letter-spacing: -0.02em;
+  }
+  .icap-hero-highlight {
+    display: block;
+    color: #34d399;
+    margin-top: 4px;
+  }
+  .icap-hero-sub {
+    font-size: 14.5px;
+    line-height: 1.65;
+    color: #cbd5e1;
+    max-width: 640px;
+    margin: 0 0 28px 0;
+  }
+  .icap-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: #94a3b8;
+    margin-bottom: 12px;
+  }
+  .icap-sbu-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+  @media (min-width: 640px) {
+    .icap-sbu-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+  .icap-sbu-card {
+    background-color: rgba(15, 23, 42, 0.85);
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 15px 16px;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .icap-sbu-card:hover {
+    border-color: rgba(52, 211, 153, 0.45);
+    transform: translateY(-1px);
+  }
+  .icap-sbu-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .icap-sbu-tag {
+    font-size: 11px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 5px;
+  }
+  .icap-sbu-meta {
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 500;
+  }
+  .icap-sbu-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 4px;
+  }
+  .icap-sbu-desc {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #94a3b8;
+    margin: 0;
+  }
+  .icap-metrics-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    background-color: rgba(15, 23, 42, 0.7);
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 14px 18px;
+  }
+  .icap-metric-item {
+    border-left: 1px solid #1e293b;
+    padding-left: 14px;
+  }
+  .icap-metric-item:first-child {
+    border-left: none;
+    padding-left: 0;
+  }
+  .icap-metric-label {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 2px;
+  }
+  .icap-metric-val {
+    font-size: 15px;
+    font-weight: 800;
+    color: #ffffff;
+  }
+  .icap-metric-sub {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 2px;
+  }
+  .icap-left-footer {
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid #1e293b;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  .icap-auth-box {
+    width: 100%;
+    max-width: 430px;
+  }
+  .icap-alert-amber {
+    margin-bottom: 18px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background-color: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.45);
+    color: #fde68a;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .icap-alert-error {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background-color: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.45);
+    color: #fecaca;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .icap-auth-card {
+    background-color: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 18px;
+    padding: 32px 28px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75);
+  }
+  .icap-input-group {
+    margin-bottom: 18px;
+  }
+  .icap-input-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #cbd5e1;
+    margin-bottom: 7px;
+  }
+  .icap-input-field {
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background-color: #020617;
+    border: 1px solid #334155;
+    color: #ffffff;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  .icap-input-field:focus {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+  }
+  .icap-btn-primary {
+    width: 100%;
+    padding: 13px 18px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
+    transition: opacity 0.2s ease, transform 0.15s ease;
+  }
+  .icap-btn-primary:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+  }
+  .icap-btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  .icap-security-strip {
+    background-color: #090d16;
+    color: #cbd5e1;
+    border-bottom: 1px solid #1e293b;
+    padding: 6px 18px;
+    font-size: 11.5px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  .icap-strip-btn {
+    background-color: #1e293b;
+    color: #f8fafc;
+    border: 1px solid #334155;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-left: 8px;
+  }
+  .icap-strip-btn:hover {
+    background-color: #7f1d1d;
+    border-color: #ef4444;
+  }
+  .icap-hub-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin: 24px 0;
+  }
+  @media (min-width: 768px) {
+    .icap-hub-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+  .icap-hub-card {
+    background-color: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 14px;
+    padding: 22px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.2s ease;
+  }
+  .icap-hub-card:hover {
+    border-color: #10b981;
+    transform: translateY(-2px);
+  }
+`;
 
 export default function ExecutiveLandingPortal({ children }) {
   const [session, setSession] = useState(null);
@@ -41,7 +386,7 @@ export default function ExecutiveLandingPortal({ children }) {
     () => localStorage.getItem(STORAGE_KEYS.SKIP_WELCOME_HUB) === 'true'
   );
 
-  // Perform 2-hour check and lock if expired
+  // Verify 2-hour rule and sign out if expired
   const verifyTwoHourCompliance = useCallback(async (activeSession) => {
     if (!activeSession) return false;
     const status = evaluateSessionStatus();
@@ -58,7 +403,7 @@ export default function ExecutiveLandingPortal({ children }) {
     return true;
   }, []);
 
-  // 1. Initial Session & 2-Hour Expiry Verification
+  // 1. Check Initial Session & Subscribe to Auth Changes
   useEffect(() => {
     let mounted = true;
 
@@ -92,7 +437,6 @@ export default function ExecutiveLandingPortal({ children }) {
 
     checkInitialAuth();
 
-    // Listen to Supabase Auth state changes (including Sign Out button inside App.jsx)
     const {
       data: { subscription },
     } = supabaseAuthClient.auth.onAuthStateChange((event, newSession) => {
@@ -121,7 +465,7 @@ export default function ExecutiveLandingPortal({ children }) {
     };
   }, [verifyTwoHourCompliance]);
 
-  // 2. Attach Activity Listeners & 15-Second Watchdog Timer while Logged In
+  // 2. Attach Activity Listeners & 10-Second Watchdog Timer while Logged In
   useEffect(() => {
     if (!session) return;
 
@@ -137,7 +481,6 @@ export default function ExecutiveLandingPortal({ children }) {
       if (document.visibilityState === 'hidden') {
         recordPlatformClosed();
       } else if (document.visibilityState === 'visible') {
-        // Immediately verify 2-hour rule when user returns to the tab
         verifyTwoHourCompliance(session);
       }
     };
@@ -155,7 +498,7 @@ export default function ExecutiveLandingPortal({ children }) {
 
     const intervalId = setInterval(() => {
       verifyTwoHourCompliance(session);
-    }, 10000); // Check every 10 seconds
+    }, 10000);
 
     return () => {
       events.forEach((evt) =>
@@ -201,7 +544,6 @@ export default function ExecutiveLandingPortal({ children }) {
         setRemainingMs(SESSION_TIMEOUT_MS);
         setSession(data.session);
 
-        // Open Executive Welcome Hub unless user opted to skip straight to workspace
         const shouldSkip =
           localStorage.getItem(STORAGE_KEYS.SKIP_WELCOME_HUB) === 'true';
         setShowWelcomeHub(!shouldSkip);
@@ -228,14 +570,31 @@ export default function ExecutiveLandingPortal({ children }) {
     localStorage.setItem(STORAGE_KEYS.SKIP_WELCOME_HUB, String(checked));
   };
 
-  // Loading Splash Screen
   if (authChecking) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
-        <div className="w-12 h-12 rounded-full border-4 border-emerald-500 border-t-transparent animate-spin mb-4" />
-        <p className="text-sm font-semibold tracking-wider uppercase text-slate-300">
-          Verifying i-Capital Security Session...
-        </p>
+      <div
+        style={{
+          minHeight: '100vh',
+          backgroundColor: '#070b14',
+          color: '#f8fafc',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: 'Inter, sans-serif',
+        }}
+      >
+        <div
+          style={{
+            fontSize: '14px',
+            fontWeight: 700,
+            letterSpacing: '0.08em',
+            color: '#34d399',
+            textTransform: 'uppercase',
+          }}
+        >
+          🔒 Verifying i-Capital Security Session...
+        </div>
       </div>
     );
   }
@@ -245,268 +604,327 @@ export default function ExecutiveLandingPortal({ children }) {
   // ============================================================================
   if (!session) {
     return (
-      <div className="min-h-screen flex flex-col lg:flex-row bg-slate-950 text-slate-100 font-sans">
-        {/* LEFT PANEL: INSTITUTIONAL GOVERNANCE & SBU SHOWCASE */}
-        <div
-          className="lg:w-7/12 p-8 lg:p-14 flex flex-col justify-between relative overflow-hidden border-b lg:border-b-0 lg:border-r border-slate-800"
-          style={{
-            background:
-              'radial-gradient(circle at 15% 20%, rgba(16, 185, 129, 0.14), transparent 45%), radial-gradient(circle at 85% 80%, rgba(59, 130, 246, 0.12), transparent 50%), #090d16',
-          }}
-        >
-          {/* Top Brand Header */}
-          <div>
-            <div className="flex flex-wrap items-center gap-3 mb-8">
-              <div className="bg-white text-slate-950 font-black px-3.5 py-1.5 rounded-lg text-sm tracking-tight shadow-md">
-                i-CAPITAL AFRICA
+      <div className="icap-portal-root">
+        <style>{PORTAL_STYLES}</style>
+        <div className="icap-split-container">
+          {/* LEFT PANEL: INSTITUTIONAL GOVERNANCE & SBU SHOWCASE */}
+          <div className="icap-left-showcase">
+            <div>
+              <div className="icap-badge-row">
+                <span className="icap-brand-pill">i-CAPITAL AFRICA</span>
+                <span className="icap-gov-pill">
+                  Commercial Governance &amp; RevOps Gateway
+                </span>
+                <span className="icap-lock-pill">🔒 2-Hour Auto-Lock Active</span>
               </div>
-              <span className="text-xs font-bold uppercase tracking-widest px-3 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                Commercial Governance &amp; RevOps Gateway
-              </span>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                🔒 2-Hour Auto-Lock Active
-              </span>
-            </div>
 
-            <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight mb-4">
-              The i-Capital Africa Group{' '}
-              <span className="text-emerald-400 block mt-1">
-                Executive Pipeline &amp; Proposal Intelligence
-              </span>
-            </h1>
+              <h1 className="icap-hero-title">
+                The i-Capital Africa Group
+                <span className="icap-hero-highlight">
+                  Executive Pipeline &amp; Proposal Intelligence
+                </span>
+              </h1>
 
-            <p className="text-slate-300 text-sm lg:text-base max-w-2xl leading-relaxed mb-8">
-              Centralized institutional CRM governing pre-tender lead intake,
-              4-point Go/No-Go qualification scorecards, stage-gated proposal
-              defense, and contracted revenue realization across all four
-              Strategic Business Units.
-            </p>
+              <p className="icap-hero-sub">
+                Centralized institutional CRM governing pre-tender lead intake,
+                4-point Go/No-Go qualification scorecards, stage-gated proposal
+                defense, and contracted revenue realization across all four
+                Strategic Business Units.
+              </p>
 
-            {/* 4 Strategic Business Units (SBU) Architecture Grid */}
-            <div className="mb-8">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+              <div className="icap-section-label">
                 Integrated Strategic Business Units (SBUs)
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/40 transition">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+
+              <div className="icap-sbu-grid">
+                <div className="icap-sbu-card">
+                  <div className="icap-sbu-top">
+                    <span
+                      className="icap-sbu-tag"
+                      style={{
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        color: '#6ee7b7',
+                      }}
+                    >
                       INST
                     </span>
-                    <span className="text-[11px] text-slate-400 font-medium">
+                    <span className="icap-sbu-meta">
                       Executive Education &amp; Training
                     </span>
                   </div>
-                  <div className="font-bold text-white text-sm">
-                    The i-Capital Institute
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <div className="icap-sbu-name">The i-Capital Institute</div>
+                  <p className="icap-sbu-desc">
                     Master Builder Leadership (MBLDP), S-OJT, Change Management
                     &amp; Institutional Capacity Building.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-blue-500/40 transition">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">
+                <div className="icap-sbu-card">
+                  <div className="icap-sbu-top">
+                    <span
+                      className="icap-sbu-tag"
+                      style={{
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        color: '#93c5fd',
+                      }}
+                    >
                       CBS
                     </span>
-                    <span className="text-[11px] text-slate-400 font-medium">
+                    <span className="icap-sbu-meta">
                       Advisory &amp; Restructuring
                     </span>
                   </div>
-                  <div className="font-bold text-white text-sm">
-                    Cross Border Solutions
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <div className="icap-sbu-name">Cross Border Solutions</div>
+                  <p className="icap-sbu-desc">
                     Corporate Strategy, Organizational Design, Competency
                     Frameworks &amp; IFRS Technical Implementation.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-amber-500/40 transition">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                <div className="icap-sbu-card">
+                  <div className="icap-sbu-top">
+                    <span
+                      className="icap-sbu-tag"
+                      style={{
+                        backgroundColor: 'rgba(245, 158, 11, 0.2)',
+                        color: '#fcd34d',
+                      }}
+                    >
                       IIP
                     </span>
-                    <span className="text-[11px] text-slate-400 font-medium">
+                    <span className="icap-sbu-meta">
                       Transaction &amp; Capital Markets
                     </span>
                   </div>
-                  <div className="font-bold text-white text-sm">
+                  <div className="icap-sbu-name">
                     i-Capital Investment Partners
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="icap-sbu-desc">
                     Thematic Bond Advisory, Sharia-Compliant Finance, Deal
                     Structuring &amp; Investment Readiness.
                   </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-purple-500/40 transition">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">
+                <div className="icap-sbu-card">
+                  <div className="icap-sbu-top">
+                    <span
+                      className="icap-sbu-tag"
+                      style={{
+                        backgroundColor: 'rgba(168, 85, 247, 0.2)',
+                        color: '#d8b4fe',
+                      }}
+                    >
                       DAS
                     </span>
-                    <span className="text-[11px] text-slate-400 font-medium">
+                    <span className="icap-sbu-meta">
                       AI &amp; Enterprise Systems
                     </span>
                   </div>
-                  <div className="font-bold text-white text-sm">
-                    Digital &amp; AI Solutions
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <div className="icap-sbu-name">Digital &amp; AI Solutions</div>
+                  <p className="icap-sbu-desc">
                     Digital Transformation Roadmaps, AI Tender Parsing, Data
                     Analytics &amp; Knowledge Platforms.
                   </p>
                 </div>
               </div>
+
+              <div className="icap-metrics-strip">
+                <div className="icap-metric-item">
+                  <div className="icap-metric-label">Pipeline Standard</div>
+                  <div
+                    className="icap-metric-val"
+                    style={{ color: '#34d399' }}
+                  >
+                    3.0× Coverage Rule
+                  </div>
+                  <div className="icap-metric-sub">
+                    ETB 769.78M Group Benchmark
+                  </div>
+                </div>
+
+                <div className="icap-metric-item">
+                  <div className="icap-metric-label">Stage Probabilities</div>
+                  <div className="icap-metric-val">30% • 70% • 100%</div>
+                  <div className="icap-metric-sub">
+                    TOR → Defense → Signed Won
+                  </div>
+                </div>
+
+                <div className="icap-metric-item">
+                  <div className="icap-metric-label">Inbound Automation</div>
+                  <div
+                    className="icap-metric-val"
+                    style={{ color: '#60a5fa' }}
+                  >
+                    Live Webhooks
+                  </div>
+                  <div className="icap-metric-sub">
+                    Google Forms → CRM Register
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Governance Pillars Strip */}
-            <div className="grid grid-cols-3 gap-3 p-4 rounded-xl bg-slate-900/60 border border-slate-800/90">
-              <div>
-                <div className="text-xs text-slate-400">Pipeline Standard</div>
-                <div className="text-base font-extrabold text-emerald-400">
-                  3.0× Coverage Rule
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  ETB 769.78M Group Benchmark
-                </div>
-              </div>
-              <div className="border-l border-slate-800 pl-3">
-                <div className="text-xs text-slate-400">Stage Probabilities</div>
-                <div className="text-base font-extrabold text-white">
-                  30% • 70% • 100%
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  TOR → Defense → Signed Won
-                </div>
-              </div>
-              <div className="border-l border-slate-800 pl-3">
-                <div className="text-xs text-slate-400">Inbound Automation</div>
-                <div className="text-base font-extrabold text-blue-400">
-                  Live Webhooks
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  Google Forms → CRM Register
-                </div>
-              </div>
+            <div className="icap-left-footer">
+              <span>
+                © {new Date().getFullYear()} The i-Capital Africa Institute •
+                Addis Ababa, Ethiopia
+              </span>
+              <span>
+                Developed by{' '}
+                <strong style={{ color: '#34d399' }}>Ybeltal Semagn</strong>
+              </span>
             </div>
           </div>
 
-          {/* Footer Attribution */}
-          <div className="mt-8 pt-5 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
-            <span>
-              © {new Date().getFullYear()} The i-Capital Africa Institute •
-              Addis Ababa, Ethiopia
-            </span>
-            <span className="text-slate-300 font-medium">
-              Developed by <strong className="text-emerald-400">Ybeltal Semagn</strong>
-            </span>
-          </div>
-        </div>
-
-        {/* RIGHT PANEL: HIGH-TRUST PASSWORD AUTHENTICATION PORTAL */}
-        <div className="lg:w-5/12 p-8 lg:p-14 flex flex-col justify-center bg-slate-950">
-          <div className="w-full max-w-md mx-auto">
-            {/* 2-Hour Session Lock Alert Banner (If redirected after timeout) */}
-            {lockReason && (
-              <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/40 text-amber-200 text-xs leading-relaxed shadow-lg">
-                <div className="flex items-center gap-2 font-bold text-amber-300 text-sm mb-1">
-                  <span>🔒 Session Locked (2-Hour Security Policy)</span>
-                </div>
-                <p>{lockReason}</p>
-              </div>
-            )}
-
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-7 lg:p-8 shadow-2xl">
-              <div className="mb-6">
-                <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  Authorized Personnel Sign-In
-                </div>
-                <h2 className="text-2xl font-bold text-white">
-                  Sign in to i-Capital CRM
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  Enter your institutional credentials to unlock the commercial
-                  workspace. Sessions auto-lock after 2 hours away.
-                </p>
-              </div>
-
-              {errorMessage && (
-                <div className="mb-5 p-3.5 rounded-xl bg-red-500/15 border border-red-500/40 text-red-200 text-xs font-medium">
-                  ⚠️ {errorMessage}
+          {/* RIGHT PANEL: HIGH-TRUST PASSWORD AUTHENTICATION PORTAL */}
+          <div className="icap-right-auth">
+            <div className="icap-auth-box">
+              {lockReason && (
+                <div className="icap-alert-amber">
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      color: '#fbbf24',
+                      marginBottom: '4px',
+                      fontSize: '13px',
+                    }}
+                  >
+                    🔒 Session Locked (2-Hour Security Policy)
+                  </div>
+                  <div>{lockReason}</div>
                 </div>
               )}
 
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-300 mb-1.5">
-                    Work Email Address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@icapitalafrica.org"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-                      Password
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-xs text-emerald-400 hover:text-emerald-300 font-medium"
-                    >
-                      {showPassword ? 'Hide Password' : 'Show Password'}
-                    </button>
+              <div className="icap-auth-card">
+                <div style={{ marginBottom: '22px' }}>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 800,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      color: '#34d399',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    ● Authorized Personnel Sign-In
                   </div>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    autoFocus={Boolean(email)}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
-                  />
+                  <h2
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: 800,
+                      color: '#ffffff',
+                      margin: '0 0 6px 0',
+                    }}
+                  >
+                    Sign in to i-Capital CRM
+                  </h2>
+                  <p
+                    style={{
+                      fontSize: '12.5px',
+                      color: '#94a3b8',
+                      margin: 0,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Enter your institutional credentials to unlock the
+                    commercial workspace. Sessions auto-lock after 2 hours away.
+                  </p>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={loginLoading}
-                  className="w-full py-3.5 px-5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white font-bold text-sm shadow-lg shadow-emerald-900/30 transition flex items-center justify-center gap-2 cursor-pointer"
+                {errorMessage && (
+                  <div className="icap-alert-error">⚠️ {errorMessage}</div>
+                )}
+
+                <form onSubmit={handleSignIn}>
+                  <div className="icap-input-group">
+                    <div className="icap-input-label">
+                      <span>Work Email Address</span>
+                    </div>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="name@icapitalafrica.org"
+                      className="icap-input-field"
+                    />
+                  </div>
+
+                  <div className="icap-input-group">
+                    <div className="icap-input-label">
+                      <span>Password</span>
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#34d399',
+                          fontSize: '11.5px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          padding: 0,
+                        }}
+                      >
+                        {showPassword ? 'Hide Password' : 'Show Password'}
+                      </button>
+                    </div>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      autoFocus={Boolean(email)}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter your password"
+                      className="icap-input-field"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loginLoading}
+                    className="icap-btn-primary"
+                  >
+                    {loginLoading
+                      ? 'Authenticating Credentials...'
+                      : '🔓 Unlock & Enter CRM Workspace →'}
+                  </button>
+                </form>
+
+                <div
+                  style={{
+                    marginTop: '22px',
+                    paddingTop: '16px',
+                    borderTop: '1px solid #1e293b',
+                    fontSize: '11.5px',
+                    color: '#94a3b8',
+                  }}
                 >
-                  {loginLoading ? (
-                    <>
-                      <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      Authenticating Credentials...
-                    </>
-                  ) : (
-                    <>🔓 Unlock &amp; Enter CRM Workspace →</>
-                  )}
-                </button>
-              </form>
-
-              <div className="mt-6 pt-5 border-t border-slate-800 text-[11px] text-slate-400 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span>🛡️ Session Policy:</span>
-                  <span className="text-slate-300 font-semibold">
-                    Mandatory Password Re-Entry After 2 Hours
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>🔑 Access Control:</span>
-                  <span className="text-slate-300 font-semibold">
-                    Executive Admin • SBU Director • BD Officer
-                  </span>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    <span>🛡️ Session Policy:</span>
+                    <strong style={{ color: '#e2e8f0' }}>
+                      Password Required After 2 Hours
+                    </strong>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <span>🔑 Access Control:</span>
+                    <strong style={{ color: '#e2e8f0' }}>
+                      Executive Admin • SBU • BD
+                    </strong>
+                  </div>
                 </div>
               </div>
             </div>
@@ -517,47 +935,88 @@ export default function ExecutiveLandingPortal({ children }) {
   }
 
   // ============================================================================
-  // VIEW 2: POST-LOGIN EXECUTIVE WELCOME & QUICK-LAUNCH HUB (OPTIONAL OVERLAY)
+  // VIEW 2: POST-LOGIN EXECUTIVE WELCOME & QUICK-LAUNCH HUB
   // ============================================================================
   if (showWelcomeHub) {
     const userEmail = session?.user?.email || 'Executive User';
     return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col justify-between p-6 lg:p-12">
-        <div className="max-w-6xl w-full mx-auto">
-          {/* Top Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-slate-800">
-            <div className="flex items-center gap-3">
-              <div className="bg-white text-slate-950 font-black px-3 py-1 rounded-lg text-sm">
-                THE I-CAPITAL CRM
-              </div>
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+      <div className="icap-portal-root" style={{ padding: '36px 24px' }}>
+        <style>{PORTAL_STYLES}</style>
+        <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              paddingBottom: '20px',
+              borderBottom: '1px solid #1e293b',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span className="icap-brand-pill">THE I-CAPITAL CRM</span>
+              <span className="icap-gov-pill">
                 🛡️ Session Active ({formatRemainingTime(remainingMs)} remaining)
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-slate-400">
-                Signed in as <strong className="text-white">{userEmail}</strong>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '12.5px', color: '#94a3b8' }}>
+                Signed in as <strong style={{ color: '#fff' }}>{userEmail}</strong>
               </span>
-              <button
-                onClick={handleManualLock}
-                className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-red-950/80 text-slate-200 hover:text-red-200 border border-slate-700 transition cursor-pointer"
-              >
+              <button onClick={handleManualLock} className="icap-strip-btn">
                 🔒 Lock Platform
               </button>
             </div>
           </div>
 
-          {/* Hero Banner */}
-          <div className="my-8 p-8 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/60 border border-slate-800 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <div>
-              <div className="text-xs font-bold uppercase tracking-widest text-emerald-400 mb-2">
+          <div
+            style={{
+              margin: '28px 0',
+              padding: '32px',
+              borderRadius: '18px',
+              background:
+                'linear-gradient(135deg, #0f172a 0%, #064e3b 100%)',
+              border: '1px solid #1e293b',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '20px',
+            }}
+          >
+            <div style={{ maxWidth: '640px' }}>
+              <div
+                style={{
+                  fontSize: '11.5px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: '#34d399',
+                  marginBottom: '8px',
+                }}
+              >
                 Welcome to The i-Capital Commercial Governance Hub
               </div>
-              <h1 className="text-2xl lg:text-3xl font-extrabold text-white mb-2">
+              <h1
+                style={{
+                  fontSize: '28px',
+                  fontWeight: 800,
+                  color: '#ffffff',
+                  margin: '0 0 8px 0',
+                }}
+              >
                 Ready for Commercial Execution
               </h1>
-              <p className="text-sm text-slate-300 max-w-2xl">
+              <p
+                style={{
+                  fontSize: '14px',
+                  color: '#cbd5e1',
+                  margin: 0,
+                  lineHeight: 1.6,
+                }}
+              >
                 All historical Master Tracker mandates, 4-SBU revenue targets,
                 and live Google Form inbound leads are synchronized. Launch into
                 your full CRM workspace below.
@@ -566,22 +1025,36 @@ export default function ExecutiveLandingPortal({ children }) {
 
             <button
               onClick={() => setShowWelcomeHub(false)}
-              className="px-6 py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/40 whitespace-nowrap cursor-pointer transition"
+              className="icap-btn-primary"
+              style={{ width: 'auto', padding: '14px 26px' }}
             >
               🚀 Enter Full CRM Workspace →
             </button>
           </div>
 
-          {/* Quick-Launch Module Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="icap-hub-grid">
             <div
               onClick={() => setShowWelcomeHub(false)}
-              className="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/50 cursor-pointer transition group"
+              className="icap-hub-card"
             >
-              <div className="text-lg font-bold text-white group-hover:text-emerald-400 transition">
+              <div
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  marginBottom: '8px',
+                }}
+              >
                 📊 Executive Dashboard &amp; 3× Gauge
               </div>
-              <p className="text-xs text-slate-400 mt-1.5">
+              <p
+                style={{
+                  fontSize: '12.5px',
+                  color: '#94a3b8',
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
                 Monitor the ETB 769.78M 3× pipeline coverage benchmark, weighted
                 tender valuations, and contracted won revenue across all 4 SBUs.
               </p>
@@ -589,12 +1062,26 @@ export default function ExecutiveLandingPortal({ children }) {
 
             <div
               onClick={() => setShowWelcomeHub(false)}
-              className="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-blue-500/50 cursor-pointer transition group"
+              className="icap-hub-card"
             >
-              <div className="text-lg font-bold text-white group-hover:text-blue-400 transition">
+              <div
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  marginBottom: '8px',
+                }}
+              >
                 🗂️ Deals &amp; Proposals Kanban
               </div>
-              <p className="text-xs text-slate-400 mt-1.5">
+              <p
+                style={{
+                  fontSize: '12.5px',
+                  color: '#94a3b8',
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
                 Track active bids across Stage 1 (TOR Identified), Stage 2
                 (Proposal In Defense), and Stage 3 (Contract Won / Signed).
               </p>
@@ -602,12 +1089,26 @@ export default function ExecutiveLandingPortal({ children }) {
 
             <div
               onClick={() => setShowWelcomeHub(false)}
-              className="p-5 rounded-xl bg-slate-900 border border-slate-800 hover:border-amber-500/50 cursor-pointer transition group"
+              className="icap-hub-card"
             >
-              <div className="text-lg font-bold text-white group-hover:text-amber-400 transition">
+              <div
+                style={{
+                  fontSize: '16px',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  marginBottom: '8px',
+                }}
+              >
                 📣 Digital Marketing &amp; Lead Intake
               </div>
-              <p className="text-xs text-slate-400 mt-1.5">
+              <p
+                style={{
+                  fontSize: '12.5px',
+                  color: '#94a3b8',
+                  margin: 0,
+                  lineHeight: 1.5,
+                }}
+              >
                 Review live inbound Google Form inquiries (&quot;Let&apos;s Work
                 Together&quot;), qualify leads with the 4-point scorecard, and
                 convert to deals.
@@ -615,14 +1116,30 @@ export default function ExecutiveLandingPortal({ children }) {
             </div>
           </div>
 
-          {/* Preference Checkbox */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-800 text-xs text-slate-400">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: '16px',
+              borderTop: '1px solid #1e293b',
+              fontSize: '12.5px',
+              color: '#94a3b8',
+            }}
+          >
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+              }}
+            >
               <input
                 type="checkbox"
                 checked={skipHubNextTime}
                 onChange={(e) => handleToggleSkipHub(e.target.checked)}
-                className="rounded border-slate-700 text-emerald-500 focus:ring-0"
               />
               <span>
                 Go straight to the main CRM Dashboard after password login next
@@ -640,10 +1157,23 @@ export default function ExecutiveLandingPortal({ children }) {
   // VIEW 3: FULL EXISTING CRM WORKSPACE + COMPACT 2-HOUR SECURITY BAR
   // ============================================================================
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* 5-Minute Expiry Warning Banner */}
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <style>{PORTAL_STYLES}</style>
+
       {showExpiryWarning && (
-        <div className="bg-amber-500 text-slate-950 px-4 py-2 text-xs font-bold flex items-center justify-between shadow-md z-50">
+        <div
+          style={{
+            backgroundColor: '#f59e0b',
+            color: '#090d16',
+            padding: '8px 18px',
+            fontSize: '12.5px',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            zIndex: 9999,
+          }}
+        >
           <span>
             ⚠️ Security Notice: Your 2-hour CRM session will lock in{' '}
             {formatRemainingTime(remainingMs)} due to inactivity.
@@ -654,44 +1184,48 @@ export default function ExecutiveLandingPortal({ children }) {
               setShowExpiryWarning(false);
               setRemainingMs(SESSION_TIMEOUT_MS);
             }}
-            className="px-3 py-1 rounded bg-slate-950 text-white hover:bg-slate-800 text-xs font-bold cursor-pointer"
+            style={{
+              backgroundColor: '#090d16',
+              color: '#ffffff',
+              border: 'none',
+              padding: '5px 12px',
+              borderRadius: '6px',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
           >
             Stay Signed In (Reset 2h Timer)
           </button>
         </div>
       )}
 
-      {/* Subtle Security & Landing Hub Strip above the Top Navbar */}
-      <div className="bg-slate-950 text-slate-300 border-b border-slate-800 px-4 py-1 text-[11px] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 text-emerald-400 font-semibold">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            2-Hour Security Timer: {formatRemainingTime(remainingMs)}
+      <div className="icap-security-strip">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ color: '#34d399', fontWeight: 700 }}>
+            ● 2-Hour Security Timer: {formatRemainingTime(remainingMs)}
           </span>
-          <span className="text-slate-600 hidden sm:inline">|</span>
-          <span className="text-slate-400 hidden sm:inline">
+          <span style={{ color: '#64748b' }}>|</span>
+          <span style={{ color: '#94a3b8' }}>
             Auto-locks requiring password after 2h away
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div style={{ display: 'flex', alignItems: 'center' }}>
           <button
             onClick={() => setShowWelcomeHub(true)}
-            className="text-slate-300 hover:text-white underline cursor-pointer"
+            className="icap-strip-btn"
+            style={{ backgroundColor: 'transparent' }}
           >
             🏛️ Landing Hub
           </button>
-          <button
-            onClick={handleManualLock}
-            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-red-900/80 text-slate-200 hover:text-white border border-slate-700 transition cursor-pointer"
-          >
+          <button onClick={handleManualLock} className="icap-strip-btn">
             🔒 Lock Now
           </button>
         </div>
       </div>
 
-      {/* Render 100% of Your Existing CRM Application Untouched */}
-      <div className="flex-1">{children}</div>
+      <div style={{ flex: 1 }}>{children}</div>
     </div>
   );
 }
