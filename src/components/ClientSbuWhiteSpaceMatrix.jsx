@@ -1,20 +1,15 @@
-/**
- * THE i-CAPITAL AFRICA INSTITUTE — CLIENT DIRECTORY MODULE
- * Feature #3: 4-SBU Cross-Sell "White-Space" Matrix & Recommendation Letter Tracker
- */
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabaseAuthClient } from '../utils/sessionSecurity';
+import { supabase } from '../supabase';
+import { MASTER_184_DIRECTORY } from '../ClientDirectory';
 
 const MATRIX_STYLES = `
   .icap-matrix-wrap {
-    margin-top: 24px;
+    margin-top: 8px;
     background-color: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 4px 16px rgba(37, 62, 94, 0.06);
-    font-family: 'Century Gothic', 'Plus Jakarta Sans', -apple-system, sans-serif;
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
     color: #1e293b;
   }
   .icap-matrix-top {
@@ -23,27 +18,24 @@ const MATRIX_STYLES = `
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding-bottom: 16px;
+    padding-bottom: 14px;
     border-bottom: 1px solid #f1f5f9;
-    margin-bottom: 18px;
+    margin-bottom: 14px;
   }
   .icap-matrix-search {
-    padding: 9px 14px;
-    border-radius: 10px;
-    border: 1.5px solid #cbd5e1;
-    font-size: 13px;
-    min-width: 260px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    font-size: 12.5px;
+    min-width: 240px;
     outline: none;
-  }
-  .icap-matrix-search:focus {
-    border-color: #4A7DBC;
   }
   .icap-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 14px;
     font-size: 11.5px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
     color: #475569;
   }
   .icap-legend-dot {
@@ -56,43 +48,55 @@ const MATRIX_STYLES = `
   .icap-matrix-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12.5px;
+    font-size: 12px;
   }
   .icap-matrix-table th {
-    background-color: #253E5E;
+    background-color: #0f172a;
     color: #ffffff;
-    padding: 11px 12px;
+    padding: 10px 12px;
     text-align: left;
-    font-size: 11px;
+    font-size: 10.5px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
   .icap-matrix-table td {
-    padding: 12px;
+    padding: 10px 12px;
     border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
   }
   .icap-cell-won {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     background-color: #dcfce7;
     color: #166534;
     border: 1px solid #86efac;
-    padding: 4px 10px;
-    border-radius: 8px;
+    padding: 3px 9px;
+    border-radius: 6px;
     font-weight: 700;
     font-size: 11px;
   }
   .icap-cell-pipe {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     background-color: #dbeafe;
     color: #1e40af;
     border: 1px solid #93c5fd;
-    padding: 4px 10px;
-    border-radius: 8px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 11px;
+  }
+  .icap-cell-target {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    padding: 3px 9px;
+    border-radius: 6px;
     font-weight: 700;
     font-size: 11px;
   }
@@ -102,38 +106,48 @@ const MATRIX_STYLES = `
     gap: 4px;
     background-color: #fff7ed;
     color: #c2410c;
-    border: 1px dashed #F78019;
-    padding: 4px 10px;
-    border-radius: 8px;
+    border: 1px dashed #fdba74;
+    padding: 3px 9px;
+    border-radius: 6px;
     font-weight: 600;
     font-size: 11px;
   }
   .icap-rec-btn {
-    background-color: #F78019;
+    background-color: #ea580c;
     color: #ffffff;
     border: none;
     padding: 5px 10px;
-    border-radius: 7px;
+    border-radius: 6px;
     font-size: 11px;
     font-weight: 700;
     cursor: pointer;
-  }
-  .icap-rec-btn:hover {
-    background-color: #e06d0b;
   }
 `;
 
 function normalizeSbu(raw) {
   const val = String(raw || '').toLowerCase();
-  if (val.includes('inst')) return 'INST';
   if (val.includes('cbs') || val.includes('cross')) return 'CBS';
   if (val.includes('iip') || val.includes('invest')) return 'IIP';
   if (val.includes('das') || val.includes('digital') || val.includes('ai')) return 'DAS';
+  if (val.includes('inst')) return 'INST';
   return 'INST';
 }
 
+function cleanBaseAccountName(raw) {
+  return String(raw || '')
+    .replace(/\s+(IIP|DAS|CBS|Q1 Unit|Q3 Unit|Q4 Advisory|Q4)$/i, '')
+    .trim();
+}
+
+function normalizeOrgKey(raw) {
+  return cleanBaseAccountName(raw)
+    .toLowerCase()
+    .replace(/\b(s\.?c\.?|plc|share company|limited|ltd|ethiopia|bank of|international|company)\b/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
 export default function ClientSbuWhiteSpaceMatrix() {
-  const [clients, setClients] = useState([]);
   const [deals, setDeals] = useState([]);
   const [leads, setLeads] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -142,16 +156,13 @@ export default function ClientSbuWhiteSpaceMatrix() {
 
   const loadMatrixData = async () => {
     setLoading(true);
-    const [clientsRes, oppRes, propRes, leadsRes] = await Promise.all([
-      supabaseAuthClient.from('clients').select('*'),
-      supabaseAuthClient.from('opportunities').select('*'),
-      supabaseAuthClient.from('proposals').select('*'),
-      supabaseAuthClient.from('leads').select('*'),
+    const [oppRes, propRes, leadsRes] = await Promise.all([
+      supabase.from('opportunities').select('*'),
+      supabase.from('proposals').select('*'),
+      supabase.from('leads').select('*'),
     ]);
 
-    if (clientsRes.data) setClients(clientsRes.data);
     if (leadsRes.data) setLeads(leadsRes.data);
-
     const taggedOpps = (oppRes.data || []).map((o) => ({ ...o, _table: 'opportunities' }));
     const taggedProps = (propRes.data || []).map((p) => ({ ...p, _table: 'proposals' }));
     setDeals([...taggedOpps, ...taggedProps]);
@@ -166,66 +177,79 @@ export default function ClientSbuWhiteSpaceMatrix() {
     const map = new Map();
 
     const getOrCreate = (rawName, sector = '') => {
-      const cleanName = String(rawName || '').trim();
-      if (!cleanName) return null;
-      const key = cleanName.toLowerCase();
+      const displayName = cleanBaseAccountName(rawName);
+      if (!displayName) return null;
+      const key = normalizeOrgKey(displayName) || displayName.toLowerCase();
       if (!map.has(key)) {
         map.set(key, {
-          name: cleanName,
+          name: displayName,
           sector: sector || 'Institutional Sector',
           sbu: {
-            INST: { won: 0, active: 0 },
-            CBS: { won: 0, active: 0 },
-            IIP: { won: 0, active: 0 },
-            DAS: { won: 0, active: 0 },
+            INST: { won: 0, active: 0, targeted: false },
+            CBS: { won: 0, active: 0, targeted: false },
+            IIP: { won: 0, active: 0, targeted: false },
+            DAS: { won: 0, active: 0, targeted: false },
           },
           wonDeals: [],
+          score: 0,
         });
       }
       return map.get(key);
     };
 
-    clients.forEach((c) => {
-      getOrCreate(c.name || c.client_name || c.organization, c.industry || c.sector);
+    // 1. Map MASTER_184_DIRECTORY target pathways
+    MASTER_184_DIRECTORY.forEach((m) => {
+      const entry = getOrCreate(m.name, m.sector);
+      const sbu = normalizeSbu(m.sbu);
+      if (entry && sbu) {
+        entry.sbu[sbu].targeted = true;
+        entry.score += 1;
+      }
     });
 
+    // 2. Map Lead Intake
     leads.forEach((l) => {
       const entry = getOrCreate(
         l.client_organization || l.organization || l.client_name,
         l.sector
       );
-      if (entry) {
-        const sbu = normalizeSbu(l.sbu);
+      const sbu = normalizeSbu(l.sbu);
+      if (entry && sbu) {
         entry.sbu[sbu].active += 1;
+        entry.score += 2;
       }
     });
 
+    // 3. Map Opportunities & Proposals
     deals.forEach((d) => {
       const entry = getOrCreate(
-        d.client_organization || d.organization || d.client_name,
+        d.client_organization || d.organization || d.client_name || d.client,
         d.sector
       );
-      if (entry) {
-        const sbu = normalizeSbu(d.sbu);
+      const sbu = normalizeSbu(d.sbu);
+      if (entry && sbu) {
         const stage = `${d.stage || ''} ${d.status || ''}`.toLowerCase();
         const isWon = stage.includes('won') || stage.includes('signed') || stage.includes('completed');
 
         if (isWon) {
           entry.sbu[sbu].won += 1;
           entry.wonDeals.push(d);
-        } else if (!stage.includes('lost')) {
+          entry.score += 5;
+        } else if (!stage.includes('lost') && !stage.includes('cancel')) {
           entry.sbu[sbu].active += 1;
+          entry.score += 3;
         }
       }
     });
 
     return Array.from(map.values())
-      .filter((row) =>
-        row.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        row.sector.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [clients, deals, leads, searchTerm]);
+      .filter((row) => {
+        if (!searchTerm.trim()) return true;
+        const q = searchTerm.toLowerCase();
+        return row.name.toLowerCase().includes(q) || row.sector.toLowerCase().includes(q);
+      })
+      .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  }, [deals, leads, searchTerm]);
 
   const handleRecommendationAction = async (deal) => {
     const current = deal.recommendation_letter_status || 'Not Requested';
@@ -235,7 +259,7 @@ export default function ClientSbuWhiteSpaceMatrix() {
         : 'Received';
 
     const targetTable = deal._table || 'opportunities';
-    const { error } = await supabaseAuthClient
+    const { error } = await supabase
       .from(targetTable)
       .update({ recommendation_letter_status: nextStatus })
       .eq('id', deal.id);
@@ -256,6 +280,9 @@ export default function ClientSbuWhiteSpaceMatrix() {
     if (stats.active > 0) {
       return <span className="icap-cell-pipe">● Active ({stats.active})</span>;
     }
+    if (stats.targeted) {
+      return <span className="icap-cell-target">🎯 Target Pathway</span>;
+    }
     return <span className="icap-cell-white">+ White Space</span>;
   };
 
@@ -265,11 +292,11 @@ export default function ClientSbuWhiteSpaceMatrix() {
 
       <div className="icap-matrix-top">
         <div>
-          <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#253E5E', margin: 0 }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
             🧩 4-SBU Cross-Sell &quot;White-Space&quot; Matrix &amp; Recommendation Tracker
           </h3>
-          <p style={{ fontSize: '12.5px', color: '#64748b', margin: '4px 0 0 0' }}>
-            Identify untapped SBU expansion opportunities across existing clients and track post-delivery recommendation letters.
+          <p style={{ fontSize: '12px', color: '#64748b', margin: '3px 0 0 0' }}>
+            Reconciles active/won deals, mapped SBU target pathways, and untapped white space across all 4 SBUs.
           </p>
         </div>
 
@@ -285,13 +312,13 @@ export default function ClientSbuWhiteSpaceMatrix() {
       {toastMsg && (
         <div
           style={{
-            marginBottom: '14px',
-            padding: '10px 14px',
+            marginBottom: '12px',
+            padding: '9px 12px',
             borderRadius: '8px',
             backgroundColor: '#eff6ff',
             border: '1px solid #93c5fd',
             color: '#1e3a8a',
-            fontSize: '12.5px',
+            fontSize: '12px',
             fontWeight: 600,
           }}
         >
@@ -306,20 +333,24 @@ export default function ClientSbuWhiteSpaceMatrix() {
         </span>
         <span>
           <span className="icap-legend-dot" style={{ backgroundColor: '#3b82f6' }} />
-          <strong>Active Pipeline / Screening</strong>
+          <strong>Active Deal / Lead</strong>
         </span>
         <span>
-          <span className="icap-legend-dot" style={{ backgroundColor: '#F78019' }} />
+          <span className="icap-legend-dot" style={{ backgroundColor: '#0284c7' }} />
+          <strong>Mapped SBU Target Pathway</strong>
+        </span>
+        <span>
+          <span className="icap-legend-dot" style={{ backgroundColor: '#ea580c' }} />
           <strong>White Space (Cross-Sell Opportunity)</strong>
         </span>
       </div>
 
       {loading ? (
-        <div style={{ fontSize: '13px', color: '#64748b', padding: '12px 0' }}>
+        <div style={{ fontSize: '12.5px', color: '#64748b', padding: '12px 0' }}>
           Building 4-SBU Client Penetration Matrix...
         </div>
       ) : (
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto', maxHeight: '460px' }}>
           <table className="icap-matrix-table">
             <thead>
               <tr>
@@ -339,7 +370,7 @@ export default function ClientSbuWhiteSpaceMatrix() {
                 return (
                   <tr key={row.name}>
                     <td>
-                      <div style={{ fontWeight: 700, color: '#253E5E' }}>{row.name}</div>
+                      <div style={{ fontWeight: 700, color: '#0f172a' }}>{row.name}</div>
                       <div style={{ fontSize: '11px', color: '#64748b' }}>{row.sector}</div>
                     </td>
                     <td>{renderSbuCell(row.sbu.INST)}</td>
@@ -348,13 +379,14 @@ export default function ClientSbuWhiteSpaceMatrix() {
                     <td>{renderSbuCell(row.sbu.DAS)}</td>
                     <td>
                       {!primaryWonDeal ? (
-                        <span style={{ fontSize: '11.5px', color: '#94a3b8' }}>
+                        <span style={{ fontSize: '11px', color: '#94a3b8' }}>
                           Eligible upon Won deal
                         </span>
                       ) : recStatus === 'Received' ? (
                         <span className="icap-cell-won">📜 Letter Received</span>
                       ) : (
                         <button
+                          type="button"
                           onClick={() => handleRecommendationAction(primaryWonDeal)}
                           className="icap-rec-btn"
                         >

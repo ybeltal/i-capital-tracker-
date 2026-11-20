@@ -49,37 +49,82 @@ export default function DormantAccountReviver({ onClose, onLogToQueue }) {
   async function scanDormantAccounts() {
     setLoading(true)
 
-    // Fetch active pipeline deals
-    const { data: opportunities } = await supabase
-      .from('opportunities')
-      .select('client, client_name, sbu, updated_at, created_at')
+    // Assess client activity and interest signals across all 4 CRM sources
+    const [oppRes, propRes, leadRes, mktRes] = await Promise.all([
+      supabase.from('opportunities').select('client, client_name, client_organization, title, opportunity_title, sbu, stage, status, updated_at, created_at'),
+      supabase.from('proposals').select('client, client_name, client_organization, title, opportunity_title, sbu, stage, status, updated_at, created_at'),
+      supabase.from('leads').select('client_name, client_organization, organization, title, opportunity_title, sbu, screening_status, updated_at, created_at'),
+      supabase.from('marketing_leads').select('organization, service_of_interest, preferred_next_step, pipeline_status, created_at'),
+    ])
 
+    const opportunities = oppRes.data || []
+    const proposals = propRes.data || []
+    const leads = leadRes.data || []
+    const mktLeads = mktRes.data || []
     const now = new Date()
 
-    // Map against the official 184 Target Directory to ensure all SBUs are represented
     const evaluated = MASTER_184_DIRECTORY.map((client) => {
       const clientName = client.name
-      const matchingDeals = (opportunities || []).filter((opp) => {
-        const oppName = (opp.client || opp.client_name || '').toLowerCase()
-        return oppName.includes(clientName.toLowerCase().split(' ')[0])
+      const matchToken = clientName.toLowerCase().split(' ')[0]
+      const interestSignals = []
+      const activityDates = []
+
+      // 1. Check Opportunities
+      opportunities.forEach((o) => {
+        const name = (o.client || o.client_name || o.client_organization || '').toLowerCase()
+        if (matchToken.length > 2 && name.includes(matchToken)) {
+          const title = o.opportunity_title || o.title
+          if (title) interestSignals.push(`Past Opportunity: ${title} (${o.stage || o.status || 'Tracked'})`)
+          if (o.updated_at || o.created_at) activityDates.push(new Date(o.updated_at || o.created_at))
+        }
+      })
+
+      // 2. Check Proposals
+      proposals.forEach((p) => {
+        const name = (p.client || p.client_name || p.client_organization || '').toLowerCase()
+        if (matchToken.length > 2 && name.includes(matchToken)) {
+          const title = p.opportunity_title || p.title
+          if (title) interestSignals.push(`Proposal History: ${title}`)
+          if (p.updated_at || p.created_at) activityDates.push(new Date(p.updated_at || p.created_at))
+        }
+      })
+
+      // 3. Check Pre-Tender Leads
+      leads.forEach((l) => {
+        const name = (l.client_organization || l.organization || l.client_name || '').toLowerCase()
+        if (matchToken.length > 2 && name.includes(matchToken)) {
+          const title = l.opportunity_title || l.title
+          if (title) interestSignals.push(`Lead Screening: ${title}`)
+          if (l.updated_at || l.created_at) activityDates.push(new Date(l.updated_at || l.created_at))
+        }
+      })
+
+      // 4. Check Inbound Digital Marketing Inquiries
+      mktLeads.forEach((m) => {
+        const name = (m.organization || '').toLowerCase()
+        if (matchToken.length > 2 && name.includes(matchToken)) {
+          if (m.service_of_interest) interestSignals.push(`Inbound Web Inquiry: ${m.service_of_interest}`)
+          if (m.created_at) activityDates.push(new Date(m.created_at))
+        }
       })
 
       let lastActive = null
-      if (matchingDeals.length > 0) {
-        const sorted = matchingDeals.sort(
-          (a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at)
-        )
-        lastActive = new Date(sorted[0].updated_at || sorted[0].created_at)
+      if (activityDates.length > 0) {
+        activityDates.sort((a, b) => b - a)
+        lastActive = activityDates[0]
       }
 
       const daysInactive = lastActive
         ? Math.floor((now - lastActive) / (1000 * 60 * 60 * 24))
         : 95
 
+      const uniqueSignals = Array.from(new Set(interestSignals)).slice(0, 3)
+
       return {
         ...client,
         displayName: clientName,
         daysInactive,
+        interestSignals: uniqueSignals,
         status: daysInactive >= 60 ? 'Dormant' : 'Active',
       }
     })
@@ -93,7 +138,6 @@ export default function DormantAccountReviver({ onClose, onLogToQueue }) {
     setLoading(false)
   }
 
-  // Filter accounts by SBU
   const filteredDormant = dormantAccounts.filter(
     (acc) => selectedSbuFilter === 'ALL' || acc.sbu === selectedSbuFilter
   )
@@ -105,6 +149,11 @@ export default function DormantAccountReviver({ onClose, onLogToQueue }) {
     setCopied(false)
 
     const sbuData = SBU_CONFIG[selectedAccount.sbu] || SBU_CONFIG.Institute
+    const nominatedProduct = selectedAccount.service_fit || sbuData.offerings
+    const signalsSummary =
+      selectedAccount.interestSignals && selectedAccount.interestSignals.length > 0
+        ? selectedAccount.interestSignals.join('; ')
+        : `Sector-aligned institutional pathway (${selectedAccount.sector})`
 
     try {
       const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY
@@ -114,25 +163,26 @@ export default function DormantAccountReviver({ onClose, onLogToQueue }) {
 
       const prompt = `
 You are the Senior Business Development & Relationship Officer at The i-Capital Africa Group in Addis Ababa, Ethiopia.
-Write a consultative, professional, and compelling re-engagement email to a dormant institutional account.
+Write a consultative, executive re-engagement email to a dormant institutional account based on the specific product nominated by our SBU and our assessment of the client's interest across CRM sources.
 
 Target Client: ${selectedAccount.displayName}
 Sector: ${selectedAccount.sector}
-Target SBU: ${sbuData.name}
-Core Advisory Solutions: ${sbuData.offerings}
+Nominated SBU: ${sbuData.name}
+SBU-Nominated Product / Solution Fit: ${nominatedProduct}
+Assessed Client Interest Signals Across Sources: ${signalsSummary}
 Strategic Executive Focus: ${sbuData.executiveAngle}
 Target Executive Contact: ${selectedAccount.contact_person || 'Leadership Team'}
 
 Requirements:
-1. Subject line must be high-priority, executive, and non-spammy.
-2. Reference the current market developments in Ethiopia (financial sector liberalization, digital competitiveness, or capital market readiness).
-3. Frame i-Capital's proven capability as a high-value advisory partner.
+1. Subject line must highlight the SBU-nominated product (${nominatedProduct}) in a refined, executive tone.
+2. Tailor the value proposition specifically to "${nominatedProduct}" and connect naturally to the client's sector (${selectedAccount.sector}) and any assessed interest signals (${signalsSummary}).
+3. Reference current Ethiopian market developments (financial sector liberalization, ESX capital market readiness, or digital competitiveness).
 4. Conclude with a low-friction invitation for a 20-minute exploratory briefing.
 5. Return clean JSON with two fields: "subject" and "body".
 `
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -143,14 +193,23 @@ Requirements:
         }
       )
 
+      if (!response.ok) {
+        throw new Error(`Gemini API HTTP ${response.status}`)
+      }
+
       const result = await response.json()
       const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text
       const parsed = JSON.parse(rawText)
       setGeneratedPitch(parsed)
     } catch {
+      const signalNote =
+        selectedAccount.interestSignals && selectedAccount.interestSignals.length > 0
+          ? `Building on our earlier institutional touchpoints (${selectedAccount.interestSignals[0]}), `
+          : ''
+
       setGeneratedPitch({
-        subject: `Strategic Dialogue: Enhancing Institutional Readiness & Leadership for ${selectedAccount.displayName}`,
-        body: `Dear ${selectedAccount.contact_person || 'Executive Leadership'},\n\nI hope this communication finds you well.\n\nOver the past months, Ethiopia's commercial environment has accelerated towards greater liberalization, heightened governance demands, and digital-first operations. In this context, institutions like ${selectedAccount.displayName} face both unique expansion horizons and strategic operational demands.\n\nAt The i-Capital Africa Group, we have recently expanded our ${sbuData.name} mandates—specifically structuring ${sbuData.offerings}.\n\nGiven your strategic positioning, we would welcome the opportunity to convene a concise, 20-minute exploratory discussion with your executive team to explore high-impact synergies.\n\nPlease let us know if your calendar permits an introductory engagement in the coming week.\n\nWith highest professional regards,\n\nSenior Business Development Officer\nThe i-Capital Africa Group\nAddis Ababa, Ethiopia`,
+        subject: `${nominatedProduct}: Strategic Advisory Briefing for ${selectedAccount.displayName}`,
+        body: `Dear ${selectedAccount.contact_person || 'Executive Leadership'},\n\nI hope this communication finds you well.\n\nOver the past months, Ethiopia's ${selectedAccount.sector} sector has entered a decisive phase of institutional modernization, regulatory evolution, and heightened operational competitiveness.\n\n${signalNote}our ${sbuData.name} practice has specifically nominated our ${nominatedProduct} framework for ${selectedAccount.displayName}. ${sbuData.executiveAngle}\n\nWe would welcome the opportunity to convene a focused, 20-minute exploratory briefing with your team to share how ${nominatedProduct} can support your ${selectedAccount.quarter} strategic priorities.\n\nPlease let us know a convenient time next week for a brief introductory conversation.\n\nWith highest professional regards,\n\nSenior Business Development & Relationship Officer\nThe i-Capital Africa Group\nAddis Ababa, Ethiopia`,
       })
     } finally {
       setGenerating(false)
@@ -216,7 +275,7 @@ Requirements:
                 </span>
               </div>
               <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>
-                Multi-SBU reactivation across the 184 directory baseline (60+ days silent).
+                Multi-source interest assessment &amp; SBU-nominated product email drafter across the 184 directory baseline.
               </div>
             </div>
           </div>
@@ -311,7 +370,7 @@ Requirements:
           >
             {loading ? (
               <div style={{ padding: 30, textAlign: 'center', fontSize: 12, color: '#64748b' }}>
-                Scanning 184 Target Baseline…
+                Scanning 184 Target Baseline &amp; Multi-Source Signals…
               </div>
             ) : filteredDormant.length === 0 ? (
               <div style={{ padding: 30, textAlign: 'center', fontSize: 12, color: '#94a3b8' }}>
@@ -362,7 +421,11 @@ Requirements:
                       {acc.displayName}
                     </div>
 
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+                    <div style={{ fontSize: 11, color: '#0284c7', fontWeight: 600, marginTop: 2 }}>
+                      Nominated: {acc.service_fit}
+                    </div>
+
+                    <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2 }}>
                       {acc.sector} • Quarter: <strong>{acc.quarter}</strong>
                     </div>
                   </div>
@@ -376,7 +439,7 @@ Requirements:
             {selectedAccount ? (
               <>
                 <div style={{ background: '#f8fafc', borderRadius: 10, padding: 16, border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
                     <div>
                       <span
                         style={{
@@ -386,13 +449,19 @@ Requirements:
                           textTransform: 'uppercase',
                         }}
                       >
-                        Target Strategic Pathway
+                        SBU-Nominated Product &amp; Multi-Source Interest Assessment
                       </span>
-                      <h4 style={{ margin: '4px 0 2px 0', fontSize: 18, color: '#0f172a', fontWeight: 900 }}>
+                      <h4 style={{ margin: '4px 0 4px 0', fontSize: 18, color: '#0f172a', fontWeight: 900 }}>
                         {selectedAccount.displayName}
                       </h4>
-                      <div style={{ fontSize: 12, color: '#64748b' }}>
-                        Strategic SBU: <strong>{SBU_CONFIG[selectedAccount.sbu]?.name}</strong> • Target Quarter: <strong>{selectedAccount.quarter}</strong>
+                      <div style={{ fontSize: 12, color: '#334155', marginBottom: 4 }}>
+                        Nominated Product: <strong style={{ color: '#0284c7' }}>{selectedAccount.service_fit}</strong> ({SBU_CONFIG[selectedAccount.sbu]?.name})
+                      </div>
+                      <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                        <strong>Assessed Interest Signals:</strong>{' '}
+                        {selectedAccount.interestSignals && selectedAccount.interestSignals.length > 0
+                          ? selectedAccount.interestSignals.join(' • ')
+                          : `Sector fit (${selectedAccount.sector}) • Target Quarter ${selectedAccount.quarter}`}
                       </div>
                     </div>
 
@@ -412,11 +481,12 @@ Requirements:
                         display: 'flex',
                         alignItems: 'center',
                         gap: 8,
+                        whiteSpace: 'nowrap',
                         boxShadow: '0 4px 12px rgba(2, 132, 199, 0.3)',
                       }}
                     >
                       <span>{generating ? '⏳' : '✨'}</span>
-                      <span>{generating ? 'Synthesizing with Gemini…' : 'Synthesize Executive Pitch'}</span>
+                      <span>{generating ? 'Synthesizing Pitch…' : 'Draft Nominated Product Email'}</span>
                     </button>
                   </div>
                 </div>
@@ -513,7 +583,6 @@ Requirements:
                           type="button"
                           onClick={() => {
                             onLogToQueue?.(selectedAccount, generatedPitch)
-                            alert(`Re-engagement touchpoint for "${selectedAccount.displayName}" registered in Follow-Up Queue!`)
                             onClose()
                           }}
                           style={{
@@ -549,10 +618,10 @@ Requirements:
                   >
                     <span style={{ fontSize: 28 }}>⚡</span>
                     <strong style={{ color: '#0f172a', fontSize: 14 }}>
-                      Ready to synthesize outreach for {selectedAccount.displayName}
+                      Ready to draft outreach for {selectedAccount.displayName}
                     </strong>
-                    <span style={{ fontSize: 12, maxWidth: 440 }}>
-                      Click <strong>"Synthesize Executive Pitch"</strong> above to craft an outreach note matching this institution's regulatory environment and SBU catalogue offerings.
+                    <span style={{ fontSize: 12, maxWidth: 460 }}>
+                      Click <strong>&quot;Draft Nominated Product Email&quot;</strong> above to generate an outreach email tailored to <strong>{selectedAccount.service_fit}</strong> and {selectedAccount.displayName}&apos;s assessed multi-source interest signals.
                     </span>
                   </div>
                 )}
