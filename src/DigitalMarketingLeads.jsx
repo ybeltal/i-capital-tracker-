@@ -1,577 +1,864 @@
-import React, { useState, useEffect } from 'react'
-import { supabase } from './supabase'
+/**
+ * THE i-CAPITAL AFRICA INSTITUTE — DIGITAL MARKETING LEADS MODULE
+ * Complete Inbound Prospect Register with Working "Convert to Deal ->" Modal,
+ * Live Status Updates, Campaign Source Tracking & Clean Headers
+ */
 
-const STATUS_PIPELINE = [
-  { id: 'New Inquiry', label: 'New Inquiry', bg: '#e0f2fe', text: '#0369a1', border: '#bae6fd' },
-  { id: 'Follow-up in Progress', label: 'Follow-up in Progress', bg: '#fef3c7', text: '#b45309', border: '#fde68a' },
-  { id: 'Qualified Lead', label: 'Qualified Lead', bg: '#ede9fe', text: '#6d28d9', border: '#ddd6fe' },
-  { id: 'Meeting Booked', label: 'Meeting Booked', bg: '#dcfce7', text: '#15803d', border: '#bbf7d0' },
-  { id: 'Converted Opportunity', label: 'Converted Opportunity', bg: '#d1fae5', text: '#047857', border: '#a7f3d0' },
-  { id: 'Nurture', label: 'Nurture', bg: '#f1f5f9', text: '#475569', border: '#e2e8f0' },
-  { id: 'Disqualified', label: 'Disqualified', bg: '#fee2e2', text: '#b91c1c', border: '#fecaca' },
-]
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabaseAuthClient } from './utils/sessionSecurity';
 
-export default function DigitalMarketingLeads({ onConvertToProposal }) {
-  const [leads, setLeads] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [activeSubTab, setActiveSubTab] = useState('register') // 'register' | 'campaigns' | 'status' | 'dashboard'
-  const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('All')
-  const [selectedLead, setSelectedLead] = useState(null)
+const DM_STYLES = `
+  .dm-wrap {
+    font-family: 'Century Gothic', 'Plus Jakarta Sans', -apple-system, sans-serif;
+    color: #1e293b;
+    padding: 20px 24px 48px;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+  .dm-subnav {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 18px;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+  }
+  .dm-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .dm-tab {
+    border: none;
+    background: transparent;
+    color: #475569;
+    padding: 8px 14px;
+    border-radius: 9px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .dm-tab.active {
+    background: #0284c7;
+    color: #ffffff;
+  }
+  .dm-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .dm-select, .dm-search {
+    padding: 8px 12px;
+    border-radius: 9px;
+    border: 1px solid #cbd5e1;
+    font-size: 12.5px;
+    background: #ffffff;
+    color: #1e293b;
+    outline: none;
+  }
+  .dm-search {
+    min-width: 230px;
+  }
+  .dm-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 22px 24px;
+    box-shadow: 0 2px 12px rgba(37, 62, 94, 0.05);
+  }
+  .dm-card-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .dm-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: #253E5E;
+    margin: 0;
+  }
+  .dm-sub {
+    font-size: 12px;
+    color: #64748b;
+    margin: 3px 0 0 0;
+  }
+  .dm-badge-total {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 999px;
+  }
+  .dm-table-wrap {
+    overflow-x: auto;
+  }
+  .dm-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .dm-table th {
+    text-align: left;
+    padding: 11px 12px;
+    border-bottom: 1.5px solid #e2e8f0;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .dm-table td {
+    padding: 14px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+  }
+  .dm-step-pill {
+    display: inline-block;
+    background: #eff6ff;
+    color: #1d4ed8;
+    border: 1px solid #bfdbfe;
+    padding: 4px 10px;
+    border-radius: 7px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .dm-status-select {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid #cbd5e1;
+    cursor: pointer;
+  }
+  .dm-convert-btn {
+    background: #ea580c;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 3px 10px rgba(234, 88, 12, 0.25);
+    transition: background 0.15s ease;
+  }
+  .dm-convert-btn:hover {
+    background: #c2410c;
+  }
+  .dm-converted-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: #dcfce7;
+    color: #166534;
+    border: 1px solid #86efac;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+  .dm-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 9999;
+  }
+  .dm-modal {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 530px;
+    padding: 26px 28px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+    border-top: 5px solid #F78019;
+  }
+  .dm-form-group {
+    margin-bottom: 14px;
+  }
+  .dm-form-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #253E5E;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .dm-form-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1.5px solid #cbd5e1;
+    font-size: 13.5px;
+    color: #0f172a;
+    box-sizing: border-box;
+  }
+  .dm-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #253E5E;
+    color: #ffffff;
+    border-left: 5px solid #F78019;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 700;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+    z-index: 10000;
+  }
+`;
 
-  // Quick Inline Status Update State
-  const [updatingId, setUpdatingId] = useState(null)
+function detectSbuFromService(serviceText) {
+  const s = String(serviceText || '').toLowerCase();
+  if (s.includes('ai') || s.includes('digital') || s.includes('software')) return 'DAS';
+  if (s.includes('bond') || s.includes('invest') || s.includes('capital market')) return 'IIP';
+  if (s.includes('strategy') || s.includes('restructur') || s.includes('ifrs')) return 'CBS';
+  return 'INST';
+}
+
+function getStatusColors(status) {
+  const s = String(status || '').toLowerCase();
+  if (s.includes('convert')) {
+    return { backgroundColor: '#dcfce7', color: '#166534', borderColor: '#86efac' };
+  }
+  if (s.includes('progress') || s.includes('contact')) {
+    return { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' };
+  }
+  if (s.includes('qualif')) {
+    return { backgroundColor: '#e0e7ff', color: '#3730a3', borderColor: '#a5b4fc' };
+  }
+  return { backgroundColor: '#e0f2fe', color: '#0369a1', borderColor: '#7dd3fc' };
+}
+
+export default function DigitalMarketingLeads({ onConvertToDeal, onRefresh }) {
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeDealsTable, setActiveDealsTable] = useState('opportunities');
+  const [subTab, setSubTab] = useState('register');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Conversion Modal States
+  const [convertingLead, setConvertingLead] = useState(null);
+  const [dealTitle, setDealTitle] = useState('');
+  const [dealClient, setDealClient] = useState('');
+  const [dealSbu, setDealSbu] = useState('INST');
+  const [dealValue, setDealValue] = useState('');
+  const [dealStage, setDealStage] = useState('Stage 1: TOR / Opportunity Identified');
+  const [alsoCreateLeadIntake, setAlsoCreateLeadIntake] = useState(true);
+  const [converting, setConverting] = useState(false);
+  const [convertError, setConvertError] = useState('');
+  const [toastMsg, setToastMsg] = useState('');
 
   useEffect(() => {
-    fetchMarketingLeads()
-
-    // Realtime listener for incoming Google Form webhook entries
-    const channel = supabase
-      .channel('marketing-leads-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'marketing_leads' }, () => {
-        fetchMarketingLeads()
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
-
-  async function fetchMarketingLeads() {
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from('marketing_leads')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (!error && data) {
-        setLeads(data)
+    async function detectDealsTable() {
+      const [oppRes, propRes] = await Promise.all([
+        supabaseAuthClient.from('opportunities').select('id', { count: 'exact', head: true }),
+        supabaseAuthClient.from('proposals').select('id', { count: 'exact', head: true }),
+      ]);
+      const oppCount = oppRes.count || 0;
+      const propCount = propRes.count || 0;
+      if (!oppRes.error && oppCount >= propCount) {
+        setActiveDealsTable('opportunities');
+      } else if (!propRes.error) {
+        setActiveDealsTable('proposals');
       }
-    } catch (err) {
-      console.error('Error fetching marketing leads:', err)
-    } finally {
-      setLoading(false)
     }
-  }
+    detectDealsTable();
+  }, []);
 
-  async function handleStatusChange(leadId, newStatus) {
-    setUpdatingId(leadId)
-    setLeads((prev) =>
-      prev.map((l) => (l.id === leadId ? { ...l, status: newStatus, updated_at: new Date().toISOString() } : l))
-    )
+  const fetchMarketingLeads = async () => {
+    setLoading(true);
+    const { data, error } = await supabaseAuthClient
+      .from('marketing_leads')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-    try {
-      await supabase
-        .from('marketing_leads')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', leadId)
-    } catch (err) {
-      console.error('Failed to update lead status:', err)
-    } finally {
-      setUpdatingId(null)
+    if (!error && data) {
+      setRecords(data);
     }
-  }
+    setLoading(false);
+  };
 
-  async function handleUpdateNextAction(leadId, nextAction, nextDate) {
-    setLeads((prev) =>
-      prev.map((l) => (l.id === leadId ? { ...l, next_action: nextAction, next_action_date: nextDate } : l))
-    )
+  useEffect(() => {
+    fetchMarketingLeads();
+  }, []);
 
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(''), 4500);
+  };
+
+  const normalizedRecords = useMemo(() => {
+    return records.map((r) => ({
+      ...r,
+      _name: r.prospect_name || r.full_name || 'Inbound Prospect',
+      _email: r.work_email || r.email || '',
+      _org: r.organization || 'Not Specified',
+      _role: r.title || 'Lead Contact',
+      _service: r.service_of_interest || 'General Inquiry',
+      _nextStep: r.preferred_next_step || 'Request a consultation',
+      _status: r.pipeline_status || r.status || 'New Inquiry',
+      _source: r.source || "Google Form: Let's Work Together",
+      _date: r.inquiry_date || r.created_at,
+    }));
+  }, [records]);
+
+  const filteredRecords = useMemo(() => {
+    return normalizedRecords.filter((item) => {
+      if (statusFilter !== 'ALL' && item._status !== statusFilter) return false;
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase();
+        const hit =
+          item._name.toLowerCase().includes(q) ||
+          item._org.toLowerCase().includes(q) ||
+          item._email.toLowerCase().includes(q) ||
+          item._service.toLowerCase().includes(q);
+        if (!hit) return false;
+      }
+      return true;
+    });
+  }, [normalizedRecords, statusFilter, searchTerm]);
+
+  const handleStatusChange = async (leadId, newStatus) => {
+    const { error } = await supabaseAuthClient
+      .from('marketing_leads')
+      .update({ pipeline_status: newStatus, status: newStatus })
+      .eq('id', leadId);
+
+    if (!error) {
+      setRecords((prev) =>
+        prev.map((row) =>
+          row.id === leadId
+            ? { ...row, pipeline_status: newStatus, status: newStatus }
+            : row
+        )
+      );
+      showToast(`Updated pipeline status to "${newStatus}".`);
+    }
+  };
+
+  const handleOpenConvertModal = (lead) => {
+    setConvertingLead(lead);
+    setDealClient(lead._org);
+    setDealTitle(`${lead._service} — ${lead._org}`);
+    setDealSbu(detectSbuFromService(lead._service));
+    setDealValue('1000000');
+    setDealStage('Stage 1: TOR / Opportunity Identified');
+    setAlsoCreateLeadIntake(true);
+    setConvertError('');
+  };
+
+  const handleConfirmConversion = async (e) => {
+    e.preventDefault();
+    if (!convertingLead) return;
+
+    setConverting(true);
+    setConvertError('');
     try {
-      await supabase
+      const numericValue = parseFloat(String(dealValue).replace(/[^0-9.]/g, '')) || 0;
+      const probability = dealStage.includes('Defense') ? 70 : 30;
+
+      const dealPayload = {
+        client_organization: dealClient.trim() || convertingLead._org,
+        organization: dealClient.trim() || convertingLead._org,
+        client_name: dealClient.trim() || convertingLead._org,
+        opportunity_title: dealTitle.trim(),
+        title: dealTitle.trim(),
+        sbu: dealSbu,
+        stage: dealStage,
+        status: 'Active',
+        probability,
+        estimated_value: numericValue,
+        contract_value: numericValue,
+        source: convertingLead._source,
+        contact_name: convertingLead._name,
+        contact_email: convertingLead._email,
+        notes: `Converted from Digital Marketing Lead (${convertingLead._name} • ${convertingLead._email}). Preferred next step: ${convertingLead._nextStep}.`,
+      };
+
+      // 1. Insert into active Deals & Proposals table ('opportunities' or 'proposals')
+      let { data: createdDeals, error: dealErr } = await supabaseAuthClient
+        .from(activeDealsTable)
+        .insert([dealPayload])
+        .select();
+
+      if (dealErr) {
+        const fallbackTable = activeDealsTable === 'opportunities' ? 'proposals' : 'opportunities';
+        const fallbackRes = await supabaseAuthClient
+          .from(fallbackTable)
+          .insert([dealPayload])
+          .select();
+        if (fallbackRes.error) {
+          throw new Error(dealErr.message);
+        }
+        createdDeals = fallbackRes.data;
+      }
+
+      // 2. Optionally log into Lead Intake Register as Qualified
+      if (alsoCreateLeadIntake) {
+        await supabaseAuthClient.from('leads').insert([
+          {
+            client_organization: dealClient.trim() || convertingLead._org,
+            organization: dealClient.trim() || convertingLead._org,
+            client_name: dealClient.trim() || convertingLead._org,
+            opportunity_title: dealTitle.trim(),
+            title: dealTitle.trim(),
+            sbu: dealSbu,
+            screening_status: 'Qualified',
+            priority: 'High',
+            estimated_value: numericValue,
+            source: convertingLead._source,
+            contact_name: convertingLead._name,
+            contact_email: convertingLead._email,
+          },
+        ]);
+      }
+
+      // 3. Mark Marketing Lead as Converted to Deal
+      await supabaseAuthClient
         .from('marketing_leads')
         .update({
-          next_action: nextAction,
-          next_action_date: nextDate || null,
-          updated_at: new Date().toISOString(),
+          pipeline_status: 'Converted to Deal',
+          status: 'Converted to Deal',
+          converted_deal_id: createdDeals?.[0]?.id ? String(createdDeals[0].id) : 'CONVERTED',
         })
-        .eq('id', leadId)
+        .eq('id', convertingLead.id);
+
+      if (typeof onConvertToDeal === 'function') {
+        onConvertToDeal(createdDeals?.[0] || dealPayload, convertingLead);
+      }
+      if (typeof onRefresh === 'function') {
+        onRefresh();
+      }
+
+      setConvertingLead(null);
+      await fetchMarketingLeads();
+      showToast(`✓ ${convertingLead._name} converted to active proposal deal!`);
     } catch (err) {
-      console.error('Error saving next action:', err)
+      setConvertError(`Conversion error: ${err.message}`);
+    } finally {
+      setConverting(false);
     }
-  }
-
-  // Dashboard Aggregates
-  const totalInquiries = leads.length
-  const awaitingFollowup = leads.filter((l) => l.status === 'New Inquiry').length
-  const inProgressCount = leads.filter((l) => l.status === 'Follow-up in Progress').length
-  const qualifiedCount = leads.filter((l) => l.status === 'Qualified Lead' || l.status === 'Meeting Booked').length
-  const convertedCount = leads.filter((l) => l.status === 'Converted Opportunity').length
-  const conversionRate = totalInquiries > 0 ? ((convertedCount / totalInquiries) * 100).toFixed(1) : '0.0'
-
-  // Campaign & Source Grouping
-  const sourceStats = leads.reduce((acc, lead) => {
-    const src = lead.source_channel || 'Direct Inbound'
-    acc[src] = (acc[src] || 0) + 1
-    return acc
-  }, {})
-
-  const serviceStats = leads.reduce((acc, lead) => {
-    const svc = lead.service_of_interest || 'General Inquiries'
-    acc[svc] = (acc[svc] || 0) + 1
-    return acc
-  }, {})
-
-  // Filtered Leads
-  const filteredLeads = leads.filter((l) => {
-    const term = search.toLowerCase()
-    const matchesSearch =
-      (l.full_name || '').toLowerCase().includes(term) ||
-      (l.organization || '').toLowerCase().includes(term) ||
-      (l.work_email || '').toLowerCase().includes(term) ||
-      (l.service_of_interest || '').toLowerCase().includes(term) ||
-      (l.campaign_name || '').toLowerCase().includes(term)
-
-    const matchesStatus = statusFilter === 'All' || l.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* 4-PART MENU NAVIGATION BAR */}
-      <div
-        style={{
-          background: '#ffffff',
-          borderRadius: 12,
-          border: '1px solid #e2e8f0',
-          padding: '12px 18px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 12,
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
-        }}
-      >
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {[
-            { id: 'register', label: '👤 Lead Register' },
-            { id: 'campaigns', label: '🎯 Campaign & Source Tracking' },
-            { id: 'status', label: '⚡ Lead Status & Follow-up' },
-            { id: 'dashboard', label: '📊 Digital Marketing Dashboard' },
-          ].map((tab) => {
-            const isActive = activeSubTab === tab.id
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveSubTab(tab.id)}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: 8,
-                  border: 'none',
-                  background: isActive ? '#0284c7' : 'transparent',
-                  color: isActive ? '#ffffff' : '#475569',
-                  fontSize: 12,
-                  fontWeight: isActive ? 800 : 600,
-                  cursor: 'pointer',
-                  boxShadow: isActive ? '0 2px 8px rgba(2, 132, 199, 0.3)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {tab.label}
-              </button>
-            )
-          })}
+    <div className="dm-wrap">
+      <style>{DM_STYLES}</style>
+
+      <div className="dm-subnav">
+        <div className="dm-tabs">
+          <button
+            type="button"
+            onClick={() => setSubTab('register')}
+            className={`dm-tab ${subTab === 'register' ? 'active' : ''}`}
+          >
+            👤 Lead Register
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('sources')}
+            className={`dm-tab ${subTab === 'sources' ? 'active' : ''}`}
+          >
+            🎯 Campaign &amp; Source Tracking
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('followup')}
+            className={`dm-tab ${subTab === 'followup' ? 'active' : ''}`}
+          >
+            ⚡ Lead Status &amp; Follow-up
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab('dashboard')}
+            className={`dm-tab ${subTab === 'dashboard' ? 'active' : ''}`}
+          >
+            📊 Digital Marketing Dashboard
+          </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div className="dm-filters">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: '7px 10px',
-              borderRadius: 6,
-              border: '1px solid #cbd5e1',
-              fontSize: 12,
-              fontWeight: 700,
-              background: '#fff',
-              color: '#0f172a',
-            }}
+            className="dm-select"
           >
-            <option value="All">All Pipeline Statuses</option>
-            {STATUS_PIPELINE.map((stg) => (
-              <option key={stg.id} value={stg.id}>{stg.label}</option>
-            ))}
+            <option value="ALL">All Pipeline Statuses</option>
+            <option value="New Inquiry">New Inquiry</option>
+            <option value="Follow-up in Progress">Follow-up in Progress</option>
+            <option value="Qualified">Qualified</option>
+            <option value="Converted to Deal">Converted to Deal</option>
+            <option value="Disqualified">Disqualified</option>
           </select>
 
           <input
             type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search prospect, org, email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{
-              padding: '7px 12px',
-              borderRadius: 6,
-              border: '1px solid #cbd5e1',
-              fontSize: 12,
-              width: 240,
-              boxSizing: 'border-box',
-            }}
+            className="dm-search"
           />
         </div>
       </div>
 
-      {/* PART 1: LEAD REGISTER */}
-      {activeSubTab === 'register' && (
-        <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-          <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {subTab === 'register' && (
+        <div className="dm-card">
+          <div className="dm-card-head">
             <div>
-              <h3 style={{ margin: 0, fontSize: 14, fontWeight: 900, color: '#0f172a' }}>
-                Inbound Prospect Register (Single Record Per Lead)
-              </h3>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
-                Captured automatically via Google Forms &amp; Landing Page Webhooks[cite: 17, 18]
-              </div>
+              <h3 className="dm-title">Inbound Prospect Register (Single Record Per Lead)</h3>
+              <p className="dm-sub">
+                Captured automatically via Google Forms &amp; Landing Page Webhooks
+              </p>
             </div>
-            <span style={{ fontSize: 11, fontWeight: 800, background: '#e0f2fe', color: '#0369a1', padding: '3px 8px', borderRadius: 6 }}>
-              {filteredLeads.length} Total Records
-            </span>
+            <span className="dm-badge-total">{filteredRecords.length} Total Records</span>
           </div>
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: '#f8fafc', color: '#475569', borderBottom: '1px solid #e2e8f0', fontWeight: 800 }}>
-                  <th style={{ padding: '12px 16px' }}>PROSPECT &amp; CONTACT</th>
-                  <th style={{ padding: '12px 16px' }}>ORGANIZATION &amp; TITLE</th>
-                  <th style={{ padding: '12px 16px' }}>SERVICE OF INTEREST[cite: 17, 18]</th>
-                  <th style={{ padding: '12px 16px' }}>PREFERRED NEXT STEP[cite: 18]</th>
-                  <th style={{ padding: '12px 16px' }}>PIPELINE STATUS</th>
-                  <th style={{ padding: '12px 16px' }}>INQUIRY DATE[cite: 17]</th>
-                  <th style={{ padding: '12px 16px' }}>ACTION</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
+          {loading ? (
+            <div style={{ padding: '24px', color: '#64748b' }}>Loading inbound prospects...</div>
+          ) : (
+            <div className="dm-table-wrap">
+              <table className="dm-table">
+                <thead>
                   <tr>
-                    <td colSpan="7" style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>
-                      Streaming inbound marketing records from Supabase…
-                    </td>
+                    <th>Prospect &amp; Contact</th>
+                    <th>Organization &amp; Title</th>
+                    <th>Service of Interest</th>
+                    <th>Preferred Next Step</th>
+                    <th>Pipeline Status</th>
+                    <th>Inquiry Date</th>
+                    <th>Action</th>
                   </tr>
-                ) : filteredLeads.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" style={{ padding: 48, textAlign: 'center', color: '#64748b' }}>
-                      <div style={{ fontSize: 28, marginBottom: 8 }}>📬</div>
-                      <strong>No marketing inquiries match the current filter.</strong>
-                      <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
-                        Submissions from your Google Form will appear here in real time.
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredLeads.map((lead) => {
-                    const statusMeta = STATUS_PIPELINE.find((s) => s.id === lead.status) || STATUS_PIPELINE[0]
+                </thead>
+                <tbody>
+                  {filteredRecords.map((lead) => {
+                    const isConverted = lead._status === 'Converted to Deal';
+                    const badgeStyle = getStatusColors(lead._status);
+                    const formattedDate = lead._date
+                      ? new Date(lead._date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })
+                      : '—';
+
                     return (
-                      <tr key={lead.id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.1s' }}>
-                        <td style={{ padding: '14px 16px' }}>
-                          <div style={{ fontWeight: 800, color: '#0f172a' }}>{lead.full_name}</div>
-                          <div style={{ fontSize: 11, color: '#0284c7', marginTop: 2 }}>{lead.work_email}</div>
+                      <tr key={lead.id}>
+                        <td>
+                          <div style={{ fontWeight: 700, color: '#253E5E' }}>{lead._name}</div>
+                          <div style={{ fontSize: '11.5px', color: '#0284c7' }}>{lead._email}</div>
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{lead.organization}</div>
-                          <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{lead.job_title || 'Lead Contact'}</div>
+                        <td>
+                          <div style={{ fontWeight: 700, color: '#1e293b' }}>{lead._org}</div>
+                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>{lead._role}</div>
                         </td>
-                        <td style={{ padding: '14px 16px', maxWidth: 220 }}>
-                          <div style={{ color: '#1e293b', fontWeight: 600 }}>{lead.service_of_interest}</div>
-                          {lead.needs_description && (
-                            <div style={{ fontSize: 10, color: '#64748b', fontStyle: 'italic', marginTop: 3 }}>
-                              "{lead.needs_description.slice(0, 60)}{lead.needs_description.length > 60 ? '…' : ''}"
-                            </div>
+                        <td style={{ maxWidth: '250px' }}>
+                          <div style={{ fontWeight: 600, color: '#334155' }}>{lead._service}</div>
+                        </td>
+                        <td>
+                          <span className="dm-step-pill">{lead._nextStep}</span>
+                        </td>
+                        <td>
+                          <select
+                            value={lead._status}
+                            onChange={(e) => handleStatusChange(lead.id, e.target.value)}
+                            className="dm-status-select"
+                            style={badgeStyle}
+                          >
+                            <option value="New Inquiry">New Inquiry</option>
+                            <option value="Follow-up in Progress">Follow-up in Progress</option>
+                            <option value="Qualified">Qualified</option>
+                            <option value="Converted to Deal">Converted to Deal</option>
+                            <option value="Disqualified">Disqualified</option>
+                          </select>
+                        </td>
+                        <td style={{ color: '#64748b', whiteSpace: 'nowrap' }}>{formattedDate}</td>
+                        <td>
+                          {isConverted ? (
+                            <span className="dm-converted-badge">✓ Converted to Deal</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenConvertModal(lead)}
+                              className="dm-convert-btn"
+                            >
+                              Convert to Deal →
+                            </button>
                           )}
                         </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#0369a1', background: '#f0f9ff', padding: '3px 8px', borderRadius: 6, border: '1px solid #bae6fd' }}>
-                            {lead.preferred_next_step || 'Request consultation'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <select
-                            disabled={updatingId === lead.id}
-                            value={lead.status}
-                            onChange={(e) => handleStatusChange(lead.id, e.target.value)}
-                            style={{
-                              padding: '5px 8px',
-                              borderRadius: 6,
-                              fontSize: 11,
-                              fontWeight: 800,
-                              background: statusMeta.bg,
-                              color: statusMeta.text,
-                              border: `1px solid ${statusMeta.border}`,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {STATUS_PIPELINE.map((stg) => (
-                              <option key={stg.id} value={stg.id}>{stg.label}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td style={{ padding: '14px 16px', color: '#64748b', fontSize: 11 }}>
-                          {new Date(lead.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </td>
-                        <td style={{ padding: '14px 16px' }}>
-                          <button
-                            type="button"
-                            title="Convert to Bidding Pipeline Deal"
-                            onClick={() => {
-                              onConvertToProposal?.({
-                                client: lead.organization,
-                                name: lead.organization,
-                                title: `${lead.organization} - ${lead.service_of_interest}`,
-                                product: lead.service_of_interest,
-                                notes: `Lead captured via Digital Marketing. Contact: ${lead.full_name} (${lead.work_email}, ${lead.job_title}). Inquiry: ${lead.needs_description || 'None'}. Next step requested: ${lead.preferred_next_step}`,
-                              })
-                            }}
-                            style={{
-                              padding: '6px 10px',
-                              borderRadius: 6,
-                              border: 'none',
-                              background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-                              color: '#fff',
-                              fontSize: 11,
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                              boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Convert to Deal →
-                          </button>
-                        </td>
                       </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
-      {/* PART 2: CAMPAIGN AND SOURCE TRACKING */}
-      {activeSubTab === 'campaigns' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16 }}>
-            <div style={{ background: '#ffffff', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <h4 style={{ margin: '0 0 14px 0', fontSize: 13, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase' }}>
-                Inbound Source Channels[cite: 17]
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {Object.entries(sourceStats).map(([src, count]) => {
-                  const pct = totalInquiries > 0 ? ((count / totalInquiries) * 100).toFixed(0) : 0
-                  return (
-                    <div key={src}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 700, marginBottom: 4 }}>
-                        <span style={{ color: '#334155' }}>{src}</span>
-                        <span style={{ color: '#0284c7' }}>{count} leads ({pct}%)</span>
-                      </div>
-                      <div style={{ width: '100%', height: 6, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
-                        <div style={{ width: `${pct}%`, height: '100%', background: '#0284c7' }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-              <h4 style={{ margin: '0 0 14px 0', fontSize: 13, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase' }}>
-                Demand by Service Area[cite: 17, 18]
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {Object.entries(serviceStats).map(([svc, count]) => {
-                  const pct = totalInquiries > 0 ? ((count / totalInquiries) * 100).toFixed(0) : 0
-                  return (
-                    <div key={svc}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
-                        <span style={{ color: '#334155', maxWidth: '75%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {svc}
-                        </span>
-                        <span style={{ color: '#16a34a' }}>{count} ({pct}%)</span>
-                      </div>
-                      <div style={{ width: '100%', height: 6, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
-                        <div style={{ width: `${pct}%`, height: '100%', background: '#16a34a' }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Campaign Reference List */}
-          <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', padding: 20 }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: 13, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase' }}>
-              Active Campaign Registry &amp; Performance Comparison[cite: 17]
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-              {[
-                { name: 'Executive Leadership Q2 Push', channel: 'LinkedIn Sponsored', id: 'LI-MBL-2026' },
-                { name: 'AfCFTA Cross-Border Trade Webinar', channel: 'Telegram & Direct Email', id: 'CBS-TRADE-02' },
-                { name: 'Corporate Governance Advisory', channel: 'Website Direct Inbound', id: 'WEB-INBOUND-01' },
-                { name: 'Capital Markets Readiness Briefing', channel: 'Executive Outreach / Meta', id: 'IIP-CMR-26' },
-              ].map((camp) => {
-                const count = leads.filter((l) => (l.campaign_name || '').toLowerCase() === camp.name.toLowerCase()).length
-                return (
-                  <div key={camp.id} style={{ border: '1px solid #e2e8f0', borderRadius: 8, padding: 14, background: '#f8fafc' }}>
-                    <span style={{ fontSize: 9, fontWeight: 800, background: '#e2e8f0', color: '#475569', padding: '2px 6px', borderRadius: 4 }}>
-                      {camp.id}
-                    </span>
-                    <div style={{ fontWeight: 800, fontSize: 13, color: '#0f172a', marginTop: 6 }}>{camp.name}</div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{camp.channel}</div>
-                    <div style={{ fontSize: 15, fontWeight: 900, color: '#0284c7', marginTop: 10 }}>
-                      {count} Captured Inquiries
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+      {subTab === 'sources' && (
+        <div className="dm-card">
+          <h3 className="dm-title" style={{ marginBottom: '14px' }}>
+            🎯 Campaign &amp; Acquisition Source Breakdown
+          </h3>
+          <table className="dm-table">
+            <thead>
+              <tr>
+                <th>Acquisition Source</th>
+                <th>Total Leads</th>
+                <th>Converted Deals</th>
+                <th>Conversion Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ fontWeight: 700, color: '#253E5E' }}>
+                  Google Form: Let&apos;s Work Together
+                </td>
+                <td>{normalizedRecords.length}</td>
+                <td>
+                  {normalizedRecords.filter((r) => r._status === 'Converted to Deal').length}
+                </td>
+                <td>
+                  {normalizedRecords.length > 0
+                    ? `${Math.round(
+                        (normalizedRecords.filter((r) => r._status === 'Converted to Deal').length /
+                          normalizedRecords.length) *
+                          100
+                      )}%`
+                    : '0%'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* PART 3: LEAD STATUS AND FOLLOW-UP */}
-      {activeSubTab === 'status' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16, alignItems: 'start' }}>
-          {STATUS_PIPELINE.slice(0, 5).map((col) => {
-            const colLeads = filteredLeads.filter((l) => l.status === col.id)
-            return (
+      {subTab === 'followup' && (
+        <div className="dm-card">
+          <h3 className="dm-title" style={{ marginBottom: '14px' }}>
+            ⚡ Pending Inbound Consultation Queue
+          </h3>
+          {normalizedRecords
+            .filter((r) => r._status !== 'Converted to Deal')
+            .map((lead) => (
               <div
-                key={col.id}
+                key={lead.id}
                 style={{
-                  background: '#f8fafc',
-                  borderRadius: 12,
+                  padding: '12px 16px',
                   border: '1px solid #e2e8f0',
-                  borderTop: `4px solid ${col.text}`,
+                  borderRadius: '10px',
+                  marginBottom: '10px',
                   display: 'flex',
-                  flexDirection: 'column',
-                  minHeight: 460,
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
                 }}
               >
-                <div style={{ padding: '12px 14px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#0f172a' }}>{col.label}</span>
-                  <span style={{ fontSize: 10, fontWeight: 800, background: col.bg, color: col.text, padding: '2px 6px', borderRadius: 10 }}>
-                    {colLeads.length}
-                  </span>
+                <div>
+                  <strong style={{ color: '#253E5E' }}>{lead._name}</strong> ({lead._org}) —{' '}
+                  <span style={{ color: '#475569' }}>{lead._service}</span>
                 </div>
-
-                <div style={{ padding: 10, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
-                  {colLeads.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '40px 10px', color: '#94a3b8', fontSize: 11 }}>
-                      No prospects in this stage
-                    </div>
-                  ) : (
-                    colLeads.map((item) => (
-                      <div
-                        key={item.id}
-                        style={{
-                          background: '#ffffff',
-                          borderRadius: 8,
-                          border: '1px solid #e2e8f0',
-                          padding: 12,
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: 6,
-                        }}
-                      >
-                        <div style={{ fontWeight: 800, fontSize: 13, color: '#0f172a' }}>{item.full_name}</div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#0284c7' }}>{item.organization}</div>
-                        <div style={{ fontSize: 11, color: '#475569' }}>{item.service_of_interest}</div>
-
-                        {/* Owner & Next Action Block[cite: 17] */}
-                        <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: 6, padding: '6px 8px', marginTop: 4 }}>
-                          <div style={{ fontSize: 10, color: '#64748b' }}>
-                            Owner: <strong style={{ color: '#0f172a' }}>{item.assigned_to?.split('@')[0] || 'BD Team'}</strong>[cite: 17]
-                          </div>
-                          <div style={{ fontSize: 10, color: '#166534', fontWeight: 700, marginTop: 2 }}>
-                            Next: {item.next_action || 'Introductory qualification'}[cite: 17]
-                          </div>
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6, paddingTop: 6, borderTop: '1px solid #f1f5f9' }}>
-                          <select
-                            value={item.status}
-                            onChange={(e) => handleStatusChange(item.id, e.target.value)}
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 700,
-                              borderRadius: 4,
-                              border: '1px solid #cbd5e1',
-                              padding: '2px 4px',
-                              background: '#fff',
-                            }}
-                          >
-                            {STATUS_PIPELINE.map((stg) => (
-                              <option key={stg.id} value={stg.id}>{stg.label}</option>
-                            ))}
-                          </select>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onConvertToProposal?.({
-                                client: item.organization,
-                                name: item.organization,
-                                title: `${item.organization} - ${item.service_of_interest}`,
-                                product: item.service_of_interest,
-                                notes: `Converted from inbound lead: ${item.full_name} (${item.work_email}). Scope: ${item.needs_description || 'Direct request'}`,
-                              })
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#ea580c',
-                              fontSize: 10,
-                              fontWeight: 800,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            Convert →
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleOpenConvertModal(lead)}
+                  className="dm-convert-btn"
+                >
+                  Convert to Deal →
+                </button>
               </div>
-            )
-          })}
+            ))}
         </div>
       )}
 
-      {/* PART 4: DIGITAL MARKETING DASHBOARD */}
-      {activeSubTab === 'dashboard' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-            <div style={{ background: '#ffffff', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>TOTAL INQUIRIES[cite: 17]</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#0f172a', marginTop: 6 }}>{totalInquiries}</div>
-              <div style={{ fontSize: 11, color: '#0284c7', marginTop: 4 }}>Inbound digital inquiries captured[cite: 17]</div>
+      {subTab === 'dashboard' && (
+        <div className="dm-card">
+          <h3 className="dm-title" style={{ marginBottom: '16px' }}>
+            📊 Inbound Marketing Funnel Summary
+          </h3>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '14px',
+            }}
+          >
+            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>TOTAL INBOUND LEADS</div>
+              <div style={{ fontSize: '26px', fontWeight: 800, color: '#253E5E', marginTop: '4px' }}>
+                {normalizedRecords.length}
+              </div>
             </div>
-
-            <div style={{ background: '#ffffff', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>AWAITING FOLLOW-UP[cite: 17]</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#ea580c', marginTop: 6 }}>{awaitingFollowup}</div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>New leads pending initial contact[cite: 17]</div>
+            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>AWAITING ACTION</div>
+              <div style={{ fontSize: '26px', fontWeight: 800, color: '#F78019', marginTop: '4px' }}>
+                {normalizedRecords.filter((r) => r._status === 'New Inquiry').length}
+              </div>
             </div>
-
-            <div style={{ background: '#ffffff', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>QUALIFIED &amp; MEETINGS[cite: 17]</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#6d28d9', marginTop: 6 }}>{qualifiedCount}</div>
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Exploratory sessions scheduled[cite: 17]</div>
-            </div>
-
-            <div style={{ background: '#ffffff', padding: 20, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
-              <div style={{ fontSize: 11, color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>DEAL CONVERSION RATE[cite: 17]</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: '#166534', marginTop: 6 }}>{conversionRate}%</div>
-              <div style={{ fontSize: 11, color: '#166534', marginTop: 4 }}>{convertedCount} proposals registered in CRM[cite: 17]</div>
+            <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b' }}>CONVERTED TO DEALS</div>
+              <div style={{ fontSize: '26px', fontWeight: 800, color: '#16a34a', marginTop: '4px' }}>
+                {normalizedRecords.filter((r) => r._status === 'Converted to Deal').length}
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {convertingLead && (
+        <div className="dm-modal-backdrop" onClick={() => setConvertingLead(null)}>
+          <div className="dm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ fontSize: '19px', fontWeight: 800, color: '#253E5E', margin: '0 0 6px 0' }}>
+              Convert Inbound Lead to Active Deal
+            </h3>
+            <p style={{ fontSize: '12.5px', color: '#64748b', margin: '0 0 18px 0' }}>
+              Promoting <strong>{convertingLead._name}</strong> ({convertingLead._email}) into your commercial pipeline.
+            </p>
+
+            {convertError && (
+              <div
+                style={{
+                  background: '#fef2f2',
+                  color: '#b91c1c',
+                  padding: '10px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  marginBottom: '12px',
+                }}
+              >
+                ⚠️ {convertError}
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmConversion}>
+              <div className="dm-form-group">
+                <label className="dm-form-label">Client / Organization Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={dealClient}
+                  onChange={(e) => setDealClient(e.target.value)}
+                  className="dm-form-input"
+                />
+              </div>
+
+              <div className="dm-form-group">
+                <label className="dm-form-label">Proposal / Opportunity Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={dealTitle}
+                  onChange={(e) => setDealTitle(e.target.value)}
+                  className="dm-form-input"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div className="dm-form-group">
+                  <label className="dm-form-label">Executing SBU</label>
+                  <select
+                    value={dealSbu}
+                    onChange={(e) => setDealSbu(e.target.value)}
+                    className="dm-form-input"
+                  >
+                    <option value="INST">INST (The Institute)</option>
+                    <option value="CBS">CBS (Cross Border Solutions)</option>
+                    <option value="IIP">IIP (Investment Partners)</option>
+                    <option value="DAS">DAS (Digital &amp; AI Solutions)</option>
+                  </select>
+                </div>
+
+                <div className="dm-form-group">
+                  <label className="dm-form-label">Estimated Value (ETB)</label>
+                  <input
+                    type="number"
+                    value={dealValue}
+                    onChange={(e) => setDealValue(e.target.value)}
+                    className="dm-form-input"
+                  />
+                </div>
+              </div>
+
+              <div className="dm-form-group">
+                <label className="dm-form-label">Initial Deal Stage</label>
+                <select
+                  value={dealStage}
+                  onChange={(e) => setDealStage(e.target.value)}
+                  className="dm-form-input"
+                >
+                  <option value="Stage 1: TOR / Opportunity Identified">
+                    Stage 1: TOR / Opportunity Identified (30%)
+                  </option>
+                  <option value="Stage 2: Proposal In Defense">
+                    Stage 2: Proposal In Defense (70%)
+                  </option>
+                </select>
+              </div>
+
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '12.5px',
+                  color: '#334155',
+                  marginBottom: '18px',
+                  cursor: 'pointer',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={alsoCreateLeadIntake}
+                  onChange={(e) => setAlsoCreateLeadIntake(e.target.checked)}
+                />
+                <span>Also register a Qualified Lead record in Lead Intake</span>
+              </label>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setConvertingLead(null)}
+                  style={{
+                    background: '#f1f5f9',
+                    color: '#334155',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    padding: '9px 14px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={converting}
+                  className="dm-convert-btn"
+                  style={{ padding: '10px 18px' }}
+                >
+                  {converting ? 'Converting...' : 'Confirm & Convert to Deal →'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {toastMsg && <div className="dm-toast">{toastMsg}</div>}
     </div>
-  )
+  );
 }
