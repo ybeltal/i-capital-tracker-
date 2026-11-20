@@ -7,6 +7,7 @@ import RoleManagerModal from './RoleManagerModal'
 import UserGuideModal from './UserManualModal'
 import SpotlightTour from './SpotlightTour'
 import CrmAssistantChat from './CrmAssistantChat'
+import WinRateVelocityPanel from './components/WinRateVelocityPanel.jsx'
 
 // Real Feature Components
 import ProposalList from './ProposalList'
@@ -799,7 +800,10 @@ export default function App() {
       {/* 4. Active Tab Content */}
       <main style={{ padding: '24px 28px', maxWidth: 1440, margin: '0 auto' }}>
         {activeTab === 'dashboard' && (
-          <SummaryDashboard onNavigateTab={(tab) => setActiveTab(tab)} />
+          <div>
+            <SummaryDashboard onNavigateTab={(tab) => setActiveTab(tab)} />
+            <WinRateVelocityPanel />
+          </div>
         )}
 
         {activeTab === 'proposals' && (
