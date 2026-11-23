@@ -99,8 +99,8 @@ export default function App() {
   const [profile, setProfile] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
 
-  // Navigation & View State
-  const [activeTab, setActiveTab] = useState('proposals')
+  // Default first-screen landing: Executive Dashboard
+  const [activeTab, setActiveTab] = useState('dashboard')
   const [previewRole, setPreviewRole] = useState('')
   const [refreshVersion, setRefreshVersion] = useState(0)
 
@@ -136,8 +136,11 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session)
+      if (event === 'SIGNED_IN') {
+        setActiveTab('dashboard')
+      }
       if (session?.user) {
         fetchUserProfile(session.user)
       } else {
@@ -195,7 +198,10 @@ export default function App() {
         password: passwordInput,
       })
       if (error) throw error
-      if (data?.session) setSession(data.session)
+      if (data?.session) {
+        setSession(data.session)
+        setActiveTab('dashboard')
+      }
     } catch (err) {
       setLoginError(err.message || 'Invalid credentials. Please verify your email and password.')
     } finally {
@@ -221,6 +227,7 @@ export default function App() {
     setSession(null)
     setProfile(null)
     setPreviewRole('')
+    setActiveTab('dashboard')
   }
 
   const effectiveRole = previewRole || profile?.role || 'read_only'
@@ -229,6 +236,7 @@ export default function App() {
     profile?.role === 'admin' ||
     profile?.email === 'ybeltalsemagn8899@gmail.com' ||
     profile?.email === 'ybeltal@icapitalafrica.org'
+  const isEffectiveSuperAdmin = effectiveRole === 'admin'
 
   if (authLoading) {
     return (
@@ -347,7 +355,7 @@ export default function App() {
                   <div style={{ background: '#1e293b', padding: 8, borderRadius: 8, fontSize: 16 }}>📈</div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 800, color: '#f8fafc' }}>ETB 256.6M Target Realization</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>3× Pipeline Coverage, SMEAL Sign-Off &amp; Delivery Governance</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>3× Pipeline Coverage, SMEAL Sign-Off &amp; Audit Governance</div>
                   </div>
                 </div>
               </div>
@@ -390,7 +398,7 @@ export default function App() {
           >
             <h3 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 900, color: '#0f172a' }}>Sign In</h3>
             <p style={{ margin: '0 0 20px 0', fontSize: 12, color: '#64748b' }}>
-              Access your group pipeline, proposals, signed projects, and partner tracker.
+              Access your executive dashboard, proposals, signed projects, and partner tracker.
             </p>
 
             {loginError && (
@@ -835,11 +843,19 @@ export default function App() {
               <ProposalEditor
                 proposal={selectedProposal}
                 userProfile={profile}
+                effectiveRole={effectiveRole}
+                isSuperAdmin={isEffectiveSuperAdmin}
+                onRefresh={triggerRefresh}
                 onClose={() => setSelectedProposal(null)}
               />
             ) : (
               <ProposalList
                 userProfile={profile}
+                effectiveRole={effectiveRole}
+                isSuperAdmin={isEffectiveSuperAdmin}
+                refreshVersion={refreshVersion}
+                onRefresh={triggerRefresh}
+                onNavigateTab={(tab) => setActiveTab(tab)}
                 onSelectProposal={(p) => setSelectedProposal(p)}
                 onNewProposal={() => setShowNewProposalModal(true)}
               />
@@ -955,7 +971,10 @@ export default function App() {
             </div>
             <AiTenderParser
               userProfile={profile}
-              onClose={() => setShowAiParserModal(false)}
+              onClose={() => {
+                setShowAiParserModal(false)
+                triggerRefresh()
+              }}
             />
           </div>
         </div>
@@ -1011,7 +1030,10 @@ export default function App() {
             </div>
             <ProposalForm
               userProfile={profile}
-              onClose={() => setShowNewProposalModal(false)}
+              onClose={() => {
+                setShowNewProposalModal(false)
+                triggerRefresh()
+              }}
             />
           </div>
         </div>
@@ -1064,7 +1086,10 @@ export default function App() {
             </div>
             <LeadForm
               userProfile={profile}
-              onClose={() => setShowNewLeadModal(false)}
+              onClose={() => {
+                setShowNewLeadModal(false)
+                triggerRefresh()
+              }}
             />
           </div>
         </div>
@@ -1117,7 +1142,10 @@ export default function App() {
             </div>
             <ClientForm
               userProfile={profile}
-              onClose={() => setShowNewClientModal(false)}
+              onClose={() => {
+                setShowNewClientModal(false)
+                triggerRefresh()
+              }}
             />
           </div>
         </div>
