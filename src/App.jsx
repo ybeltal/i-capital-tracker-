@@ -13,6 +13,8 @@ import WinRateVelocityPanel from './components/WinRateVelocityPanel.jsx'
 import ProposalList from './ProposalList'
 import ProposalForm from './ProposalForm'
 import ProposalEditor from './ProposalEditor'
+import ProjectTracker from './ProjectTracker'
+import PartnerTracker from './PartnerTracker'
 import LeadList from './LeadList'
 import LeadForm from './LeadForm'
 import LeadEditor from './LeadEditor'
@@ -29,6 +31,7 @@ const ROLE_CONFIGS = {
     badgeText: '#ffffff',
     canManageRoles: true,
     canEditTargets: true,
+    canApproveSmeal: true,
   },
   exec_mgmt: {
     label: 'Senior Management',
@@ -36,6 +39,15 @@ const ROLE_CONFIGS = {
     badgeText: '#ffffff',
     canManageRoles: false,
     canEditTargets: false,
+    canApproveSmeal: true,
+  },
+  smeal: {
+    label: 'SMEAL Team',
+    badgeBg: '#0d9488',
+    badgeText: '#ffffff',
+    canManageRoles: false,
+    canEditTargets: false,
+    canApproveSmeal: true,
   },
   bd_manager: {
     label: 'BD Manager',
@@ -43,6 +55,7 @@ const ROLE_CONFIGS = {
     badgeText: '#ffffff',
     canManageRoles: false,
     canEditTargets: false,
+    canApproveSmeal: false,
   },
   tech_lead: {
     label: 'Technical Proposal Lead',
@@ -50,6 +63,7 @@ const ROLE_CONFIGS = {
     badgeText: '#ffffff',
     canManageRoles: false,
     canEditTargets: false,
+    canApproveSmeal: false,
   },
   sales_officer: {
     label: 'Sales Officer',
@@ -57,6 +71,7 @@ const ROLE_CONFIGS = {
     badgeText: '#ffffff',
     canManageRoles: false,
     canEditTargets: false,
+    canApproveSmeal: false,
   },
   read_only: {
     label: 'Reporting Viewer',
@@ -64,15 +79,18 @@ const ROLE_CONFIGS = {
     badgeText: '#ffffff',
     canManageRoles: false,
     canEditTargets: false,
+    canApproveSmeal: false,
   },
 }
 
 const TABS = [
   { id: 'dashboard', label: 'Executive Dashboard', icon: '📊' },
   { id: 'proposals', label: 'Deals & Proposals', icon: '📑' },
+  { id: 'projects', label: 'Project Delivery', icon: '🚀' },
   { id: 'leads', label: 'Lead Intake', icon: '🎯' },
   { id: 'marketing', label: 'Digital Marketing Leads', icon: '📣' },
   { id: 'clients', label: 'Client Directory', icon: '🏢' },
+  { id: 'partners', label: 'Partners & Consortiums', icon: '🤝' },
   { id: 'queue', label: 'Follow-up Queue', icon: '⏰' },
 ]
 
@@ -84,6 +102,7 @@ export default function App() {
   // Navigation & View State
   const [activeTab, setActiveTab] = useState('proposals')
   const [previewRole, setPreviewRole] = useState('')
+  const [refreshVersion, setRefreshVersion] = useState(0)
 
   // Active Modals & Selected Records
   const [showRoleManager, setShowRoleManager] = useState(false)
@@ -102,6 +121,8 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('')
   const [loginError, setLoginError] = useState('')
   const [submittingLogin, setSubmittingLogin] = useState(false)
+
+  const triggerRefresh = () => setRefreshVersion((v) => v + 1)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -302,7 +323,7 @@ export default function App() {
                 The i-Capital Commercial Platform
               </h2>
               <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.5, margin: '0 0 28px 0' }}>
-                Multi-SBU pipeline tracking, revenue target governance, and AI-powered tender intelligence for The i-Capital Africa Group.
+                Multi-SBU pipeline tracking, post-win project delivery governance, and partner consortium management for The i-Capital Africa Group.
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -326,7 +347,7 @@ export default function App() {
                   <div style={{ background: '#1e293b', padding: 8, borderRadius: 8, fontSize: 16 }}>📈</div>
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 800, color: '#f8fafc' }}>ETB 256.6M Target Realization</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>3× Pipeline Coverage &amp; Stage Governance</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>3× Pipeline Coverage, SMEAL Sign-Off &amp; Delivery Governance</div>
                   </div>
                 </div>
               </div>
@@ -369,7 +390,7 @@ export default function App() {
           >
             <h3 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 900, color: '#0f172a' }}>Sign In</h3>
             <p style={{ margin: '0 0 20px 0', fontSize: 12, color: '#64748b' }}>
-              Access your group pipeline, proposals, and target metrics.
+              Access your group pipeline, proposals, signed projects, and partner tracker.
             </p>
 
             {loginError && (
@@ -629,8 +650,10 @@ export default function App() {
               >
                 <option value="admin" style={{ background: '#0f172a' }}>Executive Admin</option>
                 <option value="exec_mgmt" style={{ background: '#0f172a' }}>Senior Management</option>
+                <option value="smeal" style={{ background: '#0f172a' }}>SMEAL Team</option>
                 <option value="bd_manager" style={{ background: '#0f172a' }}>BD Manager</option>
                 <option value="tech_lead" style={{ background: '#0f172a' }}>Technical Lead</option>
+                <option value="sales_officer" style={{ background: '#0f172a' }}>Sales Officer</option>
                 <option value="read_only" style={{ background: '#0f172a' }}>Reporting Viewer</option>
               </select>
             </div>
@@ -824,6 +847,14 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'projects' && (
+          <ProjectTracker
+            userProfile={profile}
+            effectiveRole={effectiveRole}
+            onRefresh={triggerRefresh}
+          />
+        )}
+
         {activeTab === 'leads' && (
           <div>
             {selectedLead ? (
@@ -843,13 +874,25 @@ export default function App() {
         )}
 
         {activeTab === 'marketing' && (
-          <DigitalMarketingLeads userProfile={profile} />
+          <DigitalMarketingLeads
+            userProfile={profile}
+            onRefresh={triggerRefresh}
+          />
         )}
 
         {activeTab === 'clients' && (
           <ClientDirectory
             userProfile={profile}
+            refreshVersion={refreshVersion}
+            onRefresh={triggerRefresh}
             onNewClient={() => setShowNewClientModal(true)}
+          />
+        )}
+
+        {activeTab === 'partners' && (
+          <PartnerTracker
+            userProfile={profile}
+            onRefresh={triggerRefresh}
           />
         )}
 
