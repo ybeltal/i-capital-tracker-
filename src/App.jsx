@@ -867,6 +867,7 @@ export default function App() {
           <ProjectTracker
             userProfile={profile}
             effectiveRole={effectiveRole}
+            isSuperAdmin={isEffectiveSuperAdmin}
             onRefresh={triggerRefresh}
           />
         )}
@@ -908,6 +909,8 @@ export default function App() {
         {activeTab === 'partners' && (
           <PartnerTracker
             userProfile={profile}
+            effectiveRole={effectiveRole}
+            isSuperAdmin={isEffectiveSuperAdmin}
             onRefresh={triggerRefresh}
           />
         )}
@@ -918,7 +921,7 @@ export default function App() {
       </main>
 
       {/* ========================================================= */}
-      {/* 5. FLOATING MODAL OVERLAYS (PROPER POPUP VIEWPORTS)       */}
+      {/* 5. PROTECTED FLOATING MODALS (NO OUTSIDE-CLICK CLOSE)     */}
       {/* ========================================================= */}
 
       {/* AI Tender Parser Modal */}
@@ -936,7 +939,6 @@ export default function App() {
             padding: 16,
             overflowY: 'auto',
           }}
-          onClick={() => setShowAiParserModal(false)}
         >
           <div
             style={{
@@ -949,7 +951,6 @@ export default function App() {
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
               padding: 24,
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -964,7 +965,8 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowAiParserModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 22, color: '#64748b', cursor: 'pointer', padding: 4 }}
+                title="Close"
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: '#475569', cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -995,7 +997,6 @@ export default function App() {
             padding: 16,
             overflowY: 'auto',
           }}
-          onClick={() => setShowNewProposalModal(false)}
         >
           <div
             style={{
@@ -1008,7 +1009,6 @@ export default function App() {
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
               padding: 24,
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1023,7 +1023,8 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowNewProposalModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 22, color: '#64748b', cursor: 'pointer', padding: 4 }}
+                title="Close"
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: '#475569', cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1054,7 +1055,6 @@ export default function App() {
             padding: 16,
             overflowY: 'auto',
           }}
-          onClick={() => setShowNewLeadModal(false)}
         >
           <div
             style={{
@@ -1067,7 +1067,6 @@ export default function App() {
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
               padding: 24,
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1079,7 +1078,8 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowNewLeadModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 22, color: '#64748b', cursor: 'pointer', padding: 4 }}
+                title="Close"
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: '#475569', cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1110,7 +1110,6 @@ export default function App() {
             padding: 16,
             overflowY: 'auto',
           }}
-          onClick={() => setShowNewClientModal(false)}
         >
           <div
             style={{
@@ -1123,7 +1122,6 @@ export default function App() {
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
               padding: 24,
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1135,7 +1133,8 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setShowNewClientModal(false)}
-                style={{ background: 'none', border: 'none', fontSize: 22, color: '#64748b', cursor: 'pointer', padding: 4 }}
+                title="Close"
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: '#475569', cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1156,7 +1155,7 @@ export default function App() {
       <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
       <RoleManagerModal isOpen={showRoleManager} onClose={() => setShowRoleManager(false)} />
 
-      {/* CRM Assistant Chat Widget */}
+      {/* Movable CRM Assistant Chat Widget */}
       <CrmAssistantChat />
     </div>
   )

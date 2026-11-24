@@ -1,7 +1,7 @@
 /**
  * THE i-CAPITAL AFRICA INSTITUTE — POST-WIN PROJECT DELIVERY TRACKER
- * Enforces Mandatory Signed Agreement (PDF/Word Upload OR Document Link)
- * and SMEAL Team Approval Gate before Delivery Execution Unlocks.
+ * Enforces Mandatory Signed Agreement (PDF/Word Upload OR Document Link),
+ * SMEAL Team Approval Gate, Anti-Accidental-Close Modals, and Full Super Admin Control.
  */
 
 import React, { useState, useEffect, useMemo } from 'react'
@@ -79,7 +79,12 @@ function isValidHttpUrl(str) {
   }
 }
 
-export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }) {
+export default function ProjectTracker({
+  userProfile,
+  effectiveRole,
+  isSuperAdmin,
+  onRefresh,
+}) {
   const [projects, setProjects] = useState([])
   const [wonPendingDeals, setWonPendingDeals] = useState([])
   const [loading, setLoading] = useState(true)
@@ -91,6 +96,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
 
   // Launch New Signed Project Modal
   const [showLaunchModal, setShowLaunchModal] = useState(false)
+  const [launchDirty, setLaunchDirty] = useState(false)
   const [sourceDeal, setSourceDeal] = useState(null)
   const [formClient, setFormClient] = useState('')
   const [formTitle, setFormTitle] = useState('')
@@ -110,17 +116,32 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
   const [submittingProject, setSubmittingProject] = useState(false)
   const [formError, setFormError] = useState('')
 
-  // Project Workspace Drawer State
+  // Project Workspace Modal State
   const [selectedProject, setSelectedProject] = useState(null)
   const [milestones, setMilestones] = useState([])
   const [linkedPartners, setLinkedPartners] = useState([])
   const [drawerLoading, setDrawerLoading] = useState(false)
 
+  // Super Admin Full Edit & Delete State
+  const [showAdminEdit, setShowAdminEdit] = useState(false)
+  const [adminEditDirty, setAdminEditDirty] = useState(false)
+  const [admClient, setAdmClient] = useState('')
+  const [admTitle, setAdmTitle] = useState('')
+  const [admSbu, setAdmSbu] = useState('INST')
+  const [admValue, setAdmValue] = useState('')
+  const [admRef, setAdmRef] = useState('')
+  const [admLead, setAdmLead] = useState('')
+  const [admKickoff, setAdmKickoff] = useState('')
+  const [admEnd, setAdmEnd] = useState('')
+  const [admNotes, setAdmNotes] = useState('')
+  const [savingAdminEdit, setSavingAdminEdit] = useState(false)
+  const [deletingProject, setDeletingProject] = useState(false)
+
   // SMEAL Review State
   const [smealNotes, setSmealNotes] = useState('')
   const [updatingSmeal, setUpdatingSmeal] = useState(false)
 
-  // Replacement Agreement Upload inside Drawer (if SMEAL requested changes)
+  // Replacement Agreement Upload inside Workspace
   const [reuploadLink, setReuploadLink] = useState('')
   const [reuploadFile, setReuploadFile] = useState(null)
   const [updatingAgreement, setUpdatingAgreement] = useState(false)
@@ -137,7 +158,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
   const [toastMsg, setToastMsg] = useState('')
 
   const activeRole = effectiveRole || userProfile?.role || 'read_only'
-  const canApproveSmeal = ['admin', 'exec_mgmt', 'smeal', 'smeal_lead'].includes(activeRole)
+  const hasSuperAdminAccess =
+    typeof isSuperAdmin === 'boolean' ? isSuperAdmin : activeRole === 'admin'
+  const canApproveSmeal =
+    hasSuperAdminAccess || ['admin', 'exec_mgmt', 'smeal', 'smeal_lead'].includes(activeRole)
 
   const showToast = (msg) => {
     setToastMsg(msg)
@@ -167,8 +191,13 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
     )
 
     const isWonDeal = (d) => {
+      if (d.is_deleted) return false
       const combined = `${d.stage || ''} ${d.status || ''}`.toLowerCase()
-      return combined.includes('won') || combined.includes('signed') || combined.includes('awarded')
+      return (
+        (combined.includes('won') || combined.includes('signed') || combined.includes('awarded')) &&
+        !combined.includes('lost') &&
+        !combined.includes('cancel')
+      )
     }
 
     const wonOpps = (oppRes.data || [])
@@ -179,7 +208,6 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
       .filter((p) => isWonDeal(p) && !linkedPropIds.has(String(p.id)))
       .map((p) => ({ ...p, _sourceTable: 'proposals' }))
 
-    // Deduplicate won deals across opportunities & proposals by title + client
     const seen = new Set()
     const mergedWon = [...wonOpps, ...wonProps].filter((item) => {
       const title = (item.opportunity_title || item.title || '').toLowerCase().trim()
@@ -204,6 +232,19 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
 
   async function openProjectWorkspace(project) {
     setSelectedProject(project)
+    setShowAdminEdit(false)
+    setAdminEditDirty(false)
+
+    setAdmClient(project.client_organization || '')
+    setAdmTitle(project.project_title || '')
+    setAdmSbu(normalizeSbuCode(project.sbu))
+    setAdmValue(String(project.contract_value || ''))
+    setAdmRef(project.contract_ref_no || '')
+    setAdmLead(project.delivery_lead || '')
+    setAdmKickoff(project.kickoff_date || '')
+    setAdmEnd(project.end_date || '')
+    setAdmNotes(project.notes || '')
+
     setSmealNotes(project.smeal_review_notes || '')
     setReuploadLink(project.agreement_link || '')
     setReuploadFile(null)
@@ -226,8 +267,28 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
     setDrawerLoading(false)
   }
 
+  function handleCloseLaunchModal() {
+    if (launchDirty) {
+      if (!window.confirm('You have unsaved project details. Discard them and close?')) return
+    }
+    setLaunchDirty(false)
+    setShowLaunchModal(false)
+  }
+
+  function handleCloseWorkspace() {
+    if (adminEditDirty) {
+      if (!window.confirm('You have unsaved admin edits on this project. Discard them and close?')) {
+        return
+      }
+    }
+    setAdminEditDirty(false)
+    setShowAdminEdit(false)
+    setSelectedProject(null)
+  }
+
   function handleOpenLaunchModal(deal = null) {
     setSourceDeal(deal)
+    setLaunchDirty(false)
     if (deal) {
       setFormClient(
         deal.client_organization || deal.organization || deal.client_name || deal.client || ''
@@ -235,7 +296,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
       setFormTitle(deal.opportunity_title || deal.title || '')
       setFormSbu(normalizeSbuCode(deal.sbu))
       setFormSector(deal.sector || '')
-      setFormContractValue(String(deal.contract_value || deal.estimated_value || ''))
+      setFormContractValue(String(deal.deal_value || deal.contract_value || deal.estimated_value || ''))
       setFormNotes(deal.notes || '')
     } else {
       setFormClient('')
@@ -371,7 +432,6 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
 
       const created = inserted?.[0]
 
-      // Automatically queue SMEAL Agreement Verification task in follow_up_logs
       const dueIn2Days = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split('T')[0]
@@ -390,6 +450,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
         },
       ])
 
+      setLaunchDirty(false)
       setShowLaunchModal(false)
       await loadProjectsAndWonDeals()
       onRefresh?.()
@@ -400,6 +461,79 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
       setFormError(err.message)
     } finally {
       setSubmittingProject(false)
+    }
+  }
+
+  async function handleSaveSuperAdminProjectEdit(e) {
+    e.preventDefault()
+    if (!selectedProject || !hasSuperAdminAccess) return
+
+    setSavingAdminEdit(true)
+    try {
+      const numericVal = parseFloat(String(admValue).replace(/[^0-9.]/g, '')) || 0
+      const updates = {
+        client_organization: admClient.trim(),
+        project_title: admTitle.trim(),
+        sbu: admSbu,
+        contract_value: numericVal,
+        contract_ref_no: admRef.trim() || null,
+        delivery_lead: admLead.trim() || 'Operations Division',
+        kickoff_date: admKickoff || null,
+        end_date: admEnd || null,
+        notes: admNotes.trim() || null,
+      }
+
+      const { data, error } = await supabase
+        .from('projects')
+        .update(updates)
+        .eq('id', selectedProject.id)
+        .select()
+
+      if (error) throw new Error(error.message)
+
+      const updated = data?.[0]
+      if (updated) {
+        setSelectedProject(updated)
+        setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+      }
+      setAdminEditDirty(false)
+      setShowAdminEdit(false)
+      onRefresh?.()
+      showToast('✓ Super Admin project edits saved.')
+    } catch (err) {
+      alert(`Project update failed: ${err.message}`)
+    } finally {
+      setSavingAdminEdit(false)
+    }
+  }
+
+  async function handleDeleteProject() {
+    if (!selectedProject || !hasSuperAdminAccess) return
+    const ok = window.confirm(
+      `SUPER ADMIN PERMANENT DELETE: Permanently delete project "${selectedProject.project_code} — ${selectedProject.client_organization}" and all its milestones? This cannot be undone.`
+    )
+    if (!ok) return
+
+    setDeletingProject(true)
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', selectedProject.id)
+
+      if (error) throw new Error(error.message)
+
+      setProjects((prev) => prev.filter((p) => p.id !== selectedProject.id))
+      setAdminEditDirty(false)
+      setShowAdminEdit(false)
+      setSelectedProject(null)
+      await loadProjectsAndWonDeals()
+      onRefresh?.()
+      showToast('✓ Project permanently deleted by Super Admin.')
+    } catch (err) {
+      alert(`Delete failed: ${err.message}`)
+    } finally {
+      setDeletingProject(false)
     }
   }
 
@@ -524,7 +658,8 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
     if (!selectedProject) return
     if (
       field === 'delivery_stage' &&
-      selectedProject.smeal_approval_status !== 'Approved'
+      selectedProject.smeal_approval_status !== 'Approved' &&
+      !hasSuperAdminAccess
     ) {
       alert('SMEAL Team approval is required before advancing project delivery stages.')
       return
@@ -547,7 +682,6 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
       setSelectedProject(updated)
       setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
 
-      // Queue Recommendation Letter automatically on Project Closure
       if (field === 'delivery_stage' && value === '6. Closed & Certified') {
         const dueDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
           .toISOString()
@@ -636,7 +770,6 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
     }
   }
 
-  // Computed KPIs
   const kpis = useMemo(() => {
     const pendingSmeal = projects.filter(
       (p) => p.smeal_approval_status !== 'Approved'
@@ -818,7 +951,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
             padding: '14px 18px',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
             <div style={{ fontSize: 13, fontWeight: 800, color: '#92400e' }}>
               📑 Won Proposals Awaiting Signed Agreement Handoff ({wonPendingDeals.length})
             </div>
@@ -853,9 +986,9 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                   <span style={{ fontSize: 12, color: '#475569' }}>
                     {' '}— {deal.opportunity_title || deal.title || 'Won Mandate'}
                   </span>
-                  {(deal.contract_value || deal.estimated_value) > 0 && (
+                  {(deal.deal_value || deal.contract_value || deal.estimated_value) > 0 && (
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: '#166534', marginLeft: 8 }}>
-                      ({formatEtb(deal.contract_value || deal.estimated_value)})
+                      ({formatEtb(deal.deal_value || deal.contract_value || deal.estimated_value)})
                     </span>
                   )}
                 </div>
@@ -1131,7 +1264,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
       </div>
 
       {/* ====================================================================
-          MODAL 1: REGISTER NEW SIGNED PROJECT (MANDATORY AGREEMENT ENFORCED)
+          MODAL 1: REGISTER NEW SIGNED PROJECT (NO OUTSIDE-CLICK CLOSE)
       ==================================================================== */}
       {showLaunchModal && (
         <div
@@ -1146,7 +1279,6 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
             padding: 16,
             overflowY: 'auto',
           }}
-          onClick={() => setShowLaunchModal(false)}
         >
           <div
             style={{
@@ -1160,11 +1292,20 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
               borderTop: '5px solid #ea580c',
               boxShadow: '0 25px 50px -12px rgba(0,0,0,0.45)',
             }}
-            onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: '0 0 4px 0', fontSize: 18, fontWeight: 900, color: '#0f172a' }}>
-              🚀 Register Signed Project &amp; Submit to SMEAL Team
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#0f172a' }}>
+                🚀 Register Signed Project &amp; Submit to SMEAL Team
+              </h3>
+              <button
+                type="button"
+                onClick={handleCloseLaunchModal}
+                title="Close"
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 17, color: '#475569', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
             <p style={{ margin: '0 0 16px 0', fontSize: 12, color: '#64748b' }}>
               A signed agreement (PDF/Word upload or verified URL link) is strictly required. Delivery stages unlock once SMEAL approves.
             </p>
@@ -1185,7 +1326,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                     type="text"
                     required
                     value={formClient}
-                    onChange={(e) => setFormClient(e.target.value)}
+                    onChange={(e) => {
+                      setFormClient(e.target.value)
+                      setLaunchDirty(true)
+                    }}
                     placeholder="e.g., Dashen Bank S.C."
                     style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
                   />
@@ -1197,7 +1341,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                   </label>
                   <select
                     value={formSbu}
-                    onChange={(e) => setFormSbu(e.target.value)}
+                    onChange={(e) => {
+                      setFormSbu(e.target.value)
+                      setLaunchDirty(true)
+                    }}
                     style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }}
                   >
                     <option value="INST">INST (The Institute)</option>
@@ -1216,7 +1363,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                   type="text"
                   required
                   value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
+                  onChange={(e) => {
+                    setFormTitle(e.target.value)
+                    setLaunchDirty(true)
+                  }}
                   placeholder="e.g., AI Startup Support Program Cohort II / MBL Delivery"
                   style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
                 />
@@ -1231,7 +1381,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                     type="number"
                     required
                     value={formContractValue}
-                    onChange={(e) => setFormContractValue(e.target.value)}
+                    onChange={(e) => {
+                      setFormContractValue(e.target.value)
+                      setLaunchDirty(true)
+                    }}
                     placeholder="e.g., 1288000"
                     style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
                   />
@@ -1244,7 +1397,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                   <input
                     type="text"
                     value={formContractRef}
-                    onChange={(e) => setFormContractRef(e.target.value)}
+                    onChange={(e) => {
+                      setFormContractRef(e.target.value)
+                      setLaunchDirty(true)
+                    }}
                     placeholder="e.g., EAII/SSP/01/2026"
                     style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
                   />
@@ -1258,7 +1414,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                     type="date"
                     required
                     value={formSignedDate}
-                    onChange={(e) => setFormSignedDate(e.target.value)}
+                    onChange={(e) => {
+                      setFormSignedDate(e.target.value)
+                      setLaunchDirty(true)
+                    }}
                     style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
                   />
                 </div>
@@ -1272,7 +1431,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                   <input
                     type="text"
                     value={formDeliveryLead}
-                    onChange={(e) => setFormDeliveryLead(e.target.value)}
+                    onChange={(e) => {
+                      setFormDeliveryLead(e.target.value)
+                      setLaunchDirty(true)
+                    }}
                     placeholder="e.g., Operations Director"
                     style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
                   />
@@ -1285,7 +1447,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                   <input
                     type="date"
                     value={formKickoffDate}
-                    onChange={(e) => setFormKickoffDate(e.target.value)}
+                    onChange={(e) => {
+                      setFormKickoffDate(e.target.value)
+                      setLaunchDirty(true)
+                    }}
                     style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
                   />
                 </div>
@@ -1297,7 +1462,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                   <input
                     type="date"
                     value={formEndDate}
-                    onChange={(e) => setFormEndDate(e.target.value)}
+                    onChange={(e) => {
+                      setFormEndDate(e.target.value)
+                      setLaunchDirty(true)
+                    }}
                     style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
                   />
                 </div>
@@ -1327,7 +1495,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      onChange={(e) => setAgreementFile(e.target.files?.[0] || null)}
+                      onChange={(e) => {
+                        setAgreementFile(e.target.files?.[0] || null)
+                        setLaunchDirty(true)
+                      }}
                       style={{
                         width: '100%',
                         padding: '8px',
@@ -1352,7 +1523,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                     <input
                       type="url"
                       value={agreementLink}
-                      onChange={(e) => setAgreementLink(e.target.value)}
+                      onChange={(e) => {
+                        setAgreementLink(e.target.value)
+                        setLaunchDirty(true)
+                      }}
                       placeholder="https://drive.google.com/file/d/..."
                       style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12.5, boxSizing: 'border-box', background: '#fff' }}
                     />
@@ -1367,7 +1541,10 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                 <textarea
                   rows={2}
                   value={formNotes}
-                  onChange={(e) => setFormNotes(e.target.value)}
+                  onChange={(e) => {
+                    setFormNotes(e.target.value)
+                    setLaunchDirty(true)
+                  }}
                   placeholder="Key payment terms, deliverables, or LogFrame evaluation scope..."
                   style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12, boxSizing: 'border-box' }}
                 />
@@ -1376,7 +1553,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 6 }}>
                 <button
                   type="button"
-                  onClick={() => setShowLaunchModal(false)}
+                  onClick={handleCloseLaunchModal}
                   style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
                 >
                   Cancel
@@ -1404,7 +1581,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
       )}
 
       {/* ====================================================================
-          MODAL 2: PROJECT WORKSPACE (SMEAL APPROVAL + MILESTONES + PARTNERS)
+          MODAL 2: PROJECT WORKSPACE (NO OUTSIDE-CLICK CLOSE + SUPER ADMIN CONTROLS)
       ==================================================================== */}
       {selectedProject && (
         <div
@@ -1419,7 +1596,6 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
             padding: 16,
             overflowY: 'auto',
           }}
-          onClick={() => setSelectedProject(null)}
         >
           <div
             style={{
@@ -1431,7 +1607,6 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
               overflowY: 'auto',
               boxShadow: '0 25px 60px -12px rgba(0,0,0,0.5)',
             }}
-            onClick={(e) => e.stopPropagation()}
           >
             {/* Workspace Header */}
             <div
@@ -1442,26 +1617,200 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
+                gap: 12,
               }}
             >
               <div>
-                <div style={{ fontSize: 11, fontWeight: 800, color: '#38bdf8' }}>
-                  {selectedProject.project_code} • {selectedProject.sbu} • {formatEtb(selectedProject.contract_value)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 800, color: '#38bdf8', flexWrap: 'wrap' }}>
+                  <span>{selectedProject.project_code} • {selectedProject.sbu} • {formatEtb(selectedProject.contract_value)}</span>
+                  {hasSuperAdminAccess && (
+                    <span style={{ background: '#dc2626', color: '#fff', padding: '1px 7px', borderRadius: 4, fontSize: 9.5 }}>
+                      🛡️ SUPER ADMIN FULL CONTROL
+                    </span>
+                  )}
                 </div>
                 <h3 style={{ margin: '3px 0 0 0', fontSize: 18, fontWeight: 900 }}>
                   {selectedProject.client_organization} — {selectedProject.project_title}
                 </h3>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedProject(null)}
-                style={{ background: 'none', border: 'none', color: '#cbd5e1', fontSize: 22, cursor: 'pointer' }}
-              >
-                ✕
-              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {hasSuperAdminAccess && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAdminEdit((v) => !v)}
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 6,
+                      border: '1px solid rgba(255,255,255,0.25)',
+                      background: showAdminEdit ? '#0284c7' : 'rgba(255,255,255,0.1)',
+                      color: '#ffffff',
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {showAdminEdit ? 'Hide Admin Edit' : '✏️ Edit Details'}
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleCloseWorkspace}
+                  title="Close Workspace"
+                  style={{
+                    background: 'rgba(255,255,255,0.14)',
+                    border: 'none',
+                    borderRadius: 6,
+                    width: 32,
+                    height: 32,
+                    color: '#ffffff',
+                    fontSize: 18,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             </div>
 
             <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {/* SUPER ADMIN INLINE EDIT PANEL */}
+              {hasSuperAdminAccess && showAdminEdit && (
+                <form
+                  onSubmit={handleSaveSuperAdminProjectEdit}
+                  style={{
+                    background: '#f8fafc',
+                    border: '1.5px solid #0284c7',
+                    borderRadius: 12,
+                    padding: 16,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ fontSize: 12.5, fontWeight: 900, color: '#0369a1' }}>
+                    🛡️ Super Admin Project Editor (All Fields Editable)
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 10 }}>
+                    <input
+                      type="text"
+                      required
+                      value={admClient}
+                      onChange={(e) => {
+                        setAdmClient(e.target.value)
+                        setAdminEditDirty(true)
+                      }}
+                      placeholder="Client Organization"
+                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12.5, background: '#fff' }}
+                    />
+                    <select
+                      value={admSbu}
+                      onChange={(e) => {
+                        setAdmSbu(e.target.value)
+                        setAdminEditDirty(true)
+                      }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12.5, background: '#fff' }}
+                    >
+                      <option value="INST">INST (Institute)</option>
+                      <option value="IIP">IIP (Investment)</option>
+                      <option value="DAS">DAS (Digital &amp; AI)</option>
+                      <option value="CBS">CBS (Cross Border)</option>
+                    </select>
+                    <input
+                      type="number"
+                      value={admValue}
+                      onChange={(e) => {
+                        setAdmValue(e.target.value)
+                        setAdminEditDirty(true)
+                      }}
+                      placeholder="Contract Value (ETB)"
+                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12.5, background: '#fff' }}
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={admTitle}
+                    onChange={(e) => {
+                      setAdmTitle(e.target.value)
+                      setAdminEditDirty(true)
+                    }}
+                    placeholder="Project Mandate Title"
+                    style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12.5, background: '#fff' }}
+                  />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
+                    <input
+                      type="text"
+                      value={admRef}
+                      onChange={(e) => {
+                        setAdmRef(e.target.value)
+                        setAdminEditDirty(true)
+                      }}
+                      placeholder="Contract Ref No."
+                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                    />
+                    <input
+                      type="text"
+                      value={admLead}
+                      onChange={(e) => {
+                        setAdmLead(e.target.value)
+                        setAdminEditDirty(true)
+                      }}
+                      placeholder="Delivery Lead"
+                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                    />
+                    <input
+                      type="date"
+                      value={admKickoff}
+                      onChange={(e) => {
+                        setAdmKickoff(e.target.value)
+                        setAdminEditDirty(true)
+                      }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                    />
+                    <input
+                      type="date"
+                      value={admEnd}
+                      onChange={(e) => {
+                        setAdmEnd(e.target.value)
+                        setAdminEditDirty(true)
+                      }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                    />
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={admNotes}
+                    onChange={(e) => {
+                      setAdmNotes(e.target.value)
+                      setAdminEditDirty(true)
+                    }}
+                    placeholder="Project notes..."
+                    style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAdminEdit(false)
+                        setAdminEditDirty(false)
+                      }}
+                      style={{ padding: '7px 12px', borderRadius: 7, border: '1px solid #cbd5e1', background: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingAdminEdit}
+                      style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: '#0284c7', color: '#fff', fontSize: 11.5, fontWeight: 800, cursor: 'pointer' }}
+                    >
+                      {savingAdminEdit ? 'Saving...' : 'Save Admin Edits'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
               {/* SECTION A: SIGNED AGREEMENT & SMEAL APPROVAL GATE */}
               <div
                 style={{
@@ -1603,8 +1952,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                       </div>
                     )}
 
-                    {/* Allow BD Officer to replace/re-submit agreement if changes requested */}
-                    {selectedProject.smeal_approval_status === 'Changes Requested' && (
+                    {(selectedProject.smeal_approval_status === 'Changes Requested' || hasSuperAdminAccess) && (
                       <form
                         onSubmit={handleUpdateAgreementEvidence}
                         style={{
@@ -1612,14 +1960,14 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                           padding: 12,
                           borderRadius: 8,
                           background: '#ffffff',
-                          border: '1px dashed #dc2626',
+                          border: '1px dashed #0284c7',
                           display: 'flex',
                           flexDirection: 'column',
                           gap: 8,
                         }}
                       >
-                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#991b1b' }}>
-                          Re-Submit Corrected Signed Agreement (PDF/Word or Link):
+                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#0369a1' }}>
+                          Update / Re-Submit Signed Agreement (PDF/Word or Link):
                         </div>
                         <input
                           type="file"
@@ -1649,7 +1997,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                             cursor: 'pointer',
                           }}
                         >
-                          {updatingAgreement ? 'Re-Submitting...' : 'Upload & Re-Submit to SMEAL'}
+                          {updatingAgreement ? 'Saving...' : 'Upload & Update Agreement'}
                         </button>
                       </form>
                     )}
@@ -1661,10 +2009,13 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
                 <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0' }}>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 6 }}>
-                    DELIVERY LIFECYCLE STAGE {selectedProject.smeal_approval_status !== 'Approved' ? '(LOCKED UNTIL SMEAL APPROVES)' : ''}
+                    DELIVERY LIFECYCLE STAGE{' '}
+                    {selectedProject.smeal_approval_status !== 'Approved' && !hasSuperAdminAccess
+                      ? '(LOCKED UNTIL SMEAL APPROVES)'
+                      : ''}
                   </label>
                   <select
-                    disabled={selectedProject.smeal_approval_status !== 'Approved'}
+                    disabled={selectedProject.smeal_approval_status !== 'Approved' && !hasSuperAdminAccess}
                     value={selectedProject.delivery_stage}
                     onChange={(e) => handleStageOrHealthUpdate('delivery_stage', e.target.value)}
                     style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12.5, fontWeight: 700 }}
@@ -1682,7 +2033,7 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                     PROJECT HEALTH STATUS
                   </label>
                   <select
-                    disabled={selectedProject.smeal_approval_status !== 'Approved'}
+                    disabled={selectedProject.smeal_approval_status !== 'Approved' && !hasSuperAdminAccess}
                     value={selectedProject.health_status}
                     onChange={(e) => handleStageOrHealthUpdate('health_status', e.target.value)}
                     style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12.5, fontWeight: 700 }}
@@ -1770,7 +2121,6 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                       </table>
                     )}
 
-                    {/* Quick Add Milestone Form */}
                     <form
                       onSubmit={handleAddMilestone}
                       style={{
@@ -1871,6 +2221,60 @@ export default function ProjectTracker({ userProfile, effectiveRole, onRefresh }
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* WORKSPACE FOOTER (SUPER ADMIN DELETE + EXPLICIT CLOSE) */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderTop: '1px solid #e2e8f0',
+                  paddingTop: 14,
+                  flexWrap: 'wrap',
+                  gap: 10,
+                }}
+              >
+                {hasSuperAdminAccess ? (
+                  <button
+                    type="button"
+                    disabled={deletingProject}
+                    onClick={handleDeleteProject}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: 7,
+                      border: '1px solid #fecaca',
+                      background: '#fef2f2',
+                      color: '#b91c1c',
+                      fontSize: 11.5,
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {deletingProject ? 'Deleting...' : '🗑️ Delete Project Permanently (Admin)'}
+                  </button>
+                ) : (
+                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                    🔒 Project deletion restricted to Super Admin
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleCloseWorkspace}
+                  style={{
+                    padding: '8px 18px',
+                    borderRadius: 7,
+                    border: 'none',
+                    background: '#0f172a',
+                    color: '#ffffff',
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Close Workspace
+                </button>
               </div>
             </div>
           </div>
