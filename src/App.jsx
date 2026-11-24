@@ -7,6 +7,7 @@ import RoleManagerModal from './RoleManagerModal'
 import UserGuideModal from './UserManualModal'
 import SpotlightTour from './SpotlightTour'
 import CrmAssistantChat from './CrmAssistantChat'
+import NotificationBell from './NotificationBell'
 import WinRateVelocityPanel from './components/WinRateVelocityPanel.jsx'
 
 // Real Feature Components
@@ -103,6 +104,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [previewRole, setPreviewRole] = useState('')
   const [refreshVersion, setRefreshVersion] = useState(0)
+
+  // Live Notification Counts & Project Deep-Link State
+  const [notifCounts, setNotifCounts] = useState({ total: 0, smealReview: 0 })
+  const [focusProjectId, setFocusProjectId] = useState(null)
 
   // Active Modals & Selected Records
   const [showRoleManager, setShowRoleManager] = useState(false)
@@ -575,6 +580,18 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          {/* LIVE ROLE-TARGETED NOTIFICATION BELL */}
+          <NotificationBell
+            userProfile={profile}
+            effectiveRole={effectiveRole}
+            onNavigateTab={(tab) => setActiveTab(tab)}
+            onNavigateToProject={(projectId) => {
+              setFocusProjectId(projectId)
+              setActiveTab('projects')
+            }}
+            onUnreadCountChange={(counts) => setNotifCounts(counts)}
+          />
+
           <button
             type="button"
             onClick={() => setShowTour(true)}
@@ -691,6 +708,42 @@ export default function App() {
         </div>
       </header>
 
+      {/* SMEAL LIVE ACTION BANNER (Shown to SMEAL / Management when agreements await approval) */}
+      {notifCounts.smealReview > 0 && activeRoleConfig.canApproveSmeal && activeTab !== 'projects' && (
+        <div
+          style={{
+            background: 'linear-gradient(90deg, #fff7ed 0%, #fef3c7 100%)',
+            borderBottom: '1px solid #fdba74',
+            padding: '9px 24px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 10,
+          }}
+        >
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: '#9a3412' }}>
+            🛡️ SMEAL Approval Required: {notifCounts.smealReview} signed agreement{notifCounts.smealReview === 1 ? '' : 's'} awaiting verification to unlock project delivery.
+          </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab('projects')}
+            style={{
+              padding: '5px 12px',
+              borderRadius: 6,
+              border: 'none',
+              background: '#ea580c',
+              color: '#ffffff',
+              fontSize: 11.5,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            Open SMEAL Approval Desk →
+          </button>
+        </div>
+      )}
+
       {/* 2. Quick Actions */}
       <section
         style={{
@@ -801,6 +854,7 @@ export default function App() {
       >
         {TABS.map((tab) => {
           const isActive = activeTab === tab.id
+          const showProjectsBadge = tab.id === 'projects' && notifCounts.total > 0
           return (
             <button
               key={tab.id}
@@ -823,6 +877,21 @@ export default function App() {
             >
               <span>{tab.icon}</span>
               <span>{tab.label}</span>
+              {showProjectsBadge && (
+                <span
+                  style={{
+                    background: '#ef4444',
+                    color: '#ffffff',
+                    fontSize: 10,
+                    fontWeight: 900,
+                    padding: '1px 6px',
+                    borderRadius: 999,
+                    lineHeight: '14px',
+                  }}
+                >
+                  {notifCounts.total}
+                </span>
+              )}
             </button>
           )
         })}
@@ -868,6 +937,8 @@ export default function App() {
             userProfile={profile}
             effectiveRole={effectiveRole}
             isSuperAdmin={isEffectiveSuperAdmin}
+            focusProjectId={focusProjectId}
+            onClearFocusProject={() => setFocusProjectId(null)}
             onRefresh={triggerRefresh}
           />
         )}

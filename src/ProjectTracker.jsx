@@ -1,7 +1,8 @@
 /**
  * THE i-CAPITAL AFRICA INSTITUTE — POST-WIN PROJECT DELIVERY TRACKER
  * Enforces Mandatory Signed Agreement (PDF/Word Upload OR Document Link),
- * SMEAL Team Approval Gate, Anti-Accidental-Close Modals, and Full Super Admin Control.
+ * SMEAL Team Approval Gate, Live Notification Deep-Linking,
+ * Anti-Accidental-Close Modals, and Full Super Admin Control.
  */
 
 import React, { useState, useEffect, useMemo } from 'react'
@@ -83,6 +84,8 @@ export default function ProjectTracker({
   userProfile,
   effectiveRole,
   isSuperAdmin,
+  focusProjectId,
+  onClearFocusProject,
   onRefresh,
 }) {
   const [projects, setProjects] = useState([])
@@ -171,6 +174,35 @@ export default function ProjectTracker({
   useEffect(() => {
     loadProjectsAndWonDeals()
   }, [])
+
+  // Auto-open specific project when clicked from NotificationBell
+  useEffect(() => {
+    if (!focusProjectId) return
+
+    const target = projects.find((p) => String(p.id) === String(focusProjectId))
+    if (target) {
+      openProjectWorkspace(target)
+      onClearFocusProject?.()
+      return
+    }
+
+    if (!loading) {
+      supabase
+        .from('projects')
+        .select('*')
+        .eq('id', focusProjectId)
+        .single()
+        .then(({ data }) => {
+          if (data) {
+            setProjects((prev) =>
+              prev.some((p) => String(p.id) === String(data.id)) ? prev : [data, ...prev]
+            )
+            openProjectWorkspace(data)
+          }
+          onClearFocusProject?.()
+        })
+    }
+  }, [focusProjectId, projects, loading])
 
   async function loadProjectsAndWonDeals() {
     setLoading(true)
@@ -421,6 +453,7 @@ export default function ProjectTracker({
         smeal_approval_status: 'Pending SMEAL Approval',
         notes: formNotes.trim() || null,
         created_by: userProfile?.full_name || userProfile?.email || 'CRM Officer',
+        created_by_email: userProfile?.email?.toLowerCase() || null,
       }
 
       const { data: inserted, error: insertErr } = await supabase
@@ -455,7 +488,7 @@ export default function ProjectTracker({
       await loadProjectsAndWonDeals()
       onRefresh?.()
       showToast(
-        `✓ Project ${created?.project_code || ''} registered and routed to SMEAL Team for signed agreement approval.`
+        `✓ Project ${created?.project_code || ''} registered and live SMEAL alert sent!`
       )
     } catch (err) {
       setFormError(err.message)
@@ -580,8 +613,8 @@ export default function ProjectTracker({
       )
       showToast(
         decision === 'Approved'
-          ? `✓ SMEAL Approved ${updatedProject.project_code} — Project Delivery stages unlocked!`
-          : `↩ SMEAL requested agreement revisions for ${updatedProject.project_code}.`
+          ? `✓ SMEAL Approved ${updatedProject.project_code} — Delivery unlocked & submitter notified!`
+          : `↩ SMEAL requested revisions for ${updatedProject.project_code} — submitter notified.`
       )
     } catch (err) {
       alert(`SMEAL update failed: ${err.message}`)
