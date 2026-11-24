@@ -1,12 +1,13 @@
 /**
  * THE i-CAPITAL AFRICA INSTITUTE — POST-WIN PROJECT DELIVERY TRACKER
  * Enforces Mandatory Signed Agreement (PDF/Word Upload OR Document Link),
- * SMEAL Team Approval Gate, Live Notification Deep-Linking,
- * Anti-Accidental-Close Modals, and Full Super Admin Control.
+ * SMEAL Team Approval Gate, Instant SMEAL PDF Status Report,
+ * Live Notification Deep-Linking, Anti-Accidental-Close Modals, and Full Super Admin Control.
  */
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from './supabase'
+import SmealReportModal from './SmealReportModal'
 
 const DELIVERY_STAGES = [
   '0. Pending SMEAL Approval',
@@ -97,8 +98,9 @@ export default function ProjectTracker({
   const [sbuFilter, setSbuFilter] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
 
-  // Launch New Signed Project Modal
+  // Launch New Signed Project Modal & SMEAL PDF Report Modal
   const [showLaunchModal, setShowLaunchModal] = useState(false)
+  const [showSmealReport, setShowSmealReport] = useState(false)
   const [launchDirty, setLaunchDirty] = useState(false)
   const [sourceDeal, setSourceDeal] = useState(null)
   const [formClient, setFormClient] = useState('')
@@ -898,23 +900,42 @@ export default function ProjectTracker({
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => handleOpenLaunchModal(null)}
-          style={{
-            padding: '10px 18px',
-            borderRadius: 8,
-            border: 'none',
-            background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-            color: '#ffffff',
-            fontSize: 12.5,
-            fontWeight: 800,
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)',
-          }}
-        >
-          + Register Signed Project
-        </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => setShowSmealReport(true)}
+            style={{
+              padding: '10px 16px',
+              borderRadius: 8,
+              border: '1px solid #0f2942',
+              background: '#0f2942',
+              color: '#ffffff',
+              fontSize: 12.5,
+              fontWeight: 800,
+              cursor: 'pointer',
+            }}
+          >
+            🖨️ SMEAL Status Report (PDF)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenLaunchModal(null)}
+            style={{
+              padding: '10px 18px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
+              color: '#ffffff',
+              fontSize: 12.5,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)',
+            }}
+          >
+            + Register Signed Project
+          </button>
+        </div>
       </div>
 
       {/* 2. TOP 4 GOVERNANCE KPI CARDS */}
@@ -2313,6 +2334,14 @@ export default function ProjectTracker({
           </div>
         </div>
       )}
+
+      {/* SMEAL EXECUTIVE STATUS REPORT MODAL (PDF / PRINT) */}
+      <SmealReportModal
+        isOpen={showSmealReport}
+        onClose={() => setShowSmealReport(false)}
+        projects={projects}
+        userProfile={userProfile}
+      />
 
       {toastMsg && (
         <div
