@@ -104,6 +104,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [previewRole, setPreviewRole] = useState('')
   const [refreshVersion, setRefreshVersion] = useState(0)
+  const [globalToast, setGlobalToast] = useState('')
 
   // Live Notification Counts & Project Deep-Link State
   const [notifCounts, setNotifCounts] = useState({ total: 0, smealReview: 0 })
@@ -128,6 +129,11 @@ export default function App() {
   const [submittingLogin, setSubmittingLogin] = useState(false)
 
   const triggerRefresh = () => setRefreshVersion((v) => v + 1)
+
+  const showToast = (msg) => {
+    setGlobalToast(msg)
+    setTimeout(() => setGlobalToast(''), 4500)
+  }
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -708,7 +714,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* SMEAL LIVE ACTION BANNER (Shown to SMEAL / Management when agreements await approval) */}
+      {/* SMEAL LIVE ACTION BANNER */}
       {notifCounts.smealReview > 0 && activeRoleConfig.canApproveSmeal && activeTab !== 'projects' && (
         <div
           style={{
@@ -900,7 +906,7 @@ export default function App() {
       {/* 4. Active Tab Content */}
       <main style={{ padding: '24px 28px', maxWidth: 1440, margin: '0 auto' }}>
         {activeTab === 'dashboard' && (
-          <div>
+          <div key={`dash-${refreshVersion}`}>
             <SummaryDashboard onNavigateTab={(tab) => setActiveTab(tab)} />
             <WinRateVelocityPanel />
           </div>
@@ -953,6 +959,7 @@ export default function App() {
               />
             ) : (
               <LeadList
+                key={`leads-${refreshVersion}`}
                 userProfile={profile}
                 onSelectLead={(l) => setSelectedLead(l)}
                 onNewLead={() => setShowNewLeadModal(true)}
@@ -987,7 +994,7 @@ export default function App() {
         )}
 
         {activeTab === 'queue' && (
-          <FollowUpQueue userProfile={profile} />
+          <FollowUpQueue key={`queue-${refreshVersion}`} userProfile={profile} />
         )}
       </main>
 
@@ -1157,6 +1164,10 @@ export default function App() {
             </div>
             <LeadForm
               userProfile={profile}
+              onSuccess={(msg) => {
+                showToast(msg)
+                triggerRefresh()
+              }}
               onClose={() => {
                 setShowNewLeadModal(false)
                 triggerRefresh()
@@ -1225,6 +1236,29 @@ export default function App() {
       <SpotlightTour isOpen={showTour} onClose={() => setShowTour(false)} />
       <UserGuideModal isOpen={showUserGuide} onClose={() => setShowUserGuide(false)} />
       <RoleManagerModal isOpen={showRoleManager} onClose={() => setShowRoleManager(false)} />
+
+      {/* Global Floating Confirmation Toast */}
+      {globalToast && (
+        <div
+          role="status"
+          style={{
+            position: 'fixed',
+            bottom: 24,
+            right: 24,
+            background: '#0f172a',
+            color: '#ffffff',
+            borderLeft: '5px solid #10b981',
+            padding: '13px 18px',
+            borderRadius: 10,
+            fontSize: 13,
+            fontWeight: 700,
+            boxShadow: '0 12px 30px rgba(0,0,0,0.28)',
+            zIndex: 1000000,
+          }}
+        >
+          {globalToast}
+        </div>
+      )}
 
       {/* Movable CRM Assistant Chat Widget */}
       <CrmAssistantChat />
