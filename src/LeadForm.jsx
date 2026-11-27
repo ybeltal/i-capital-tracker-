@@ -1,11 +1,12 @@
 /**
  * THE i-CAPITAL AFRICA INSTITUTE — PRE-TENDER LEAD INTAKE & PIPELINE MIGRATION
- * Registers new pre-tender leads, migrates them into the active opportunity pipeline,
- * displays an immediate success confirmation, and closes the modal automatically.
+ * Strict 3-Color Brand Identity (#253E5E, #4A7DBC, #F78019).
+ * Preserves resilient column matching, pipeline migration, confirmation banner, and auto-close.
  */
 
 import React, { useState } from 'react'
 import { supabase } from './supabase'
+import { BRAND } from './brandTheme'
 
 const SBU_OPTIONS = [
   'The i-Capital Institute',
@@ -34,7 +35,6 @@ function getDefaultTargetDate() {
   return d.toISOString().split('T')[0]
 }
 
-// Resilient insert helper: automatically strips any non-existent optional column and retries
 async function safeInsertRow(table, rawPayload) {
   const payload = { ...rawPayload }
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -170,10 +170,8 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
       setSuccessMsg(confirmationText)
       setSubmitting(false)
 
-      // Notify parent App.jsx to show persistent toast & refresh tabs
       onSuccess?.(confirmationText)
 
-      // Automatically close the Lead modal after showing confirmation
       setTimeout(() => {
         onClose?.()
       }, 950)
@@ -188,8 +186,8 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
       {/* Auto-Generated Identifier Banner */}
       <div
         style={{
-          background: '#f0f9ff',
-          border: '1px solid #bae6fd',
+          background: BRAND.lightBlueTint,
+          border: `1px solid ${BRAND.lightBlueBorder}`,
           borderRadius: 10,
           padding: '10px 14px',
           display: 'flex',
@@ -200,10 +198,10 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
         }}
       >
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#0284c7', letterSpacing: '0.5px' }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: BRAND.lightBlue, letterSpacing: '0.5px' }}>
             AUTO-GENERATED LEAD IDENTIFIER
           </div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', marginTop: 1 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: BRAND.deepBlue, marginTop: 1, fontFamily: BRAND.fontHeading }}>
             {leadCode}
           </div>
         </div>
@@ -212,8 +210,9 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
           style={{
             fontSize: 11,
             fontWeight: 700,
-            color: '#0369a1',
-            background: '#e0f2fe',
+            color: BRAND.deepBlue,
+            background: BRAND.white,
+            border: `1px solid ${BRAND.lightBlueBorder}`,
             padding: '4px 10px',
             borderRadius: 999,
           }}
@@ -227,16 +226,16 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
         <div
           role="alert"
           style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            color: '#b91c1c',
+            background: BRAND.orangeTint,
+            border: `1px solid ${BRAND.orange}`,
+            color: BRAND.deepBlue,
             padding: '10px 12px',
             borderRadius: 8,
             fontSize: 12,
             fontWeight: 700,
           }}
         >
-          ⚠️ {errorMsg}
+          <span style={{ color: BRAND.orange }}>⚠️</span> {errorMsg}
         </div>
       )}
 
@@ -245,13 +244,13 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
         <div
           role="status"
           style={{
-            background: '#f0fdf4',
-            border: '1.5px solid #86efac',
-            color: '#166534',
+            background: BRAND.deepBlue,
+            borderLeft: `4px solid ${BRAND.orange}`,
+            color: BRAND.white,
             padding: '12px 14px',
             borderRadius: 8,
             fontSize: 12.5,
-            fontWeight: 800,
+            fontWeight: 700,
           }}
         >
           {successMsg} Closing…
@@ -261,7 +260,7 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
       {/* Row 1: Initiated Date & Initiated By */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
             Initiated Date (Manual) *
           </label>
           <input
@@ -270,19 +269,12 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
             disabled={submitting || Boolean(successMsg)}
             value={initiatedDate}
             onChange={(e) => setInitiatedDate(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 11px',
-              borderRadius: 8,
-              border: '1px solid #cbd5e1',
-              fontSize: 13,
-              boxSizing: 'border-box',
-            }}
+            style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
             Initiated By (Manual) *
           </label>
           <input
@@ -292,14 +284,7 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
             value={initiatedBy}
             onChange={(e) => setInitiatedBy(e.target.value)}
             placeholder="Officer Full Name"
-            style={{
-              width: '100%',
-              padding: '9px 11px',
-              borderRadius: 8,
-              border: '1px solid #cbd5e1',
-              fontSize: 13,
-              boxSizing: 'border-box',
-            }}
+            style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
           />
         </div>
       </div>
@@ -307,7 +292,7 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
       {/* Row 2: Client Organization & Strategic SBU */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
             Client / Organization Name *
           </label>
           <input
@@ -317,33 +302,19 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
             value={clientOrg}
             onChange={(e) => setClientOrg(e.target.value)}
             placeholder="e.g., Ministry of Finance / Awash Bank"
-            style={{
-              width: '100%',
-              padding: '9px 11px',
-              borderRadius: 8,
-              border: '1px solid #cbd5e1',
-              fontSize: 13,
-              boxSizing: 'border-box',
-            }}
+            style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
             Strategic SBU *
           </label>
           <select
             disabled={submitting || Boolean(successMsg)}
             value={sbu}
             onChange={(e) => setSbu(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 11px',
-              borderRadius: 8,
-              border: '1px solid #cbd5e1',
-              fontSize: 13,
-              background: '#ffffff',
-            }}
+            style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13, background: BRAND.white }}
           >
             {SBU_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
@@ -357,7 +328,7 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
       {/* Row 3: Opportunity Scope / Title & Origination Channel */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
             Opportunity Scope / Title *
           </label>
           <input
@@ -367,33 +338,19 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
             value={scopeTitle}
             onChange={(e) => setScopeTitle(e.target.value)}
             placeholder="e.g., Executive Leadership Training"
-            style={{
-              width: '100%',
-              padding: '9px 11px',
-              borderRadius: 8,
-              border: '1px solid #cbd5e1',
-              fontSize: 13,
-              boxSizing: 'border-box',
-            }}
+            style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
             Origination Channel *
           </label>
           <select
             disabled={submitting || Boolean(successMsg)}
             value={channel}
             onChange={(e) => setChannel(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 11px',
-              borderRadius: 8,
-              border: '1px solid #cbd5e1',
-              fontSize: 13,
-              background: '#ffffff',
-            }}
+            style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13, background: BRAND.white }}
           >
             {CHANNEL_OPTIONS.map((ch) => (
               <option key={ch} value={ch}>
@@ -407,7 +364,7 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
       {/* Row 4: Estimated Value & Target Action Date */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
             Estimated Value (ETB)
           </label>
           <input
@@ -417,19 +374,12 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
             value={estimatedValue}
             onChange={(e) => setEstimatedValue(e.target.value)}
             placeholder="e.g., 1200000"
-            style={{
-              width: '100%',
-              padding: '9px 11px',
-              borderRadius: 8,
-              border: '1px solid #cbd5e1',
-              fontSize: 13,
-              boxSizing: 'border-box',
-            }}
+            style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
           />
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
             Target Action Date *
           </label>
           <input
@@ -438,21 +388,14 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
             disabled={submitting || Boolean(successMsg)}
             value={targetActionDate}
             onChange={(e) => setTargetActionDate(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '9px 11px',
-              borderRadius: 8,
-              border: '1px solid #cbd5e1',
-              fontSize: 13,
-              boxSizing: 'border-box',
-            }}
+            style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
           />
         </div>
       </div>
 
       {/* Playbook Next Action */}
       <div>
-        <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
           Playbook Next Action (S3 Tracker-Readiness) *
         </label>
         <input
@@ -461,20 +404,13 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
           disabled={submitting || Boolean(successMsg)}
           value={nextAction}
           onChange={(e) => setNextAction(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '9px 11px',
-            borderRadius: 8,
-            border: '1px solid #cbd5e1',
-            fontSize: 13,
-            boxSizing: 'border-box',
-          }}
+          style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
         />
       </div>
 
       {/* Strategic Intelligence / Context Notes */}
       <div>
-        <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>
+        <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
           Strategic Intelligence / Context Notes
         </label>
         <textarea
@@ -483,14 +419,7 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Background, key decision-maker names, budget context..."
-          style={{
-            width: '100%',
-            padding: '9px 11px',
-            borderRadius: 8,
-            border: '1px solid #cbd5e1',
-            fontSize: 13,
-            boxSizing: 'border-box',
-          }}
+          style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
         />
       </div>
 
@@ -502,7 +431,7 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
           gap: 12,
           marginTop: 6,
           paddingTop: 12,
-          borderTop: '1px solid #e2e8f0',
+          borderTop: `1px solid ${BRAND.border}`,
         }}
       >
         <button
@@ -512,9 +441,9 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
           style={{
             padding: '11px 16px',
             borderRadius: 8,
-            border: '1px solid #cbd5e1',
-            background: '#ffffff',
-            color: '#334155',
+            border: `1px solid ${BRAND.border}`,
+            background: BRAND.white,
+            color: BRAND.deepBlue,
             fontSize: 13,
             fontWeight: 700,
             cursor: submitting ? 'not-allowed' : 'pointer',
@@ -530,12 +459,12 @@ export default function LeadForm({ userProfile, onClose, onSuccess }) {
             padding: '11px 18px',
             borderRadius: 8,
             border: 'none',
-            background: successMsg ? '#16a34a' : '#0284c7',
-            color: '#ffffff',
+            background: successMsg ? BRAND.deepBlue : BRAND.lightBlue,
+            color: BRAND.white,
             fontSize: 13,
-            fontWeight: 800,
+            fontWeight: 700,
             cursor: submitting || successMsg ? 'not-allowed' : 'pointer',
-            boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+            boxShadow: '0 4px 12px rgba(74, 125, 188, 0.25)',
           }}
         >
           {submitting

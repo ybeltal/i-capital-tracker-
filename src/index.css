@@ -1,22 +1,48 @@
-/* Basic styles shared by the whole application. */
+@import url('https://fonts.googleapis.com/css2?family=Josefin+Sans:wght@600;700&family=Questrial&display=swap');
+
+:root {
+  --icapital-deep-blue: #253E5E;
+  --icapital-deep-blue-dark: #1A2D45;
+  --icapital-light-blue: #4A7DBC;
+  --icapital-light-blue-tint: #EDF3FA;
+  --icapital-orange: #F78019;
+  --icapital-orange-dark: #D96B0C;
+  --icapital-orange-tint: #FFF4EA;
+  --icapital-canvas: #F6F8FB;
+  --icapital-border: #DCE4EE;
+  --icapital-font-heading: 'Josefin Sans', 'Century Gothic', sans-serif;
+  --icapital-font-body: 'Century Gothic', 'Questrial', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
 * {
   box-sizing: border-box;
 }
 
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background: #f3f5f9;
-  color: #182230;
+  background-color: var(--icapital-canvas);
+  color: var(--icapital-deep-blue);
+  font-family: var(--icapital-font-body);
+  -webkit-font-smoothing: antialiased;
 }
 
-#root {
-  min-height: 100vh;
+h1, h2, h3, h4 {
+  font-family: var(--icapital-font-heading);
+  letter-spacing: -0.01em;
 }
 
-button,
-input,
-select,
-textarea {
-  font: inherit;
+button, input, select, textarea {
+  font-family: var(--icapital-font-body);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--icapital-light-blue) !important;
+  box-shadow: 0 0 0 3px rgba(74, 125, 188, 0.18);
+}
+
+a {
+  color: var(--icapital-light-blue);
 }

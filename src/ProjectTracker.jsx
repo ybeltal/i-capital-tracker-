@@ -1,13 +1,14 @@
 /**
  * THE i-CAPITAL AFRICA INSTITUTE — POST-WIN PROJECT DELIVERY TRACKER
- * Enforces Mandatory Signed Agreement (PDF/Word Upload OR Document Link),
- * SMEAL Team Approval Gate, Instant SMEAL PDF Status Report,
- * Live Notification Deep-Linking, Anti-Accidental-Close Modals, and Full Super Admin Control.
+ * Strict 3-Color Brand Identity (#253E5E, #4A7DBC, #F78019).
+ * Preserves Mandatory Signed Agreement, SMEAL Approval Gate, PDF Status Report,
+ * Live Notification Deep-Linking, Protected Modals, and Full Super Admin Control.
  */
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { supabase } from './supabase'
 import SmealReportModal from './SmealReportModal'
+import { BRAND, getSmealBadgeStyle, getHealthBadgeStyle } from './brandTheme'
 
 const DELIVERY_STAGES = [
   '0. Pending SMEAL Approval',
@@ -49,29 +50,6 @@ function formatEtb(amount) {
   return `ETB ${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
 }
 
-function getSmealBadgeStyle(status) {
-  if (status === 'Approved') {
-    return { background: '#dcfce7', color: '#166534', border: '1px solid #86efac' }
-  }
-  if (status === 'Changes Requested') {
-    return { background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' }
-  }
-  return { background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }
-}
-
-function getHealthBadgeStyle(health) {
-  if (health === 'On Track' || health === 'Completed') {
-    return { background: '#dcfce7', color: '#166534' }
-  }
-  if (health === 'At Risk' || health === 'Action Required (SMEAL)') {
-    return { background: '#ffedd5', color: '#c2410c' }
-  }
-  if (health === 'Delayed') {
-    return { background: '#fee2e2', color: '#b91c1c' }
-  }
-  return { background: '#e0f2fe', color: '#0369a1' }
-}
-
 function isValidHttpUrl(str) {
   try {
     const u = new URL(str)
@@ -94,7 +72,7 @@ export default function ProjectTracker({
   const [loading, setLoading] = useState(true)
 
   // Filters
-  const [statusTab, setStatusTab] = useState('ALL') // 'ALL' | 'PENDING_SMEAL' | 'ACTIVE' | 'CLOSED'
+  const [statusTab, setStatusTab] = useState('ALL')
   const [sbuFilter, setSbuFilter] = useState('ALL')
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -865,11 +843,11 @@ export default function ProjectTracker({
       {/* 1. HEADER & ACTION BAR */}
       <div
         style={{
-          background: '#ffffff',
+          background: BRAND.white,
           borderRadius: 12,
           padding: '18px 22px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 4px rgba(15,23,42,0.04)',
+          border: `1px solid ${BRAND.border}`,
+          boxShadow: '0 1px 4px rgba(37, 62, 94, 0.05)',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -879,23 +857,23 @@ export default function ProjectTracker({
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 19, fontWeight: 900, color: '#0f172a' }}>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
               🚀 Post-Win Project Delivery &amp; SMEAL Governance Tracker
             </h2>
             <span
               style={{
                 fontSize: 11,
-                fontWeight: 800,
-                background: '#e0f2fe',
-                color: '#0369a1',
-                padding: '2px 10px',
+                fontWeight: 700,
+                background: BRAND.lightBlueTint,
+                color: BRAND.lightBlue,
+                padding: '3px 10px',
                 borderRadius: 999,
               }}
             >
               {kpis.total} Projects
             </span>
           </div>
-          <p style={{ margin: '4px 0 0 0', fontSize: 12, color: '#64748b' }}>
+          <p style={{ margin: '4px 0 0 0', fontSize: 12, color: BRAND.textMuted }}>
             Every post-win mandate requires a signed agreement (PDF/Word upload or verified link) and SMEAL Team approval prior to delivery kickoff.
           </p>
         </div>
@@ -907,11 +885,11 @@ export default function ProjectTracker({
             style={{
               padding: '10px 16px',
               borderRadius: 8,
-              border: '1px solid #0f2942',
-              background: '#0f2942',
-              color: '#ffffff',
+              border: `1px solid ${BRAND.deepBlue}`,
+              background: BRAND.deepBlue,
+              color: BRAND.white,
               fontSize: 12.5,
-              fontWeight: 800,
+              fontWeight: 700,
               cursor: 'pointer',
             }}
           >
@@ -925,12 +903,12 @@ export default function ProjectTracker({
               padding: '10px 18px',
               borderRadius: 8,
               border: 'none',
-              background: 'linear-gradient(135deg, #ea580c 0%, #c2410c 100%)',
-              color: '#ffffff',
+              background: BRAND.orange,
+              color: BRAND.white,
               fontSize: 12.5,
-              fontWeight: 800,
+              fontWeight: 700,
               cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(234, 88, 12, 0.3)',
+              boxShadow: '0 4px 12px rgba(247, 128, 25, 0.28)',
             }}
           >
             + Register Signed Project
@@ -938,7 +916,7 @@ export default function ProjectTracker({
         </div>
       </div>
 
-      {/* 2. TOP 4 GOVERNANCE KPI CARDS */}
+      {/* 2. TOP 4 GOVERNANCE KPI CARDS (Strict 3-Color Hierarchy) */}
       <div
         style={{
           display: 'grid',
@@ -946,50 +924,50 @@ export default function ProjectTracker({
           gap: 14,
         }}
       >
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #e2e8f0', borderLeft: '4px solid #f59e0b' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+        <div style={{ background: BRAND.white, borderRadius: 12, padding: 16, border: `1px solid ${BRAND.border}`, borderLeft: `4px solid ${BRAND.orange}` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: BRAND.textMuted, textTransform: 'uppercase' }}>
             Pending SMEAL Approval
           </div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: '#b45309', marginTop: 4 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: BRAND.orange, marginTop: 4, fontFamily: BRAND.fontHeading }}>
             {kpis.pendingSmeal}
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: BRAND.textMuted, marginTop: 4 }}>
             Signed agreements awaiting SMEAL sign-off
           </div>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #e2e8f0', borderLeft: '4px solid #0284c7' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+        <div style={{ background: BRAND.white, borderRadius: 12, padding: 16, border: `1px solid ${BRAND.border}`, borderLeft: `4px solid ${BRAND.lightBlue}` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: BRAND.textMuted, textTransform: 'uppercase' }}>
             Approved &amp; In Delivery
           </div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: '#0284c7', marginTop: 4 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: BRAND.lightBlue, marginTop: 4, fontFamily: BRAND.fontHeading }}>
             {kpis.activeDelivery}
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: BRAND.textMuted, marginTop: 4 }}>
             Cleared by SMEAL &amp; executing milestones
           </div>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #e2e8f0', borderLeft: '4px solid #16a34a' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+        <div style={{ background: BRAND.white, borderRadius: 12, padding: 16, border: `1px solid ${BRAND.border}`, borderLeft: `4px solid ${BRAND.deepBlue}` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: BRAND.textMuted, textTransform: 'uppercase' }}>
             Closed &amp; Certified
           </div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: '#166534', marginTop: 4 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: BRAND.deepBlue, marginTop: 4, fontFamily: BRAND.fontHeading }}>
             {kpis.closedCount}
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: BRAND.textMuted, marginTop: 4 }}>
             Completed mandates &amp; recommendation letters
           </div>
         </div>
 
-        <div style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #e2e8f0', borderLeft: '4px solid #0f172a' }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+        <div style={{ background: BRAND.deepBlue, borderRadius: 12, padding: 16, border: `1px solid ${BRAND.deepBlueDark}`, borderLeft: `4px solid ${BRAND.orange}` }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: BRAND.lightBlueBorder, textTransform: 'uppercase' }}>
             Signed Portfolio Value
           </div>
-          <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', marginTop: 6 }}>
+          <div style={{ fontSize: 23, fontWeight: 700, color: BRAND.white, marginTop: 6, fontFamily: BRAND.fontHeading }}>
             {formatEtb(kpis.totalContractValue)}
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
+          <div style={{ fontSize: 11, color: BRAND.lightBlueTint, marginTop: 4 }}>
             Verified post-win contracts across 4 SBUs
           </div>
         </div>
@@ -999,17 +977,17 @@ export default function ProjectTracker({
       {wonPendingDeals.length > 0 && (
         <div
           style={{
-            background: '#fffbeb',
-            border: '1px solid #fcd34d',
+            background: BRAND.orangeTint,
+            border: `1px solid ${BRAND.orangeBorder}`,
             borderRadius: 12,
             padding: '14px 18px',
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 6 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#92400e' }}>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
               📑 Won Proposals Awaiting Signed Agreement Handoff ({wonPendingDeals.length})
             </div>
-            <span style={{ fontSize: 11, color: '#b45309', fontWeight: 600 }}>
+            <span style={{ fontSize: 11, color: BRAND.orangeDark, fontWeight: 700 }}>
               Attach PDF/Word agreement or link to activate project tracking &amp; SMEAL review
             </span>
           </div>
@@ -1019,8 +997,8 @@ export default function ProjectTracker({
               <div
                 key={`${deal._sourceTable}-${deal.id}`}
                 style={{
-                  background: '#ffffff',
-                  border: '1px solid #fde68a',
+                  background: BRAND.white,
+                  border: `1px solid ${BRAND.orangeBorder}`,
                   borderRadius: 8,
                   padding: '10px 14px',
                   display: 'flex',
@@ -1031,17 +1009,17 @@ export default function ProjectTracker({
                 }}
               >
                 <div>
-                  <span style={{ fontSize: 10, fontWeight: 800, background: '#e0f2fe', color: '#0369a1', padding: '2px 6px', borderRadius: 4, marginRight: 8 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, background: BRAND.lightBlueTint, color: BRAND.deepBlue, padding: '2px 7px', borderRadius: 4, marginRight: 8 }}>
                     {normalizeSbuCode(deal.sbu)}
                   </span>
-                  <strong style={{ fontSize: 13, color: '#0f172a' }}>
+                  <strong style={{ fontSize: 13, color: BRAND.deepBlue }}>
                     {deal.client_organization || deal.organization || deal.client_name || deal.client || 'Institutional Client'}
                   </strong>
-                  <span style={{ fontSize: 12, color: '#475569' }}>
+                  <span style={{ fontSize: 12, color: BRAND.textMuted }}>
                     {' '}— {deal.opportunity_title || deal.title || 'Won Mandate'}
                   </span>
                   {(deal.deal_value || deal.contract_value || deal.estimated_value) > 0 && (
-                    <span style={{ fontSize: 11.5, fontWeight: 700, color: '#166534', marginLeft: 8 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: BRAND.lightBlue, marginLeft: 8 }}>
                       ({formatEtb(deal.deal_value || deal.contract_value || deal.estimated_value)})
                     </span>
                   )}
@@ -1054,8 +1032,8 @@ export default function ProjectTracker({
                     padding: '6px 12px',
                     borderRadius: 6,
                     border: 'none',
-                    background: '#0284c7',
-                    color: '#ffffff',
+                    background: BRAND.lightBlue,
+                    color: BRAND.white,
                     fontSize: 11.5,
                     fontWeight: 700,
                     cursor: 'pointer',
@@ -1072,10 +1050,10 @@ export default function ProjectTracker({
       {/* 4. FILTER BAR */}
       <div
         style={{
-          background: '#ffffff',
+          background: BRAND.white,
           borderRadius: 10,
           padding: '12px 16px',
-          border: '1px solid #e2e8f0',
+          border: `1px solid ${BRAND.border}`,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -1099,9 +1077,9 @@ export default function ProjectTracker({
                 style={{
                   padding: '6px 12px',
                   borderRadius: 7,
-                  border: active ? '1px solid #0284c7' : '1px solid #e2e8f0',
-                  background: active ? '#0284c7' : '#f8fafc',
-                  color: active ? '#ffffff' : '#334155',
+                  border: active ? `1px solid ${BRAND.lightBlue}` : `1px solid ${BRAND.border}`,
+                  background: active ? BRAND.lightBlue : BRAND.canvas,
+                  color: active ? BRAND.white : BRAND.deepBlue,
                   fontSize: 11.5,
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -1120,9 +1098,10 @@ export default function ProjectTracker({
             style={{
               padding: '7px 12px',
               borderRadius: 8,
-              border: '1px solid #cbd5e1',
+              border: `1px solid ${BRAND.border}`,
               fontSize: 12,
-              background: '#fff',
+              background: BRAND.white,
+              color: BRAND.deepBlue,
             }}
           >
             <option value="ALL">All SBUs</option>
@@ -1140,24 +1119,25 @@ export default function ProjectTracker({
             style={{
               padding: '7px 12px',
               borderRadius: 8,
-              border: '1px solid #cbd5e1',
+              border: `1px solid ${BRAND.border}`,
               fontSize: 12,
               minWidth: 230,
+              color: BRAND.deepBlue,
             }}
           />
         </div>
       </div>
 
       {/* 5. PROJECTS TABLE */}
-      <div style={{ background: '#ffffff', borderRadius: 12, border: '1px solid #e2e8f0', overflowX: 'auto' }}>
+      <div style={{ background: BRAND.white, borderRadius: 12, border: `1px solid ${BRAND.border}`, overflowX: 'auto' }}>
         {loading ? (
-          <div style={{ padding: 36, textAlign: 'center', color: '#64748b', fontSize: 13 }}>
+          <div style={{ padding: 36, textAlign: 'center', color: BRAND.textMuted, fontSize: 13 }}>
             Loading Post-Win Projects...
           </div>
         ) : filteredProjects.length === 0 ? (
-          <div style={{ padding: 40, textAlign: 'center', color: '#64748b' }}>
+          <div style={{ padding: 40, textAlign: 'center', color: BRAND.textMuted }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>🚀</div>
-            <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>
+            <div style={{ fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4, fontFamily: BRAND.fontHeading }}>
               No signed projects in this view yet
             </div>
             <div style={{ fontSize: 12 }}>
@@ -1167,7 +1147,7 @@ export default function ProjectTracker({
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: '#0f172a', color: '#ffffff', fontSize: 11, textTransform: 'uppercase' }}>
+              <tr style={{ background: BRAND.deepBlue, color: BRAND.white, fontSize: 11, textTransform: 'uppercase' }}>
                 <th style={{ padding: '12px 14px' }}>Code &amp; Mandate</th>
                 <th style={{ padding: '12px 14px' }}>SBU &amp; Value</th>
                 <th style={{ padding: '12px 14px' }}>Signed Agreement</th>
@@ -1182,25 +1162,25 @@ export default function ProjectTracker({
                 const healthStyle = getHealthBadgeStyle(proj.health_status)
 
                 return (
-                  <tr key={proj.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                  <tr key={proj.id} style={{ borderBottom: `1px solid ${BRAND.border}` }}>
                     <td style={{ padding: '12px 14px' }}>
-                      <div style={{ fontSize: 10.5, fontWeight: 800, color: '#0284c7' }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, color: BRAND.lightBlue }}>
                         {proj.project_code} {proj.contract_ref_no ? `• Ref: ${proj.contract_ref_no}` : ''}
                       </div>
-                      <div style={{ fontWeight: 800, color: '#0f172a', marginTop: 2 }}>
+                      <div style={{ fontWeight: 700, color: BRAND.deepBlue, marginTop: 2 }}>
                         {proj.client_organization}
                       </div>
-                      <div style={{ fontSize: 11.5, color: '#475569' }}>{proj.project_title}</div>
+                      <div style={{ fontSize: 11.5, color: BRAND.textMuted }}>{proj.project_title}</div>
                     </td>
 
                     <td style={{ padding: '12px 14px' }}>
-                      <span style={{ fontSize: 10.5, fontWeight: 800, background: '#f1f5f9', color: '#334155', padding: '2px 7px', borderRadius: 5 }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 700, background: BRAND.lightBlueTint, color: BRAND.deepBlue, padding: '2px 7px', borderRadius: 5 }}>
                         {proj.sbu}
                       </span>
-                      <div style={{ fontWeight: 800, color: '#0f172a', marginTop: 4 }}>
+                      <div style={{ fontWeight: 700, color: BRAND.deepBlue, marginTop: 4 }}>
                         {formatEtb(proj.contract_value)}
                       </div>
-                      <div style={{ fontSize: 11, color: '#64748b' }}>
+                      <div style={{ fontSize: 11, color: BRAND.textMuted }}>
                         Signed: {proj.signed_date || '—'}
                       </div>
                     </td>
@@ -1215,7 +1195,7 @@ export default function ProjectTracker({
                             style={{
                               fontSize: 11.5,
                               fontWeight: 700,
-                              color: '#0369a1',
+                              color: BRAND.lightBlue,
                               textDecoration: 'none',
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -1233,7 +1213,7 @@ export default function ProjectTracker({
                             style={{
                               fontSize: 11.5,
                               fontWeight: 700,
-                              color: '#0d9488',
+                              color: BRAND.deepBlue,
                               textDecoration: 'none',
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -1253,7 +1233,7 @@ export default function ProjectTracker({
                           padding: '4px 9px',
                           borderRadius: 6,
                           fontSize: 11,
-                          fontWeight: 800,
+                          fontWeight: 700,
                           display: 'inline-block',
                         }}
                       >
@@ -1264,14 +1244,14 @@ export default function ProjectTracker({
                           : '⏳ Pending SMEAL'}
                       </span>
                       {proj.smeal_approved_by && (
-                        <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 4 }}>
+                        <div style={{ fontSize: 10.5, color: BRAND.textMuted, marginTop: 4 }}>
                           By: {proj.smeal_approved_by}
                         </div>
                       )}
                     </td>
 
                     <td style={{ padding: '12px 14px' }}>
-                      <div style={{ fontWeight: 700, color: '#1e293b', fontSize: 12 }}>
+                      <div style={{ fontWeight: 700, color: BRAND.deepBlue, fontSize: 12 }}>
                         {proj.delivery_stage}
                       </div>
                       <span
@@ -1297,8 +1277,8 @@ export default function ProjectTracker({
                           padding: '7px 12px',
                           borderRadius: 7,
                           border: 'none',
-                          background: proj.smeal_approval_status !== 'Approved' ? '#ea580c' : '#0284c7',
-                          color: '#ffffff',
+                          background: proj.smeal_approval_status !== 'Approved' ? BRAND.orange : BRAND.lightBlue,
+                          color: BRAND.white,
                           fontSize: 11.5,
                           fontWeight: 700,
                           cursor: 'pointer',
@@ -1325,7 +1305,7 @@ export default function ProjectTracker({
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.72)',
+            backgroundColor: 'rgba(26, 45, 69, 0.75)',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
@@ -1336,36 +1316,36 @@ export default function ProjectTracker({
         >
           <div
             style={{
-              background: '#ffffff',
+              background: BRAND.white,
               borderRadius: 14,
               width: '100%',
               maxWidth: 640,
               maxHeight: '92vh',
               overflowY: 'auto',
               padding: 26,
-              borderTop: '5px solid #ea580c',
-              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.45)',
+              borderTop: `5px solid ${BRAND.orange}`,
+              boxShadow: '0 25px 50px -12px rgba(26, 45, 69, 0.45)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
-              <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: '#0f172a' }}>
+              <h3 style={{ margin: 0, fontSize: 19, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
                 🚀 Register Signed Project &amp; Submit to SMEAL Team
               </h3>
               <button
                 type="button"
                 onClick={handleCloseLaunchModal}
                 title="Close"
-                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 17, color: '#475569', cursor: 'pointer' }}
+                style={{ background: BRAND.lightBlueTint, border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 17, color: BRAND.deepBlue, cursor: 'pointer' }}
               >
                 ✕
               </button>
             </div>
-            <p style={{ margin: '0 0 16px 0', fontSize: 12, color: '#64748b' }}>
+            <p style={{ margin: '0 0 16px 0', fontSize: 12, color: BRAND.textMuted }}>
               A signed agreement (PDF/Word upload or verified URL link) is strictly required. Delivery stages unlock once SMEAL approves.
             </p>
 
             {formError && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', padding: 10, borderRadius: 8, fontSize: 12, fontWeight: 600, marginBottom: 14 }}>
+              <div style={{ background: BRAND.orangeTint, border: `1px solid ${BRAND.orange}`, color: BRAND.deepBlue, padding: 10, borderRadius: 8, fontSize: 12, fontWeight: 700, marginBottom: 14 }}>
                 ⚠️ {formError}
               </div>
             )}
@@ -1373,7 +1353,7 @@ export default function ProjectTracker({
             <form onSubmit={handleLaunchProject} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                     CLIENT ORGANIZATION *
                   </label>
                   <input
@@ -1385,12 +1365,12 @@ export default function ProjectTracker({
                       setLaunchDirty(true)
                     }}
                     placeholder="e.g., Dashen Bank S.C."
-                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                     EXECUTING SBU *
                   </label>
                   <select
@@ -1399,7 +1379,7 @@ export default function ProjectTracker({
                       setFormSbu(e.target.value)
                       setLaunchDirty(true)
                     }}
-                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13 }}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
                   >
                     <option value="INST">INST (The Institute)</option>
                     <option value="IIP">IIP (Investment Partners)</option>
@@ -1410,7 +1390,7 @@ export default function ProjectTracker({
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                   PROJECT / SIGNED MANDATE TITLE *
                 </label>
                 <input
@@ -1422,13 +1402,13 @@ export default function ProjectTracker({
                     setLaunchDirty(true)
                   }}
                   placeholder="e.g., AI Startup Support Program Cohort II / MBL Delivery"
-                  style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
                 />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                     CONTRACT VALUE (ETB) *
                   </label>
                   <input
@@ -1440,12 +1420,12 @@ export default function ProjectTracker({
                       setLaunchDirty(true)
                     }}
                     placeholder="e.g., 1288000"
-                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                     CONTRACT REF NO.
                   </label>
                   <input
@@ -1456,12 +1436,12 @@ export default function ProjectTracker({
                       setLaunchDirty(true)
                     }}
                     placeholder="e.g., EAII/SSP/01/2026"
-                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                     SIGNED DATE *
                   </label>
                   <input
@@ -1472,14 +1452,14 @@ export default function ProjectTracker({
                       setFormSignedDate(e.target.value)
                       setLaunchDirty(true)
                     }}
-                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
                   />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                     DELIVERY LEAD
                   </label>
                   <input
@@ -1490,12 +1470,12 @@ export default function ProjectTracker({
                       setLaunchDirty(true)
                     }}
                     placeholder="e.g., Operations Director"
-                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                     KICKOFF DATE
                   </label>
                   <input
@@ -1505,12 +1485,12 @@ export default function ProjectTracker({
                       setFormKickoffDate(e.target.value)
                       setLaunchDirty(true)
                     }}
-                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
                   />
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                     CONTRACT END DATE
                   </label>
                   <input
@@ -1520,7 +1500,7 @@ export default function ProjectTracker({
                       setFormEndDate(e.target.value)
                       setLaunchDirty(true)
                     }}
-                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 13, boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 13 }}
                   />
                 </div>
               </div>
@@ -1528,22 +1508,22 @@ export default function ProjectTracker({
               {/* MANDATORY SIGNED AGREEMENT BOX */}
               <div
                 style={{
-                  background: '#f0f9ff',
-                  border: '1.5px solid #0284c7',
+                  background: BRAND.lightBlueTint,
+                  border: `1.5px solid ${BRAND.lightBlue}`,
                   borderRadius: 10,
                   padding: 14,
                 }}
               >
-                <div style={{ fontSize: 12, fontWeight: 800, color: '#0369a1', marginBottom: 4 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                   📎 MANDATORY SIGNED AGREEMENT EVIDENCE (Upload PDF/Word OR Paste Link) *
                 </div>
-                <div style={{ fontSize: 11, color: '#475569', marginBottom: 10 }}>
+                <div style={{ fontSize: 11, color: BRAND.textMuted, marginBottom: 10 }}>
                   Provide at least one option below. The SMEAL Team will verify this document before unlocking project delivery.
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                       Option A: Upload Signed PDF or Word File (.pdf, .doc, .docx — Max 20MB)
                     </label>
                     <input
@@ -1556,22 +1536,21 @@ export default function ProjectTracker({
                       style={{
                         width: '100%',
                         padding: '8px',
-                        background: '#ffffff',
+                        background: BRAND.white,
                         borderRadius: 8,
-                        border: '1px dashed #0284c7',
+                        border: `1px dashed ${BRAND.lightBlue}`,
                         fontSize: 12,
-                        boxSizing: 'border-box',
                       }}
                     />
                     {agreementFile && (
-                      <div style={{ fontSize: 11, color: '#166534', fontWeight: 700, marginTop: 4 }}>
+                      <div style={{ fontSize: 11, color: BRAND.deepBlue, fontWeight: 700, marginTop: 4 }}>
                         ✓ Ready to upload: {agreementFile.name} ({(agreementFile.size / 1024).toFixed(0)} KB)
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+                    <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                       Option B: Paste Signed Agreement Document Link (Google Drive / SharePoint / Cloud URL)
                     </label>
                     <input
@@ -1582,14 +1561,14 @@ export default function ProjectTracker({
                         setLaunchDirty(true)
                       }}
                       placeholder="https://drive.google.com/file/d/..."
-                      style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12.5, boxSizing: 'border-box', background: '#fff' }}
+                      style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 12.5, background: BRAND.white }}
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                   KICKOFF &amp; GOVERNANCE NOTES
                 </label>
                 <textarea
@@ -1600,7 +1579,7 @@ export default function ProjectTracker({
                     setLaunchDirty(true)
                   }}
                   placeholder="Key payment terms, deliverables, or LogFrame evaluation scope..."
-                  style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12, boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '9px 11px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 12 }}
                 />
               </div>
 
@@ -1608,7 +1587,7 @@ export default function ProjectTracker({
                 <button
                   type="button"
                   onClick={handleCloseLaunchModal}
-                  style={{ padding: '9px 16px', borderRadius: 8, border: '1px solid #cbd5e1', background: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+                  style={{ padding: '9px 16px', borderRadius: 8, border: `1px solid ${BRAND.border}`, background: BRAND.white, color: BRAND.deepBlue, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
                 >
                   Cancel
                 </button>
@@ -1619,10 +1598,10 @@ export default function ProjectTracker({
                     padding: '9px 18px',
                     borderRadius: 8,
                     border: 'none',
-                    background: '#ea580c',
-                    color: '#fff',
+                    background: BRAND.orange,
+                    color: BRAND.white,
                     fontSize: 12.5,
-                    fontWeight: 800,
+                    fontWeight: 700,
                     cursor: submittingProject ? 'not-allowed' : 'pointer',
                   }}
                 >
@@ -1642,7 +1621,7 @@ export default function ProjectTracker({
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backgroundColor: 'rgba(26, 45, 69, 0.78)',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
@@ -1653,21 +1632,22 @@ export default function ProjectTracker({
         >
           <div
             style={{
-              background: '#ffffff',
+              background: BRAND.white,
               borderRadius: 16,
               width: '100%',
               maxWidth: 960,
               maxHeight: '92vh',
               overflowY: 'auto',
-              boxShadow: '0 25px 60px -12px rgba(0,0,0,0.5)',
+              boxShadow: '0 25px 60px -12px rgba(26, 45, 69, 0.5)',
             }}
           >
             {/* Workspace Header */}
             <div
               style={{
-                background: 'linear-gradient(90deg, #060b18 0%, #0f172a 100%)',
-                color: '#ffffff',
+                background: `linear-gradient(90deg, ${BRAND.deepBlueDark} 0%, ${BRAND.deepBlue} 100%)`,
+                color: BRAND.white,
                 padding: '18px 24px',
+                borderBottom: `3px solid ${BRAND.orange}`,
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -1675,15 +1655,15 @@ export default function ProjectTracker({
               }}
             >
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 800, color: '#38bdf8', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 700, color: BRAND.lightBlueBorder, flexWrap: 'wrap' }}>
                   <span>{selectedProject.project_code} • {selectedProject.sbu} • {formatEtb(selectedProject.contract_value)}</span>
                   {hasSuperAdminAccess && (
-                    <span style={{ background: '#dc2626', color: '#fff', padding: '1px 7px', borderRadius: 4, fontSize: 9.5 }}>
+                    <span style={{ background: BRAND.orange, color: BRAND.white, padding: '2px 8px', borderRadius: 4, fontSize: 9.5 }}>
                       🛡️ SUPER ADMIN FULL CONTROL
                     </span>
                   )}
                 </div>
-                <h3 style={{ margin: '3px 0 0 0', fontSize: 18, fontWeight: 900 }}>
+                <h3 style={{ margin: '4px 0 0 0', fontSize: 19, fontWeight: 700, fontFamily: BRAND.fontHeading }}>
                   {selectedProject.client_organization} — {selectedProject.project_title}
                 </h3>
               </div>
@@ -1696,9 +1676,9 @@ export default function ProjectTracker({
                     style={{
                       padding: '6px 12px',
                       borderRadius: 6,
-                      border: '1px solid rgba(255,255,255,0.25)',
-                      background: showAdminEdit ? '#0284c7' : 'rgba(255,255,255,0.1)',
-                      color: '#ffffff',
+                      border: `1px solid ${BRAND.lightBlue}`,
+                      background: showAdminEdit ? BRAND.lightBlue : 'rgba(74, 125, 188, 0.25)',
+                      color: BRAND.white,
                       fontSize: 11.5,
                       fontWeight: 700,
                       cursor: 'pointer',
@@ -1718,7 +1698,7 @@ export default function ProjectTracker({
                     borderRadius: 6,
                     width: 32,
                     height: 32,
-                    color: '#ffffff',
+                    color: BRAND.white,
                     fontSize: 18,
                     cursor: 'pointer',
                   }}
@@ -1734,8 +1714,8 @@ export default function ProjectTracker({
                 <form
                   onSubmit={handleSaveSuperAdminProjectEdit}
                   style={{
-                    background: '#f8fafc',
-                    border: '1.5px solid #0284c7',
+                    background: BRAND.lightBlueTint,
+                    border: `1.5px solid ${BRAND.lightBlue}`,
                     borderRadius: 12,
                     padding: 16,
                     display: 'flex',
@@ -1743,7 +1723,7 @@ export default function ProjectTracker({
                     gap: 10,
                   }}
                 >
-                  <div style={{ fontSize: 12.5, fontWeight: 900, color: '#0369a1' }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
                     🛡️ Super Admin Project Editor (All Fields Editable)
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr', gap: 10 }}>
@@ -1756,7 +1736,7 @@ export default function ProjectTracker({
                         setAdminEditDirty(true)
                       }}
                       placeholder="Client Organization"
-                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12.5, background: '#fff' }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: `1px solid ${BRAND.border}`, fontSize: 12.5, background: BRAND.white }}
                     />
                     <select
                       value={admSbu}
@@ -1764,7 +1744,7 @@ export default function ProjectTracker({
                         setAdmSbu(e.target.value)
                         setAdminEditDirty(true)
                       }}
-                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12.5, background: '#fff' }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: `1px solid ${BRAND.border}`, fontSize: 12.5, background: BRAND.white }}
                     >
                       <option value="INST">INST (Institute)</option>
                       <option value="IIP">IIP (Investment)</option>
@@ -1779,7 +1759,7 @@ export default function ProjectTracker({
                         setAdminEditDirty(true)
                       }}
                       placeholder="Contract Value (ETB)"
-                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12.5, background: '#fff' }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: `1px solid ${BRAND.border}`, fontSize: 12.5, background: BRAND.white }}
                     />
                   </div>
                   <input
@@ -1791,7 +1771,7 @@ export default function ProjectTracker({
                       setAdminEditDirty(true)
                     }}
                     placeholder="Project Mandate Title"
-                    style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12.5, background: '#fff' }}
+                    style={{ padding: '8px 10px', borderRadius: 7, border: `1px solid ${BRAND.border}`, fontSize: 12.5, background: BRAND.white }}
                   />
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
                     <input
@@ -1802,7 +1782,7 @@ export default function ProjectTracker({
                         setAdminEditDirty(true)
                       }}
                       placeholder="Contract Ref No."
-                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: `1px solid ${BRAND.border}`, fontSize: 12, background: BRAND.white }}
                     />
                     <input
                       type="text"
@@ -1812,7 +1792,7 @@ export default function ProjectTracker({
                         setAdminEditDirty(true)
                       }}
                       placeholder="Delivery Lead"
-                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: `1px solid ${BRAND.border}`, fontSize: 12, background: BRAND.white }}
                     />
                     <input
                       type="date"
@@ -1821,7 +1801,7 @@ export default function ProjectTracker({
                         setAdmKickoff(e.target.value)
                         setAdminEditDirty(true)
                       }}
-                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: `1px solid ${BRAND.border}`, fontSize: 12, background: BRAND.white }}
                     />
                     <input
                       type="date"
@@ -1830,7 +1810,7 @@ export default function ProjectTracker({
                         setAdmEnd(e.target.value)
                         setAdminEditDirty(true)
                       }}
-                      style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                      style={{ padding: '8px 10px', borderRadius: 7, border: `1px solid ${BRAND.border}`, fontSize: 12, background: BRAND.white }}
                     />
                   </div>
                   <textarea
@@ -1841,7 +1821,7 @@ export default function ProjectTracker({
                       setAdminEditDirty(true)
                     }}
                     placeholder="Project notes..."
-                    style={{ padding: '8px 10px', borderRadius: 7, border: '1px solid #cbd5e1', fontSize: 12, background: '#fff' }}
+                    style={{ padding: '8px 10px', borderRadius: 7, border: `1px solid ${BRAND.border}`, fontSize: 12, background: BRAND.white }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                     <button
@@ -1850,14 +1830,14 @@ export default function ProjectTracker({
                         setShowAdminEdit(false)
                         setAdminEditDirty(false)
                       }}
-                      style={{ padding: '7px 12px', borderRadius: 7, border: '1px solid #cbd5e1', background: '#fff', fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
+                      style={{ padding: '7px 12px', borderRadius: 7, border: `1px solid ${BRAND.border}`, background: BRAND.white, color: BRAND.deepBlue, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={savingAdminEdit}
-                      style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: '#0284c7', color: '#fff', fontSize: 11.5, fontWeight: 800, cursor: 'pointer' }}
+                      style={{ padding: '7px 14px', borderRadius: 7, border: 'none', background: BRAND.deepBlue, color: BRAND.white, fontSize: 11.5, fontWeight: 700, cursor: 'pointer' }}
                     >
                       {savingAdminEdit ? 'Saving...' : 'Save Admin Edits'}
                     </button>
@@ -1872,18 +1852,18 @@ export default function ProjectTracker({
                   padding: 18,
                   border:
                     selectedProject.smeal_approval_status === 'Approved'
-                      ? '1.5px solid #86efac'
-                      : '1.5px solid #f59e0b',
+                      ? `1.5px solid ${BRAND.lightBlue}`
+                      : `1.5px solid ${BRAND.orange}`,
                   background:
-                    selectedProject.smeal_approval_status === 'Approved' ? '#f0fdf4' : '#fffbeb',
+                    selectedProject.smeal_approval_status === 'Approved' ? BRAND.lightBlueTint : BRAND.orangeTint,
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginBottom: 12 }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 900, color: '#0f172a' }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
                       🛡️ SMEAL Signed Agreement Verification Gate
                     </div>
-                    <div style={{ fontSize: 11.5, color: '#475569', marginTop: 2 }}>
+                    <div style={{ fontSize: 11.5, color: BRAND.textMuted, marginTop: 2 }}>
                       Contract Ref: <strong>{selectedProject.contract_ref_no || 'N/A'}</strong> • Signed Date: <strong>{selectedProject.signed_date || '—'}</strong>
                     </div>
                   </div>
@@ -1893,7 +1873,7 @@ export default function ProjectTracker({
                       padding: '5px 12px',
                       borderRadius: 999,
                       fontSize: 11.5,
-                      fontWeight: 800,
+                      fontWeight: 700,
                     }}
                   >
                     {selectedProject.smeal_approval_status}
@@ -1910,9 +1890,9 @@ export default function ProjectTracker({
                       style={{
                         padding: '8px 14px',
                         borderRadius: 8,
-                        background: '#ffffff',
-                        border: '1px solid #0284c7',
-                        color: '#0369a1',
+                        background: BRAND.white,
+                        border: `1px solid ${BRAND.lightBlue}`,
+                        color: BRAND.deepBlue,
                         fontSize: 12,
                         fontWeight: 700,
                         textDecoration: 'none',
@@ -1929,9 +1909,9 @@ export default function ProjectTracker({
                       style={{
                         padding: '8px 14px',
                         borderRadius: 8,
-                        background: '#ffffff',
-                        border: '1px solid #0d9488',
-                        color: '#0f766e',
+                        background: BRAND.white,
+                        border: `1px solid ${BRAND.deepBlue}`,
+                        color: BRAND.deepBlue,
                         fontSize: 12,
                         fontWeight: 700,
                         textDecoration: 'none',
@@ -1943,7 +1923,7 @@ export default function ProjectTracker({
                 </div>
 
                 {selectedProject.smeal_approval_status === 'Approved' ? (
-                  <div style={{ fontSize: 12, color: '#166534', fontWeight: 600 }}>
+                  <div style={{ fontSize: 12, color: BRAND.deepBlue, fontWeight: 700 }}>
                     ✓ Verified and approved by <strong>{selectedProject.smeal_approved_by || 'SMEAL Team'}</strong>
                     {selectedProject.smeal_approved_at
                       ? ` on ${new Date(selectedProject.smeal_approved_at).toLocaleString()}`
@@ -1961,7 +1941,7 @@ export default function ProjectTracker({
                           value={smealNotes}
                           onChange={(e) => setSmealNotes(e.target.value)}
                           placeholder="SMEAL verification notes (e.g., Confirmed signatures, TOR scope, LogFrame evaluation annex, and payment schedule)..."
-                          style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12, boxSizing: 'border-box', background: '#fff' }}
+                          style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 12, background: BRAND.white }}
                         />
                         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                           <button
@@ -1972,10 +1952,10 @@ export default function ProjectTracker({
                               padding: '9px 16px',
                               borderRadius: 8,
                               border: 'none',
-                              background: '#16a34a',
-                              color: '#ffffff',
+                              background: BRAND.deepBlue,
+                              color: BRAND.white,
                               fontSize: 12,
-                              fontWeight: 800,
+                              fontWeight: 700,
                               cursor: 'pointer',
                             }}
                           >
@@ -1988,9 +1968,9 @@ export default function ProjectTracker({
                             style={{
                               padding: '9px 16px',
                               borderRadius: 8,
-                              border: '1px solid #dc2626',
-                              background: '#ffffff',
-                              color: '#dc2626',
+                              border: `1.5px solid ${BRAND.orange}`,
+                              background: BRAND.white,
+                              color: BRAND.orangeDark,
                               fontSize: 12,
                               fontWeight: 700,
                               cursor: 'pointer',
@@ -2001,7 +1981,7 @@ export default function ProjectTracker({
                         </div>
                       </>
                     ) : (
-                      <div style={{ fontSize: 12, color: '#92400e', fontWeight: 600 }}>
+                      <div style={{ fontSize: 12, color: BRAND.orangeDark, fontWeight: 700 }}>
                         ⏳ Awaiting SMEAL Team sign-off on the attached signed agreement before delivery stages unlock.
                       </div>
                     )}
@@ -2013,14 +1993,14 @@ export default function ProjectTracker({
                           marginTop: 8,
                           padding: 12,
                           borderRadius: 8,
-                          background: '#ffffff',
-                          border: '1px dashed #0284c7',
+                          background: BRAND.white,
+                          border: `1px dashed ${BRAND.lightBlue}`,
                           display: 'flex',
                           flexDirection: 'column',
                           gap: 8,
                         }}
                       >
-                        <div style={{ fontSize: 11.5, fontWeight: 800, color: '#0369a1' }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 700, color: BRAND.deepBlue }}>
                           Update / Re-Submit Signed Agreement (PDF/Word or Link):
                         </div>
                         <input
@@ -2034,7 +2014,7 @@ export default function ProjectTracker({
                           value={reuploadLink}
                           onChange={(e) => setReuploadLink(e.target.value)}
                           placeholder="Or paste updated signed agreement link..."
-                          style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
+                          style={{ padding: '7px 10px', borderRadius: 6, border: `1px solid ${BRAND.border}`, fontSize: 12 }}
                         />
                         <button
                           type="submit"
@@ -2044,8 +2024,8 @@ export default function ProjectTracker({
                             padding: '6px 12px',
                             borderRadius: 6,
                             border: 'none',
-                            background: '#0284c7',
-                            color: '#fff',
+                            background: BRAND.lightBlue,
+                            color: BRAND.white,
                             fontSize: 11.5,
                             fontWeight: 700,
                             cursor: 'pointer',
@@ -2061,8 +2041,8 @@ export default function ProjectTracker({
 
               {/* SECTION B: DELIVERY STAGE & HEALTH CONTROLS */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-                <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 6 }}>
+                <div style={{ background: BRAND.canvas, padding: 14, borderRadius: 10, border: `1px solid ${BRAND.border}` }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.textMuted, marginBottom: 6 }}>
                     DELIVERY LIFECYCLE STAGE{' '}
                     {selectedProject.smeal_approval_status !== 'Approved' && !hasSuperAdminAccess
                       ? '(LOCKED UNTIL SMEAL APPROVES)'
@@ -2072,7 +2052,7 @@ export default function ProjectTracker({
                     disabled={selectedProject.smeal_approval_status !== 'Approved' && !hasSuperAdminAccess}
                     value={selectedProject.delivery_stage}
                     onChange={(e) => handleStageOrHealthUpdate('delivery_stage', e.target.value)}
-                    style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12.5, fontWeight: 700 }}
+                    style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 12.5, fontWeight: 700, color: BRAND.deepBlue }}
                   >
                     {DELIVERY_STAGES.map((st) => (
                       <option key={st} value={st}>
@@ -2082,15 +2062,15 @@ export default function ProjectTracker({
                   </select>
                 </div>
 
-                <div style={{ background: '#f8fafc', padding: 14, borderRadius: 10, border: '1px solid #e2e8f0' }}>
-                  <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#475569', marginBottom: 6 }}>
+                <div style={{ background: BRAND.canvas, padding: 14, borderRadius: 10, border: `1px solid ${BRAND.border}` }}>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.textMuted, marginBottom: 6 }}>
                     PROJECT HEALTH STATUS
                   </label>
                   <select
                     disabled={selectedProject.smeal_approval_status !== 'Approved' && !hasSuperAdminAccess}
                     value={selectedProject.health_status}
                     onChange={(e) => handleStageOrHealthUpdate('health_status', e.target.value)}
-                    style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: 12.5, fontWeight: 700 }}
+                    style={{ width: '100%', padding: '9px 10px', borderRadius: 8, border: `1px solid ${BRAND.border}`, fontSize: 12.5, fontWeight: 700, color: BRAND.deepBlue }}
                   >
                     {HEALTH_OPTIONS.map((h) => (
                       <option key={h} value={h}>
@@ -2102,24 +2082,24 @@ export default function ProjectTracker({
               </div>
 
               {/* SECTION C: DELIVERABLES & PAYMENT MILESTONES */}
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                  <h4 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
+              <div style={{ border: `1px solid ${BRAND.border}`, borderRadius: 12, padding: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+                  <h4 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
                     📋 Deliverables &amp; Payment Tranches ({milestones.length})
                   </h4>
-                  <span style={{ fontSize: 12, fontWeight: 800, color: '#166534', background: '#dcfce7', padding: '4px 10px', borderRadius: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: BRAND.deepBlue, background: BRAND.lightBlueTint, border: `1px solid ${BRAND.lightBlueBorder}`, padding: '4px 10px', borderRadius: 8 }}>
                     Collected: {formatEtb(paidAmountTotal)} / {formatEtb(selectedProject.contract_value)}
                   </span>
                 </div>
 
                 {drawerLoading ? (
-                  <div style={{ fontSize: 12, color: '#64748b' }}>Loading milestones...</div>
+                  <div style={{ fontSize: 12, color: BRAND.textMuted }}>Loading milestones...</div>
                 ) : (
                   <>
                     {milestones.length > 0 && (
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 14 }}>
                         <thead>
-                          <tr style={{ background: '#f1f5f9', color: '#334155', textAlign: 'left' }}>
+                          <tr style={{ background: BRAND.deepBlueTint, color: BRAND.deepBlue, textAlign: 'left' }}>
                             <th style={{ padding: '8px 10px' }}>Milestone / Deliverable</th>
                             <th style={{ padding: '8px 10px' }}>Type</th>
                             <th style={{ padding: '8px 10px' }}>Tranche</th>
@@ -2130,28 +2110,28 @@ export default function ProjectTracker({
                         </thead>
                         <tbody>
                           {milestones.map((m) => (
-                            <tr key={m.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                              <td style={{ padding: '8px 10px', fontWeight: 700, color: '#0f172a' }}>
+                            <tr key={m.id} style={{ borderBottom: `1px solid ${BRAND.border}` }}>
+                              <td style={{ padding: '8px 10px', fontWeight: 700, color: BRAND.deepBlue }}>
                                 {m.milestone_title}
                                 {m.deliverable_link && (
                                   <div>
-                                    <a href={m.deliverable_link} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#0284c7' }}>
+                                    <a href={m.deliverable_link} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: BRAND.lightBlue }}>
                                       View Deliverable ↗
                                     </a>
                                   </div>
                                 )}
                               </td>
-                              <td style={{ padding: '8px 10px', color: '#64748b' }}>{m.milestone_type}</td>
-                              <td style={{ padding: '8px 10px', fontWeight: 700 }}>
+                              <td style={{ padding: '8px 10px', color: BRAND.textMuted }}>{m.milestone_type}</td>
+                              <td style={{ padding: '8px 10px', fontWeight: 700, color: BRAND.deepBlue }}>
                                 {m.payment_percentage ? `${m.payment_percentage}% • ` : ''}
                                 {formatEtb(m.invoice_amount)}
                               </td>
-                              <td style={{ padding: '8px 10px', color: '#64748b' }}>{m.due_date || '—'}</td>
+                              <td style={{ padding: '8px 10px', color: BRAND.textMuted }}>{m.due_date || '—'}</td>
                               <td style={{ padding: '8px 10px' }}>
                                 <select
                                   value={m.status}
                                   onChange={(e) => handleMilestoneStatusChange(m.id, e.target.value)}
-                                  style={{ padding: '4px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 11.5, fontWeight: 700 }}
+                                  style={{ padding: '4px 8px', borderRadius: 6, border: `1px solid ${BRAND.border}`, fontSize: 11.5, fontWeight: 700, color: BRAND.deepBlue }}
                                 >
                                   {MILESTONE_STATUSES.map((st) => (
                                     <option key={st} value={st}>
@@ -2164,7 +2144,7 @@ export default function ProjectTracker({
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteMilestone(m.id)}
-                                  style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: 12 }}
+                                  style={{ background: 'none', border: 'none', color: BRAND.orangeDark, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
                                 >
                                   ✕
                                 </button>
@@ -2182,7 +2162,7 @@ export default function ProjectTracker({
                         gridTemplateColumns: '2fr 1.2fr 0.7fr 1fr 1fr auto',
                         gap: 8,
                         alignItems: 'center',
-                        background: '#f8fafc',
+                        background: BRAND.canvas,
                         padding: 10,
                         borderRadius: 8,
                       }}
@@ -2193,12 +2173,12 @@ export default function ProjectTracker({
                         value={msTitle}
                         onChange={(e) => setMsTitle(e.target.value)}
                         placeholder="Milestone title (e.g., 30% Advance / Inception Report)"
-                        style={{ padding: '7px 9px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
+                        style={{ padding: '7px 9px', borderRadius: 6, border: `1px solid ${BRAND.border}`, fontSize: 12 }}
                       />
                       <select
                         value={msType}
                         onChange={(e) => setMsType(e.target.value)}
-                        style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 11.5 }}
+                        style={{ padding: '7px 8px', borderRadius: 6, border: `1px solid ${BRAND.border}`, fontSize: 11.5 }}
                       >
                         <option value="Deliverable & Invoice">Deliverable &amp; Invoice</option>
                         <option value="Payment Tranche">Payment Tranche</option>
@@ -2210,20 +2190,20 @@ export default function ProjectTracker({
                         value={msPct}
                         onChange={(e) => setMsPct(e.target.value)}
                         placeholder="%"
-                        style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
+                        style={{ padding: '7px 8px', borderRadius: 6, border: `1px solid ${BRAND.border}`, fontSize: 12 }}
                       />
                       <input
                         type="number"
                         value={msAmount}
                         onChange={(e) => setMsAmount(e.target.value)}
                         placeholder="ETB (auto if %)"
-                        style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 12 }}
+                        style={{ padding: '7px 8px', borderRadius: 6, border: `1px solid ${BRAND.border}`, fontSize: 12 }}
                       />
                       <input
                         type="date"
                         value={msDueDate}
                         onChange={(e) => setMsDueDate(e.target.value)}
-                        style={{ padding: '7px 8px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 11.5 }}
+                        style={{ padding: '7px 8px', borderRadius: 6, border: `1px solid ${BRAND.border}`, fontSize: 11.5 }}
                       />
                       <button
                         type="submit"
@@ -2232,8 +2212,8 @@ export default function ProjectTracker({
                           padding: '7px 12px',
                           borderRadius: 6,
                           border: 'none',
-                          background: '#0284c7',
-                          color: '#fff',
+                          background: BRAND.lightBlue,
+                          color: BRAND.white,
                           fontSize: 12,
                           fontWeight: 700,
                           cursor: 'pointer',
@@ -2247,12 +2227,12 @@ export default function ProjectTracker({
               </div>
 
               {/* SECTION D: LINKED PARTNERS ON THIS PROJECT */}
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 14, background: '#f8fafc' }}>
-                <div style={{ fontSize: 12.5, fontWeight: 800, color: '#0f172a', marginBottom: 6 }}>
+              <div style={{ border: `1px solid ${BRAND.border}`, borderRadius: 12, padding: 14, background: BRAND.canvas }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 6, fontFamily: BRAND.fontHeading }}>
                   🤝 Consortium / Delivery Partners Linked ({linkedPartners.length})
                 </div>
                 {linkedPartners.length === 0 ? (
-                  <div style={{ fontSize: 11.5, color: '#64748b' }}>
+                  <div style={{ fontSize: 11.5, color: BRAND.textMuted }}>
                     No external partners linked yet. Assign JV or associate partners from the <strong>Partners &amp; Consortiums</strong> tab.
                   </div>
                 ) : (
@@ -2261,13 +2241,13 @@ export default function ProjectTracker({
                       <span
                         key={lp.id}
                         style={{
-                          background: '#ffffff',
-                          border: '1px solid #cbd5e1',
+                          background: BRAND.white,
+                          border: `1px solid ${BRAND.lightBlueBorder}`,
                           padding: '5px 10px',
                           borderRadius: 8,
                           fontSize: 11.5,
                           fontWeight: 700,
-                          color: '#0f172a',
+                          color: BRAND.deepBlue,
                         }}
                       >
                         {lp.partners?.partner_name || 'Partner'} • {lp.partner_role} ({lp.revenue_share_pct || 0}%)
@@ -2283,7 +2263,7 @@ export default function ProjectTracker({
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  borderTop: '1px solid #e2e8f0',
+                  borderTop: `1px solid ${BRAND.border}`,
                   paddingTop: 14,
                   flexWrap: 'wrap',
                   gap: 10,
@@ -2297,18 +2277,18 @@ export default function ProjectTracker({
                     style={{
                       padding: '8px 14px',
                       borderRadius: 7,
-                      border: '1px solid #fecaca',
-                      background: '#fef2f2',
-                      color: '#b91c1c',
+                      border: `1px solid ${BRAND.orange}`,
+                      background: BRAND.orangeTint,
+                      color: BRAND.orangeDark,
                       fontSize: 11.5,
-                      fontWeight: 800,
+                      fontWeight: 700,
                       cursor: 'pointer',
                     }}
                   >
                     {deletingProject ? 'Deleting...' : '🗑️ Delete Project Permanently (Admin)'}
                   </button>
                 ) : (
-                  <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600 }}>
+                  <span style={{ fontSize: 11, color: BRAND.textMuted, fontWeight: 600 }}>
                     🔒 Project deletion restricted to Super Admin
                   </span>
                 )}
@@ -2320,10 +2300,10 @@ export default function ProjectTracker({
                     padding: '8px 18px',
                     borderRadius: 7,
                     border: 'none',
-                    background: '#0f172a',
-                    color: '#ffffff',
+                    background: BRAND.deepBlue,
+                    color: BRAND.white,
                     fontSize: 12,
-                    fontWeight: 800,
+                    fontWeight: 700,
                     cursor: 'pointer',
                   }}
                 >
@@ -2349,14 +2329,14 @@ export default function ProjectTracker({
             position: 'fixed',
             bottom: 24,
             right: 24,
-            background: '#0f172a',
-            color: '#ffffff',
-            borderLeft: '5px solid #10b981',
+            background: BRAND.deepBlue,
+            color: BRAND.white,
+            borderLeft: `5px solid ${BRAND.orange}`,
             padding: '13px 18px',
             borderRadius: 10,
             fontSize: 13,
             fontWeight: 700,
-            boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+            boxShadow: '0 12px 30px rgba(26, 45, 69, 0.28)',
             zIndex: 100000,
           }}
         >

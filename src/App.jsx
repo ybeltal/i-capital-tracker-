@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from './supabase'
+import './index.css'
+import { BRAND, ROLE_CONFIGS } from './brandTheme'
 
 // Core Governance & Dashboards
 import SummaryDashboard from './SummaryDashboard'
@@ -24,65 +26,6 @@ import ClientDirectory from './ClientDirectory'
 import ClientForm from './ClientForm'
 import FollowUpQueue from './FollowUpQueue'
 import AiTenderParser from './AiTenderParser'
-
-const ROLE_CONFIGS = {
-  admin: {
-    label: 'Executive Administrator',
-    badgeBg: '#dc2626',
-    badgeText: '#ffffff',
-    canManageRoles: true,
-    canEditTargets: true,
-    canApproveSmeal: true,
-  },
-  exec_mgmt: {
-    label: 'Senior Management',
-    badgeBg: '#7c3aed',
-    badgeText: '#ffffff',
-    canManageRoles: false,
-    canEditTargets: false,
-    canApproveSmeal: true,
-  },
-  smeal: {
-    label: 'SMEAL Team',
-    badgeBg: '#0d9488',
-    badgeText: '#ffffff',
-    canManageRoles: false,
-    canEditTargets: false,
-    canApproveSmeal: true,
-  },
-  bd_manager: {
-    label: 'BD Manager',
-    badgeBg: '#0284c7',
-    badgeText: '#ffffff',
-    canManageRoles: false,
-    canEditTargets: false,
-    canApproveSmeal: false,
-  },
-  tech_lead: {
-    label: 'Technical Proposal Lead',
-    badgeBg: '#10b981',
-    badgeText: '#ffffff',
-    canManageRoles: false,
-    canEditTargets: false,
-    canApproveSmeal: false,
-  },
-  sales_officer: {
-    label: 'Sales Officer',
-    badgeBg: '#f59e0b',
-    badgeText: '#ffffff',
-    canManageRoles: false,
-    canEditTargets: false,
-    canApproveSmeal: false,
-  },
-  read_only: {
-    label: 'Reporting Viewer',
-    badgeBg: '#64748b',
-    badgeText: '#ffffff',
-    canManageRoles: false,
-    canEditTargets: false,
-    canApproveSmeal: false,
-  },
-}
 
 const TABS = [
   { id: 'dashboard', label: 'Executive Dashboard', icon: '📊' },
@@ -258,19 +201,23 @@ export default function App() {
           flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#0a0f1d',
-          color: '#94a3b8',
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          backgroundColor: BRAND.deepBlue,
+          color: BRAND.lightBlueTint,
+          fontFamily: BRAND.fontBody,
         }}
       >
-        <div style={{ fontSize: 32, marginBottom: 12 }}>⚡</div>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#f8fafc' }}>THE i-CAPITAL CRM</div>
-        <div style={{ fontSize: 12, marginTop: 4 }}>Authenticating institutional session…</div>
+        <div style={{ fontSize: 32, marginBottom: 12, color: BRAND.orange }}>⚡</div>
+        <div style={{ fontSize: 18, fontWeight: 700, color: BRAND.white, fontFamily: BRAND.fontHeading }}>
+          THE i-CAPITAL AFRICA INSTITUTE
+        </div>
+        <div style={{ fontSize: 12, marginTop: 4, color: BRAND.lightBlueBorder }}>
+          Authenticating institutional session…
+        </div>
       </div>
     )
   }
 
-  // Dual-Panel Login Gateway
+  // Dual-Panel Login Gateway (Strict 3-Color Brand Identity)
   if (!session) {
     return (
       <div
@@ -279,30 +226,31 @@ export default function App() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#090e1a',
-          backgroundImage: 'radial-gradient(ellipse at 50% 20%, #1e293b 0%, #090e1a 100%)',
+          backgroundColor: BRAND.deepBlueDark,
+          backgroundImage: `radial-gradient(ellipse at 50% 20%, ${BRAND.deepBlue} 0%, ${BRAND.deepBlueDark} 100%)`,
           padding: 16,
-          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          fontFamily: BRAND.fontBody,
         }}
       >
         <div
           style={{
             width: '100%',
             maxWidth: 960,
-            background: '#ffffff',
+            background: BRAND.white,
             borderRadius: 18,
             overflow: 'hidden',
             display: 'flex',
             flexWrap: 'wrap',
-            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.65)',
+            boxShadow: '0 25px 50px -12px rgba(26, 45, 69, 0.65)',
+            borderTop: `4px solid ${BRAND.orange}`,
           }}
         >
-          {/* Left Column */}
+          {/* Left Column — Deep Blue Anchor */}
           <div
             style={{
               flex: '1 1 420px',
-              background: 'linear-gradient(145deg, #070d1e 0%, #0f172a 100%)',
-              color: '#ffffff',
+              background: `linear-gradient(155deg, ${BRAND.deepBlue} 0%, ${BRAND.deepBlueDark} 100%)`,
+              color: BRAND.white,
               padding: '42px 38px',
               display: 'flex',
               flexDirection: 'column',
@@ -310,88 +258,101 @@ export default function App() {
             }}
           >
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 28 }}>
-                <div style={{ background: '#ffffff', padding: '6px 12px', borderRadius: 8, display: 'flex', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 26, flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    background: BRAND.white,
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    display: 'inline-flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                  }}
+                >
                   <img
                     src="/logo.png"
                     alt="The i-Capital Africa Institute"
                     onError={(e) => {
                       e.target.style.display = 'none'
-                      e.target.parentNode.innerText = 'i-CAPITAL'
+                      e.target.parentNode.innerText = 'The i-Capital'
                     }}
-                    style={{ height: 28, objectFit: 'contain' }}
+                    style={{ height: 32, width: 64, objectFit: 'contain' }}
                   />
+                  <span style={{ fontSize: 8.5, color: BRAND.deepBlue, fontWeight: 700, letterSpacing: '0.4px' }}>
+                    ... transforming people ...
+                  </span>
                 </div>
                 <span
                   style={{
                     fontSize: 10,
                     fontWeight: 800,
                     letterSpacing: '0.5px',
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    color: '#10b981',
-                    padding: '3px 8px',
+                    background: 'rgba(247, 128, 25, 0.16)',
+                    color: BRAND.orange,
+                    padding: '4px 10px',
                     borderRadius: 12,
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    border: `1px solid ${BRAND.orange}`,
                   }}
                 >
                   • LIVE GOVERNANCE GATEWAY
                 </span>
               </div>
 
-              <h2 style={{ fontSize: 26, fontWeight: 900, lineHeight: 1.25, margin: '0 0 12px 0' }}>
-                The i-Capital Commercial Platform
+              <h2 style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.25, margin: '0 0 10px 0', fontFamily: BRAND.fontHeading }}>
+                The i-Capital Africa Institute CRM
               </h2>
-              <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.5, margin: '0 0 28px 0' }}>
-                Multi-SBU pipeline tracking, post-win project delivery governance, and partner consortium management for The i-Capital Africa Group.
+              <p style={{ fontSize: 13, color: BRAND.lightBlueTint, lineHeight: 1.55, margin: '0 0 28px 0' }}>
+                Multi-SBU commercial pipeline tracking, post-win project delivery governance, and SMEAL reporting for The Firm (icapitalafrica.org).
               </p>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{ background: '#1e293b', padding: 8, borderRadius: 8, fontSize: 16 }}>🏛️</div>
+                  <div style={{ background: 'rgba(74, 125, 188, 0.25)', border: `1px solid ${BRAND.lightBlue}`, padding: 8, borderRadius: 8, fontSize: 16 }}>🏛️</div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#f8fafc' }}>4 Strategic Business Units</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>Institute • IIP • DAS • CBS</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: BRAND.white, fontFamily: BRAND.fontHeading }}>4 Strategic Business Units</div>
+                    <div style={{ fontSize: 11.5, color: BRAND.lightBlueBorder }}>INST • IIP • DAS • CBS</div>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{ background: '#1e293b', padding: 8, borderRadius: 8, fontSize: 16 }}>✨</div>
+                  <div style={{ background: 'rgba(74, 125, 188, 0.25)', border: `1px solid ${BRAND.lightBlue}`, padding: 8, borderRadius: 8, fontSize: 16 }}>✨</div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#f8fafc' }}>Gemini Multimodal Document Engine</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>Automated PDF/Word TOR &amp; RFP Extraction</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: BRAND.white, fontFamily: BRAND.fontHeading }}>Gemini Multimodal Document Engine</div>
+                    <div style={{ fontSize: 11.5, color: BRAND.lightBlueBorder }}>Automated PDF/Word TOR &amp; RFP Extraction</div>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-                  <div style={{ background: '#1e293b', padding: 8, borderRadius: 8, fontSize: 16 }}>📈</div>
+                  <div style={{ background: 'rgba(247, 128, 25, 0.22)', border: `1px solid ${BRAND.orange}`, padding: 8, borderRadius: 8, fontSize: 16 }}>📈</div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: '#f8fafc' }}>ETB 256.6M Target Realization</div>
-                    <div style={{ fontSize: 11, color: '#94a3b8' }}>3× Pipeline Coverage, SMEAL Sign-Off &amp; Audit Governance</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: BRAND.white, fontFamily: BRAND.fontHeading }}>ETB 256.6M Target Realization</div>
+                    <div style={{ fontSize: 11.5, color: BRAND.lightBlueBorder }}>3× Pipeline Coverage, SMEAL Sign-Off &amp; Audit Governance</div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 36, borderTop: '1px solid #1e293b', paddingTop: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 36, borderTop: `1px solid rgba(74, 125, 188, 0.35)`, paddingTop: 18 }}>
               <div
                 style={{
-                  width: 32,
-                  height: 32,
+                  width: 34,
+                  height: 34,
                   borderRadius: '50%',
-                  background: '#0284c7',
-                  color: '#fff',
-                  fontWeight: 900,
+                  background: BRAND.orange,
+                  color: BRAND.white,
+                  fontWeight: 800,
                   fontSize: 12,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  fontFamily: BRAND.fontHeading,
                 }}
               >
                 YS
               </div>
-              <div style={{ fontSize: 11, color: '#94a3b8' }}>
-                <div style={{ color: '#e2e8f0', fontWeight: 700 }}>Developed by Ybeltal Semagn</div>
-                <div>Addis Ababa, Ethiopia</div>
+              <div style={{ fontSize: 11, color: BRAND.lightBlueBorder }}>
+                <div style={{ color: BRAND.white, fontWeight: 700 }}>Developed by Ybeltal Semagn</div>
+                <div>The i-Capital Africa Institute • Addis Ababa, Ethiopia</div>
               </div>
             </div>
           </div>
@@ -404,32 +365,34 @@ export default function App() {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
-              backgroundColor: '#ffffff',
+              backgroundColor: BRAND.white,
             }}
           >
-            <h3 style={{ margin: '0 0 4px 0', fontSize: 22, fontWeight: 900, color: '#0f172a' }}>Sign In</h3>
-            <p style={{ margin: '0 0 20px 0', fontSize: 12, color: '#64748b' }}>
-              Access your executive dashboard, proposals, signed projects, and partner tracker.
+            <h3 style={{ margin: '0 0 4px 0', fontSize: 24, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
+              Sign In
+            </h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: 12, color: BRAND.textMuted }}>
+              Access your executive dashboard, proposals, signed projects, and SMEAL reports.
             </p>
 
             {loginError && (
               <div
                 role="alert"
                 style={{
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#b91c1c',
+                  background: BRAND.orangeTint,
+                  border: `1px solid ${BRAND.orange}`,
+                  color: BRAND.deepBlue,
                   padding: '10px 12px',
                   borderRadius: 6,
-                  fontSize: 11,
-                  fontWeight: 600,
+                  fontSize: 11.5,
+                  fontWeight: 700,
                   marginBottom: 16,
                   display: 'flex',
                   alignItems: 'center',
                   gap: 8,
                 }}
               >
-                <span>⚠️</span>
+                <span style={{ color: BRAND.orange }}>⚠️</span>
                 <span>{loginError}</span>
               </div>
             )}
@@ -441,11 +404,11 @@ export default function App() {
                 width: '100%',
                 padding: '10px 14px',
                 borderRadius: 8,
-                border: '1px solid #cbd5e1',
-                background: '#ffffff',
-                color: '#1e293b',
+                border: `1px solid ${BRAND.lightBlueBorder}`,
+                background: BRAND.lightBlueTint,
+                color: BRAND.deepBlue,
                 fontWeight: 700,
-                fontSize: 12,
+                fontSize: 12.5,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -454,40 +417,40 @@ export default function App() {
                 marginBottom: 16,
               }}
             >
-              <span style={{ fontWeight: 900, color: '#4285f4' }}>G</span>
+              <span style={{ fontWeight: 900, color: BRAND.lightBlue }}>G</span>
               <span>Continue with Google / Gmail</span>
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0 16px 0' }}>
-              <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
-              <span style={{ fontSize: 10, fontWeight: 800, color: '#94a3b8' }}>OR SIGN IN WITH EMAIL</span>
-              <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+              <div style={{ flex: 1, height: 1, background: BRAND.border }} />
+              <span style={{ fontSize: 10, fontWeight: 800, color: BRAND.textMuted }}>OR SIGN IN WITH EMAIL</span>
+              <div style={{ flex: 1, height: 1, background: BRAND.border }} />
             </div>
 
             <form onSubmit={handleEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                   Corporate Email Address
                 </label>
                 <input
                   type="email"
                   required
-                  placeholder="name@icapitalafrica.org"
+                  placeholder="firstname@icapitalafrica.org"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   style={{
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: 6,
-                    border: '1px solid #cbd5e1',
+                    border: `1px solid ${BRAND.border}`,
                     fontSize: 13,
-                    boxSizing: 'border-box',
+                    color: BRAND.deepBlue,
                   }}
                 />
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#334155', marginBottom: 4 }}>
+                <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: BRAND.deepBlue, marginBottom: 4 }}>
                   Password
                 </label>
                 <input
@@ -500,9 +463,9 @@ export default function App() {
                     width: '100%',
                     padding: '10px 12px',
                     borderRadius: 6,
-                    border: '1px solid #cbd5e1',
+                    border: `1px solid ${BRAND.border}`,
                     fontSize: 13,
-                    boxSizing: 'border-box',
+                    color: BRAND.deepBlue,
                   }}
                 />
               </div>
@@ -515,11 +478,13 @@ export default function App() {
                   padding: '11px',
                   borderRadius: 6,
                   border: 'none',
-                  background: '#0284c7',
-                  color: '#ffffff',
-                  fontWeight: 800,
+                  background: BRAND.deepBlue,
+                  color: BRAND.white,
+                  fontWeight: 700,
                   fontSize: 13,
                   cursor: submittingLogin ? 'not-allowed' : 'pointer',
+                  fontFamily: BRAND.fontHeading,
+                  letterSpacing: '0.3px',
                 }}
               >
                 {submittingLogin ? 'Verifying Credentials…' : 'Sign In to Platform →'}
@@ -536,48 +501,51 @@ export default function App() {
     <div
       style={{
         minHeight: '100vh',
-        backgroundColor: '#f8fafc',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        color: '#0f172a',
+        backgroundColor: BRAND.canvas,
+        fontFamily: BRAND.fontBody,
+        color: BRAND.deepBlue,
       }}
     >
-      {/* 1. Header */}
+      {/* 1. Header — Primary Deep Blue Anchor */}
       <header
         style={{
-          background: 'linear-gradient(90deg, #060b18 0%, #0a1128 50%, #0f172a 100%)',
-          color: '#ffffff',
+          background: `linear-gradient(90deg, ${BRAND.deepBlueDark} 0%, ${BRAND.deepBlue} 100%)`,
+          color: BRAND.white,
           padding: '10px 24px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: 12,
-          borderBottom: '1px solid #1e293b',
+          borderBottom: `3px solid ${BRAND.orange}`,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ background: '#ffffff', padding: '3px 8px', borderRadius: 4, display: 'flex', alignItems: 'center' }}>
+          <div style={{ background: BRAND.white, padding: '3px 8px', borderRadius: 5, display: 'flex', alignItems: 'center' }}>
             <img
               src="/logo.png"
-              alt="i-Capital"
+              alt="The i-Capital Africa Institute"
               onError={(e) => {
                 e.target.style.display = 'none'
                 e.target.parentNode.innerText = 'i-CAPITAL'
               }}
-              style={{ height: 20, objectFit: 'contain' }}
+              style={{ height: 22, width: 44, objectFit: 'contain' }}
             />
           </div>
 
-          <span style={{ fontSize: 13, fontWeight: 900, letterSpacing: '0.5px' }}>THE I-CAPITAL CRM</span>
+          <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: '0.6px', fontFamily: BRAND.fontHeading }}>
+            THE i-CAPITAL CRM
+          </span>
 
           <span
             style={{
               fontSize: 10,
-              fontWeight: 800,
+              fontWeight: 700,
               textTransform: 'uppercase',
               background: activeRoleConfig.badgeBg,
               color: activeRoleConfig.badgeText,
-              padding: '2px 8px',
+              border: activeRoleConfig.badgeBorder,
+              padding: '3px 9px',
               borderRadius: 4,
             }}
           >
@@ -603,9 +571,9 @@ export default function App() {
             onClick={() => setShowTour(true)}
             style={{
               padding: '6px 12px',
-              backgroundColor: '#10b981',
-              color: '#ffffff',
-              border: 'none',
+              backgroundColor: 'rgba(74, 125, 188, 0.25)',
+              color: BRAND.white,
+              border: `1px solid ${BRAND.lightBlue}`,
               borderRadius: 6,
               cursor: 'pointer',
               fontWeight: 700,
@@ -624,8 +592,8 @@ export default function App() {
             onClick={() => setShowUserGuide(true)}
             style={{
               padding: '6px 12px',
-              backgroundColor: '#0284c7',
-              color: '#ffffff',
+              backgroundColor: BRAND.lightBlue,
+              color: BRAND.white,
               border: 'none',
               borderRadius: 6,
               cursor: 'pointer',
@@ -646,8 +614,8 @@ export default function App() {
               onClick={() => setShowRoleManager(true)}
               style={{
                 padding: '6px 12px',
-                backgroundColor: '#dc2626',
-                color: '#ffffff',
+                backgroundColor: BRAND.orange,
+                color: BRAND.white,
                 border: 'none',
                 borderRadius: 6,
                 cursor: 'pointer',
@@ -664,14 +632,24 @@ export default function App() {
           )}
 
           {isActualAdmin && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#1e293b', padding: '3px 8px', borderRadius: 6 }}>
-              <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 800 }}>VIEW:</span>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                background: BRAND.deepBlueDark,
+                border: `1px solid ${BRAND.lightBlue}`,
+                padding: '3px 8px',
+                borderRadius: 6,
+              }}
+            >
+              <span style={{ fontSize: 10, color: BRAND.lightBlueBorder, fontWeight: 700 }}>VIEW:</span>
               <select
                 value={previewRole || profile?.role || 'admin'}
                 onChange={(e) => setPreviewRole(e.target.value === profile?.role ? '' : e.target.value)}
                 style={{
                   background: 'transparent',
-                  color: '#ffffff',
+                  color: BRAND.white,
                   border: 'none',
                   fontSize: 11,
                   fontWeight: 700,
@@ -679,20 +657,33 @@ export default function App() {
                   outline: 'none',
                 }}
               >
-                <option value="admin" style={{ background: '#0f172a' }}>Executive Admin</option>
-                <option value="exec_mgmt" style={{ background: '#0f172a' }}>Senior Management</option>
-                <option value="smeal" style={{ background: '#0f172a' }}>SMEAL Team</option>
-                <option value="bd_manager" style={{ background: '#0f172a' }}>BD Manager</option>
-                <option value="tech_lead" style={{ background: '#0f172a' }}>Technical Lead</option>
-                <option value="sales_officer" style={{ background: '#0f172a' }}>Sales Officer</option>
-                <option value="read_only" style={{ background: '#0f172a' }}>Reporting Viewer</option>
+                <option value="admin" style={{ background: BRAND.deepBlue }}>Executive Admin</option>
+                <option value="exec_mgmt" style={{ background: BRAND.deepBlue }}>Senior Management</option>
+                <option value="smeal" style={{ background: BRAND.deepBlue }}>SMEAL Team</option>
+                <option value="bd_manager" style={{ background: BRAND.deepBlue }}>BD Manager</option>
+                <option value="tech_lead" style={{ background: BRAND.deepBlue }}>Technical Lead</option>
+                <option value="sales_officer" style={{ background: BRAND.deepBlue }}>Sales Officer</option>
+                <option value="read_only" style={{ background: BRAND.deepBlue }}>Reporting Viewer</option>
               </select>
             </div>
           )}
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#1e293b', padding: '4px 10px', borderRadius: 20, fontSize: 11 }}>
-            <span style={{ fontWeight: 700, color: '#f1f5f9' }}>{profile?.email?.split('@')[0]}</span>
-            <span style={{ fontSize: 9, color: '#38bdf8', fontWeight: 700 }}>Scope: {profile?.assigned_sbu || 'All'}</span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: BRAND.deepBlueDark,
+              padding: '4px 10px',
+              borderRadius: 20,
+              fontSize: 11,
+              border: `1px solid rgba(74, 125, 188, 0.45)`,
+            }}
+          >
+            <span style={{ fontWeight: 700, color: BRAND.white }}>{profile?.email?.split('@')[0]}</span>
+            <span style={{ fontSize: 9.5, color: BRAND.orange, fontWeight: 700 }}>
+              Scope: {profile?.assigned_sbu || 'All'}
+            </span>
           </div>
 
           <button
@@ -701,9 +692,9 @@ export default function App() {
             style={{
               padding: '5px 10px',
               background: 'transparent',
-              border: '1px solid #334155',
+              border: `1px solid ${BRAND.lightBlueBorder}`,
               borderRadius: 6,
-              color: '#94a3b8',
+              color: BRAND.lightBlueTint,
               fontSize: 11,
               fontWeight: 700,
               cursor: 'pointer',
@@ -714,12 +705,12 @@ export default function App() {
         </div>
       </header>
 
-      {/* SMEAL LIVE ACTION BANNER */}
+      {/* SMEAL LIVE ACTION BANNER — Highlight Orange */}
       {notifCounts.smealReview > 0 && activeRoleConfig.canApproveSmeal && activeTab !== 'projects' && (
         <div
           style={{
-            background: 'linear-gradient(90deg, #fff7ed 0%, #fef3c7 100%)',
-            borderBottom: '1px solid #fdba74',
+            background: BRAND.orangeTint,
+            borderBottom: `1px solid ${BRAND.orangeBorder}`,
             padding: '9px 24px',
             display: 'flex',
             justifyContent: 'space-between',
@@ -728,8 +719,9 @@ export default function App() {
             gap: 10,
           }}
         >
-          <div style={{ fontSize: 12.5, fontWeight: 800, color: '#9a3412' }}>
-            🛡️ SMEAL Approval Required: {notifCounts.smealReview} signed agreement{notifCounts.smealReview === 1 ? '' : 's'} awaiting verification to unlock project delivery.
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: BRAND.deepBlue }}>
+            <span style={{ color: BRAND.orange }}>🛡️ SMEAL Approval Required:</span>{' '}
+            {notifCounts.smealReview} signed agreement{notifCounts.smealReview === 1 ? '' : 's'} awaiting verification to unlock project delivery.
           </div>
           <button
             type="button"
@@ -738,10 +730,10 @@ export default function App() {
               padding: '5px 12px',
               borderRadius: 6,
               border: 'none',
-              background: '#ea580c',
-              color: '#ffffff',
+              background: BRAND.orange,
+              color: BRAND.white,
               fontSize: 11.5,
-              fontWeight: 800,
+              fontWeight: 700,
               cursor: 'pointer',
             }}
           >
@@ -750,11 +742,11 @@ export default function App() {
         </div>
       )}
 
-      {/* 2. Quick Actions */}
+      {/* 2. Quick Actions Bar */}
       <section
         style={{
-          background: '#ffffff',
-          borderBottom: '1px solid #e2e8f0',
+          background: BRAND.white,
+          borderBottom: `1px solid ${BRAND.border}`,
           padding: '14px 24px',
           display: 'flex',
           justifyContent: 'space-between',
@@ -764,12 +756,16 @@ export default function App() {
         }}
       >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 14, fontWeight: 800 }}>Welcome back, {profile?.full_name || profile?.email?.split('@')[0]}</span>
-            <span style={{ fontSize: 11, color: '#0284c7', fontWeight: 600 }}>Developed by Ybeltal Semagn</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 15, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
+              Welcome back, {profile?.full_name || profile?.email?.split('@')[0]}
+            </span>
+            <span style={{ fontSize: 11, color: BRAND.lightBlue, fontWeight: 700 }}>
+              Developed by Ybeltal Semagn
+            </span>
           </div>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-            The i-Capital Africa Group • Commercial Governance &amp; Revenue Operations Platform
+          <div style={{ fontSize: 12, color: BRAND.textMuted, marginTop: 2 }}>
+            The i-Capital Africa Institute • Commercial Governance &amp; Revenue Operations Platform
           </div>
         </div>
 
@@ -778,12 +774,12 @@ export default function App() {
             type="button"
             onClick={() => setShowAiParserModal(true)}
             style={{
-              padding: '7px 12px',
-              background: '#0284c7',
-              color: '#fff',
+              padding: '7px 13px',
+              background: BRAND.lightBlue,
+              color: BRAND.white,
               border: 'none',
               borderRadius: 6,
-              fontSize: 11,
+              fontSize: 11.5,
               fontWeight: 700,
               cursor: 'pointer',
               display: 'flex',
@@ -798,12 +794,12 @@ export default function App() {
             type="button"
             onClick={() => setShowNewProposalModal(true)}
             style={{
-              padding: '7px 12px',
-              background: '#ea580c',
-              color: '#fff',
+              padding: '7px 13px',
+              background: BRAND.orange,
+              color: BRAND.white,
               border: 'none',
               borderRadius: 6,
-              fontSize: 11,
+              fontSize: 11.5,
               fontWeight: 700,
               cursor: 'pointer',
             }}
@@ -815,12 +811,12 @@ export default function App() {
             type="button"
             onClick={() => setShowNewLeadModal(true)}
             style={{
-              padding: '7px 12px',
-              background: '#ffffff',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
+              padding: '7px 13px',
+              background: BRAND.white,
+              color: BRAND.deepBlue,
+              border: `1px solid ${BRAND.lightBlueBorder}`,
               borderRadius: 6,
-              fontSize: 11,
+              fontSize: 11.5,
               fontWeight: 700,
               cursor: 'pointer',
             }}
@@ -832,12 +828,12 @@ export default function App() {
             type="button"
             onClick={() => setShowNewClientModal(true)}
             style={{
-              padding: '7px 12px',
-              background: '#ffffff',
-              color: '#334155',
-              border: '1px solid #cbd5e1',
+              padding: '7px 13px',
+              background: BRAND.white,
+              color: BRAND.deepBlue,
+              border: `1px solid ${BRAND.lightBlueBorder}`,
               borderRadius: 6,
-              fontSize: 11,
+              fontSize: 11.5,
               fontWeight: 700,
               cursor: 'pointer',
             }}
@@ -847,12 +843,12 @@ export default function App() {
         </div>
       </section>
 
-      {/* 3. Navigation Tabs */}
+      {/* 3. Navigation Tabs — Light Blue Active Indicator */}
       <nav
         style={{
-          background: '#ffffff',
+          background: BRAND.white,
           padding: '0 24px',
-          borderBottom: '1px solid #e2e8f0',
+          borderBottom: `1px solid ${BRAND.border}`,
           display: 'flex',
           gap: 6,
           overflowX: 'auto',
@@ -869,11 +865,11 @@ export default function App() {
               style={{
                 padding: '12px 16px',
                 border: 'none',
-                background: 'transparent',
-                borderBottom: isActive ? '3px solid #0284c7' : '3px solid transparent',
-                color: isActive ? '#0284c7' : '#64748b',
-                fontWeight: isActive ? 800 : 600,
-                fontSize: 12,
+                background: isActive ? BRAND.lightBlueTint : 'transparent',
+                borderBottom: isActive ? `3px solid ${BRAND.lightBlue}` : '3px solid transparent',
+                color: isActive ? BRAND.deepBlue : BRAND.textMuted,
+                fontWeight: isActive ? 700 : 600,
+                fontSize: 12.5,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -886,10 +882,10 @@ export default function App() {
               {showProjectsBadge && (
                 <span
                   style={{
-                    background: '#ef4444',
-                    color: '#ffffff',
+                    background: BRAND.orange,
+                    color: BRAND.white,
                     fontSize: 10,
-                    fontWeight: 900,
+                    fontWeight: 800,
                     padding: '1px 6px',
                     borderRadius: 999,
                     lineHeight: '14px',
@@ -1008,7 +1004,7 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backgroundColor: 'rgba(26, 45, 69, 0.76)',
             backdropFilter: 'blur(4px)',
             zIndex: 999999,
             display: 'flex',
@@ -1020,23 +1016,24 @@ export default function App() {
         >
           <div
             style={{
-              background: '#ffffff',
+              background: BRAND.white,
               borderRadius: 14,
+              borderTop: `4px solid ${BRAND.lightBlue}`,
               width: '100%',
               maxWidth: 960,
               maxHeight: '92vh',
               overflowY: 'auto',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 25px 50px -12px rgba(26, 45, 69, 0.5)',
               padding: 24,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: `1px solid ${BRAND.border}`, paddingBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 20 }}>✨</span>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
                   AI TOR / RFP Tender Document Parser
                 </h3>
-                <span style={{ fontSize: 10, fontWeight: 700, background: '#e0f2fe', color: '#0284c7', padding: '2px 8px', borderRadius: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, background: BRAND.lightBlueTint, color: BRAND.lightBlue, padding: '2px 8px', borderRadius: 10 }}>
                   Gemini Multimodal Engine
                 </span>
               </div>
@@ -1044,7 +1041,7 @@ export default function App() {
                 type="button"
                 onClick={() => setShowAiParserModal(false)}
                 title="Close"
-                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: '#475569', cursor: 'pointer' }}
+                style={{ background: BRAND.lightBlueTint, border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: BRAND.deepBlue, cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1066,7 +1063,7 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backgroundColor: 'rgba(26, 45, 69, 0.76)',
             backdropFilter: 'blur(4px)',
             zIndex: 999999,
             display: 'flex',
@@ -1078,23 +1075,24 @@ export default function App() {
         >
           <div
             style={{
-              background: '#ffffff',
+              background: BRAND.white,
               borderRadius: 14,
+              borderTop: `4px solid ${BRAND.orange}`,
               width: '100%',
               maxWidth: 1080,
               maxHeight: '92vh',
               overflowY: 'auto',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 25px 50px -12px rgba(26, 45, 69, 0.5)',
               padding: 24,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: `1px solid ${BRAND.border}`, paddingBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 20 }}>📑</span>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
                   Register New Proposal Mandate
                 </h3>
-                <span style={{ fontSize: 10, fontWeight: 700, background: '#ffedd5', color: '#ea580c', padding: '2px 8px', borderRadius: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, background: BRAND.orangeTint, color: BRAND.orangeDark, padding: '2px 8px', borderRadius: 10 }}>
                   Stage-Gate Verification
                 </span>
               </div>
@@ -1102,7 +1100,7 @@ export default function App() {
                 type="button"
                 onClick={() => setShowNewProposalModal(false)}
                 title="Close"
-                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: '#475569', cursor: 'pointer' }}
+                style={{ background: BRAND.lightBlueTint, border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: BRAND.deepBlue, cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1124,7 +1122,7 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backgroundColor: 'rgba(26, 45, 69, 0.76)',
             backdropFilter: 'blur(4px)',
             zIndex: 999999,
             display: 'flex',
@@ -1136,20 +1134,21 @@ export default function App() {
         >
           <div
             style={{
-              background: '#ffffff',
+              background: BRAND.white,
               borderRadius: 14,
+              borderTop: `4px solid ${BRAND.lightBlue}`,
               width: '100%',
               maxWidth: 780,
               maxHeight: '92vh',
               overflowY: 'auto',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 25px 50px -12px rgba(26, 45, 69, 0.5)',
               padding: 24,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: `1px solid ${BRAND.border}`, paddingBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 20 }}>🎯</span>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
                   Capture Pre-Tender Lead
                 </h3>
               </div>
@@ -1157,7 +1156,7 @@ export default function App() {
                 type="button"
                 onClick={() => setShowNewLeadModal(false)}
                 title="Close"
-                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: '#475569', cursor: 'pointer' }}
+                style={{ background: BRAND.lightBlueTint, border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: BRAND.deepBlue, cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1183,7 +1182,7 @@ export default function App() {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            backgroundColor: 'rgba(26, 45, 69, 0.76)',
             backdropFilter: 'blur(4px)',
             zIndex: 999999,
             display: 'flex',
@@ -1195,20 +1194,21 @@ export default function App() {
         >
           <div
             style={{
-              background: '#ffffff',
+              background: BRAND.white,
               borderRadius: 14,
+              borderTop: `4px solid ${BRAND.deepBlue}`,
               width: '100%',
               maxWidth: 780,
               maxHeight: '92vh',
               overflowY: 'auto',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              boxShadow: '0 25px 50px -12px rgba(26, 45, 69, 0.5)',
               padding: 24,
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid #e2e8f0', paddingBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: `1px solid ${BRAND.border}`, paddingBottom: 12 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 20 }}>🏢</span>
-                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
+                <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
                   Register New Client / Procuring Entity
                 </h3>
               </div>
@@ -1216,7 +1216,7 @@ export default function App() {
                 type="button"
                 onClick={() => setShowNewClientModal(false)}
                 title="Close"
-                style={{ background: '#f1f5f9', border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: '#475569', cursor: 'pointer' }}
+                style={{ background: BRAND.lightBlueTint, border: 'none', borderRadius: 6, width: 30, height: 30, fontSize: 18, color: BRAND.deepBlue, cursor: 'pointer' }}
               >
                 ✕
               </button>
@@ -1245,14 +1245,14 @@ export default function App() {
             position: 'fixed',
             bottom: 24,
             right: 24,
-            background: '#0f172a',
-            color: '#ffffff',
-            borderLeft: '5px solid #10b981',
+            background: BRAND.deepBlue,
+            color: BRAND.white,
+            borderLeft: `5px solid ${BRAND.orange}`,
             padding: '13px 18px',
             borderRadius: 10,
             fontSize: 13,
             fontWeight: 700,
-            boxShadow: '0 12px 30px rgba(0,0,0,0.28)',
+            boxShadow: '0 12px 30px rgba(26, 45, 69, 0.3)',
             zIndex: 1000000,
           }}
         >

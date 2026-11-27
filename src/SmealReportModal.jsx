@@ -1,13 +1,11 @@
 /**
- * THE i-CAPITAL AFRICA GROUP — SMEAL IMMEDIATE STATUS REPORT (PDF / PRINT)
- * Answers executive SMEAL questions in 1 click:
- * - How many projects are in each SBU (INST, IIP, DAS, CBS)?
- * - Which delivery track / stage is each project in?
- * - Has the contract deadline passed (Overdue vs Due Soon vs On Schedule)?
- * - SMEAL approval status, health status, and signed contract values.
+ * THE i-CAPITAL AFRICA INSTITUTE — SMEAL IMMEDIATE STATUS REPORT (PDF / PRINT)
+ * Strict 3-Color Brand Identity (#253E5E, #4A7DBC, #F78019).
+ * Instant answers for SBU project counts, delivery track stages, and passed deadlines.
  */
 
 import React, { useMemo, useState } from 'react'
+import { BRAND } from './brandTheme'
 
 const CORE_SBUS = [
   { code: 'INST', name: 'The i-Capital Institute (INST)' },
@@ -41,14 +39,14 @@ function formatEtb(amount) {
 
 function getDeadlineStatus(endDateStr, deliveryStage) {
   if (deliveryStage === '6. Closed & Certified') {
-    return { label: 'Completed', isOverdue: false, isDueSoon: false, bg: '#dcfce7', color: '#166534' }
+    return { label: '✓ Completed', isOverdue: false, isDueSoon: false, bg: BRAND.deepBlue, color: BRAND.white }
   }
   if (!endDateStr) {
-    return { label: 'No End Date', isOverdue: false, isDueSoon: false, bg: '#f1f5f9', color: '#64748b' }
+    return { label: 'No End Date', isOverdue: false, isDueSoon: false, bg: BRAND.deepBlueTint, color: BRAND.textMuted }
   }
   const target = new Date(endDateStr)
   if (Number.isNaN(target.getTime())) {
-    return { label: endDateStr, isOverdue: false, isDueSoon: false, bg: '#f1f5f9', color: '#64748b' }
+    return { label: endDateStr, isOverdue: false, isDueSoon: false, bg: BRAND.deepBlueTint, color: BRAND.textMuted }
   }
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -57,37 +55,37 @@ function getDeadlineStatus(endDateStr, deliveryStage) {
 
   if (diffDays < 0) {
     return {
-      label: `OVERDUE (${Math.abs(diffDays)}d passed)`,
+      label: `⚠ OVERDUE (${Math.abs(diffDays)}d passed)`,
       isOverdue: true,
       isDueSoon: false,
-      bg: '#fee2e2',
-      color: '#b91c1c',
+      bg: BRAND.orange,
+      color: BRAND.white,
     }
   }
   if (diffDays === 0) {
     return {
-      label: 'DUE TODAY',
+      label: '⚠ DUE TODAY',
       isOverdue: true,
       isDueSoon: true,
-      bg: '#fee2e2',
-      color: '#b91c1c',
+      bg: BRAND.orange,
+      color: BRAND.white,
     }
   }
   if (diffDays <= 14) {
     return {
-      label: `Due in ${diffDays}d`,
+      label: `⏳ Due in ${diffDays}d`,
       isOverdue: false,
       isDueSoon: true,
-      bg: '#ffedd5',
-      color: '#c2410c',
+      bg: BRAND.orangeTint,
+      color: BRAND.orangeDark,
     }
   }
   return {
     label: `On Schedule (${diffDays}d left)`,
     isOverdue: false,
     isDueSoon: false,
-    bg: '#ecfdf5',
-    color: '#047857',
+    bg: BRAND.lightBlueTint,
+    color: BRAND.deepBlue,
   }
 }
 
@@ -183,7 +181,7 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
       style={{
         position: 'fixed',
         inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.78)',
+        backgroundColor: 'rgba(26, 45, 69, 0.78)',
         zIndex: 999999,
         display: 'flex',
         alignItems: 'center',
@@ -216,16 +214,17 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
       <div
         id="printable-smeal-report"
         style={{
-          background: '#ffffff',
+          background: BRAND.white,
           borderRadius: 14,
+          borderTop: `5px solid ${BRAND.deepBlue}`,
           width: '100%',
           maxWidth: 1080,
           maxHeight: '94vh',
           overflowY: 'auto',
           padding: '24px 28px',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.45)',
-          color: '#0f172a',
-          boxSizing: 'border-box',
+          boxShadow: '0 25px 60px rgba(26, 45, 69, 0.45)',
+          color: BRAND.deepBlue,
+          fontFamily: BRAND.fontBody,
         }}
       >
         {/* Top Action Bar (Hidden in PDF Print) */}
@@ -237,16 +236,16 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
             alignItems: 'center',
             flexWrap: 'wrap',
             gap: 10,
-            borderBottom: '1px solid #e2e8f0',
+            borderBottom: `1px solid ${BRAND.border}`,
             paddingBottom: 14,
             marginBottom: 18,
           }}
         >
           <div>
-            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 900, color: '#0f172a' }}>
+            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
               📊 SMEAL Executive Project Delivery Status Report (PDF)
             </h3>
-            <span style={{ fontSize: 11.5, color: '#64748b' }}>
+            <span style={{ fontSize: 11.5, color: BRAND.textMuted }}>
               Instant leadership snapshot: SBU counts, delivery tracks, overdue deadlines, and SMEAL approvals.
             </span>
           </div>
@@ -258,13 +257,14 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
               style={{
                 padding: '7px 10px',
                 borderRadius: 6,
-                border: '1px solid #cbd5e1',
+                border: `1px solid ${BRAND.border}`,
                 fontSize: 12,
                 fontWeight: 700,
-                background: '#fff',
+                background: BRAND.white,
+                color: BRAND.deepBlue,
               }}
             >
-              <option value="ALL">All 4 SBUs (Group Report)</option>
+              <option value="ALL">All 4 SBUs (Firm-Wide Report)</option>
               <option value="INST">INST Only</option>
               <option value="IIP">IIP Only</option>
               <option value="DAS">DAS Only</option>
@@ -278,10 +278,10 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
                 padding: '8px 16px',
                 borderRadius: 7,
                 border: 'none',
-                background: '#0f2942',
-                color: '#ffffff',
+                background: BRAND.orange,
+                color: BRAND.white,
                 fontSize: 12,
-                fontWeight: 800,
+                fontWeight: 700,
                 cursor: 'pointer',
               }}
             >
@@ -294,9 +294,9 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
               style={{
                 padding: '8px 14px',
                 borderRadius: 7,
-                border: '1px solid #cbd5e1',
-                background: '#ffffff',
-                color: '#334155',
+                border: `1px solid ${BRAND.border}`,
+                background: BRAND.white,
+                color: BRAND.deepBlue,
                 fontSize: 12,
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -313,64 +313,63 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            borderBottom: '3px solid #0f2942',
+            borderBottom: `3px solid ${BRAND.deepBlue}`,
             paddingBottom: 12,
             marginBottom: 16,
           }}
         >
           <div>
-            <div style={{ fontSize: 10, fontWeight: 900, color: '#0284c7', letterSpacing: '0.8px', textTransform: 'uppercase' }}>
-              THE i-CAPITAL AFRICA GROUP — SMEAL GOVERNANCE DESK
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: BRAND.lightBlue, letterSpacing: '0.8px', textTransform: 'uppercase' }}>
+              THE i-CAPITAL AFRICA INSTITUTE — SMEAL GOVERNANCE DESK
             </div>
-            <h1 style={{ margin: '2px 0 0 0', fontSize: 19, fontWeight: 900, color: '#0f2942' }}>
+            <h1 style={{ margin: '2px 0 0 0', fontSize: 20, fontWeight: 700, color: BRAND.deepBlue, fontFamily: BRAND.fontHeading }}>
               Immediate Project Delivery &amp; Compliance Status Report
             </h1>
           </div>
-          <div style={{ textAlign: 'right', fontSize: 11, color: '#475569' }}>
+          <div style={{ textAlign: 'right', fontSize: 11, color: BRAND.textMuted }}>
             <div><strong>Generated:</strong> {generatedAt}</div>
             <div><strong>Prepared By:</strong> {userProfile?.full_name || userProfile?.email || 'SMEAL Team'}</div>
             <div><strong>Scope:</strong> {reportSbuFilter === 'ALL' ? 'All 4 SBUs (INST, IIP, DAS, CBS)' : `${reportSbuFilter} SBU`}</div>
           </div>
         </div>
 
-        {/* 1. Executive KPI Strip */}
+        {/* 1. Executive KPI Strip (Strictly 3 Brand Colors) */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, marginBottom: 18 }}>
-          <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 8 }}>
-            <div style={{ fontSize: 9.5, fontWeight: 800, color: '#64748b' }}>TOTAL PROJECTS</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#0f172a', marginTop: 2 }}>{analytics.enriched.length}</div>
+          <div style={{ padding: 10, background: BRAND.canvas, border: `1px solid ${BRAND.border}`, borderRadius: 8 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: BRAND.textMuted }}>TOTAL PROJECTS</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: BRAND.deepBlue, marginTop: 2, fontFamily: BRAND.fontHeading }}>{analytics.enriched.length}</div>
           </div>
-          <div style={{ padding: 10, background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8 }}>
-            <div style={{ fontSize: 9.5, fontWeight: 800, color: '#92400e' }}>PENDING SMEAL</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#b45309', marginTop: 2 }}>{analytics.pendingSmeal}</div>
+          <div style={{ padding: 10, background: BRAND.orangeTint, border: `1px solid ${BRAND.orangeBorder}`, borderRadius: 8 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: BRAND.orangeDark }}>PENDING SMEAL</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: BRAND.orange, marginTop: 2, fontFamily: BRAND.fontHeading }}>{analytics.pendingSmeal}</div>
           </div>
-          <div style={{ padding: 10, background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 8 }}>
-            <div style={{ fontSize: 9.5, fontWeight: 800, color: '#1d4ed8' }}>IN DELIVERY</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#1d4ed8', marginTop: 2 }}>{analytics.activeDelivery}</div>
+          <div style={{ padding: 10, background: BRAND.lightBlueTint, border: `1px solid ${BRAND.lightBlueBorder}`, borderRadius: 8 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: BRAND.lightBlue }}>IN DELIVERY</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: BRAND.lightBlue, marginTop: 2, fontFamily: BRAND.fontHeading }}>{analytics.activeDelivery}</div>
           </div>
-          <div style={{ padding: 10, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 8 }}>
-            <div style={{ fontSize: 9.5, fontWeight: 800, color: '#991b1b' }}>DEADLINE PASSED</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#dc2626', marginTop: 2 }}>{analytics.overdueCount}</div>
+          <div style={{ padding: 10, background: BRAND.orangeTint, border: `1.5px solid ${BRAND.orange}`, borderRadius: 8 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: BRAND.deepBlue }}>DEADLINE PASSED</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: BRAND.orangeDark, marginTop: 2, fontFamily: BRAND.fontHeading }}>{analytics.overdueCount}</div>
           </div>
-          <div style={{ padding: 10, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8 }}>
-            <div style={{ fontSize: 9.5, fontWeight: 800, color: '#166534' }}>CLOSED / CERTIFIED</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: '#15803d', marginTop: 2 }}>{analytics.closedCount}</div>
+          <div style={{ padding: 10, background: BRAND.deepBlueTint, border: `1px solid ${BRAND.deepBlue}`, borderRadius: 8 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: BRAND.deepBlue }}>CLOSED / CERTIFIED</div>
+            <div style={{ fontSize: 19, fontWeight: 700, color: BRAND.deepBlue, marginTop: 2, fontFamily: BRAND.fontHeading }}>{analytics.closedCount}</div>
           </div>
-          <div style={{ padding: 10, background: '#f8fafc', border: '1px solid #0f2942', borderRadius: 8 }}>
-            <div style={{ fontSize: 9.5, fontWeight: 800, color: '#0f2942' }}>PORTFOLIO VALUE</div>
-            <div style={{ fontSize: 13.5, fontWeight: 900, color: '#0f2942', marginTop: 4 }}>{formatEtb(analytics.totalValue)}</div>
+          <div style={{ padding: 10, background: BRAND.deepBlue, border: `1px solid ${BRAND.deepBlueDark}`, borderRadius: 8 }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, color: BRAND.lightBlueBorder }}>PORTFOLIO VALUE</div>
+            <div style={{ fontSize: 13.5, fontWeight: 700, color: BRAND.white, marginTop: 4, fontFamily: BRAND.fontHeading }}>{formatEtb(analytics.totalValue)}</div>
           </div>
         </div>
 
         {/* 2. Two-Column Matrix: SBU Breakdown + Delivery Track Distribution */}
         <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr', gap: 14, marginBottom: 18 }}>
-          {/* SBU Breakdown Table */}
           <div>
-            <div style={{ fontSize: 11.5, fontWeight: 900, color: '#0f2942', textTransform: 'uppercase', marginBottom: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: BRAND.deepBlue, textTransform: 'uppercase', marginBottom: 6, fontFamily: BRAND.fontHeading }}>
               1. Projects by Strategic Business Unit (SBU)
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '1px solid #cbd5e1' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: `1px solid ${BRAND.border}` }}>
               <thead>
-                <tr style={{ background: '#0f2942', color: '#ffffff' }}>
+                <tr style={{ background: BRAND.deepBlue, color: BRAND.white }}>
                   <th style={{ padding: '6px 8px', textAlign: 'left' }}>SBU</th>
                   <th style={{ padding: '6px 6px', textAlign: 'center' }}>Total</th>
                   <th style={{ padding: '6px 6px', textAlign: 'center' }}>Pending SMEAL</th>
@@ -382,13 +381,13 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
               </thead>
               <tbody>
                 {analytics.sbuSummary.map((s) => (
-                  <tr key={s.code} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '6px 8px', fontWeight: 800 }}>{s.code}</td>
-                    <td style={{ padding: '6px 6px', textAlign: 'center', fontWeight: 800 }}>{s.total}</td>
-                    <td style={{ padding: '6px 6px', textAlign: 'center', color: s.pendingSmeal > 0 ? '#b45309' : '#64748b', fontWeight: 700 }}>{s.pendingSmeal}</td>
-                    <td style={{ padding: '6px 6px', textAlign: 'center', color: '#15803d', fontWeight: 700 }}>{s.onTrack}</td>
-                    <td style={{ padding: '6px 6px', textAlign: 'center', color: s.atRisk > 0 ? '#c2410c' : '#64748b', fontWeight: 700 }}>{s.atRisk}</td>
-                    <td style={{ padding: '6px 6px', textAlign: 'center', color: s.overdue > 0 ? '#dc2626' : '#64748b', fontWeight: 800 }}>{s.overdue}</td>
+                  <tr key={s.code} style={{ borderBottom: `1px solid ${BRAND.border}` }}>
+                    <td style={{ padding: '6px 8px', fontWeight: 700 }}>{s.code}</td>
+                    <td style={{ padding: '6px 6px', textAlign: 'center', fontWeight: 700 }}>{s.total}</td>
+                    <td style={{ padding: '6px 6px', textAlign: 'center', color: s.pendingSmeal > 0 ? BRAND.orangeDark : BRAND.textMuted, fontWeight: 700 }}>{s.pendingSmeal}</td>
+                    <td style={{ padding: '6px 6px', textAlign: 'center', color: BRAND.lightBlue, fontWeight: 700 }}>{s.onTrack}</td>
+                    <td style={{ padding: '6px 6px', textAlign: 'center', color: s.atRisk > 0 ? BRAND.orange : BRAND.textMuted, fontWeight: 700 }}>{s.atRisk}</td>
+                    <td style={{ padding: '6px 6px', textAlign: 'center', color: s.overdue > 0 ? BRAND.orangeDark : BRAND.textMuted, fontWeight: 800 }}>{s.overdue}</td>
                     <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 700 }}>{formatEtb(s.value)}</td>
                   </tr>
                 ))}
@@ -396,14 +395,13 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
             </table>
           </div>
 
-          {/* Delivery Track Distribution */}
           <div>
-            <div style={{ fontSize: 11.5, fontWeight: 900, color: '#0f2942', textTransform: 'uppercase', marginBottom: 6 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: BRAND.deepBlue, textTransform: 'uppercase', marginBottom: 6, fontFamily: BRAND.fontHeading }}>
               2. Projects by Delivery Track / Stage
             </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '1px solid #cbd5e1' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: `1px solid ${BRAND.border}` }}>
               <thead>
-                <tr style={{ background: '#0f2942', color: '#ffffff' }}>
+                <tr style={{ background: BRAND.deepBlue, color: BRAND.white }}>
                   <th style={{ padding: '6px 8px', textAlign: 'left' }}>Delivery Stage</th>
                   <th style={{ padding: '6px 8px', textAlign: 'center' }}>Projects</th>
                   <th style={{ padding: '6px 8px', textAlign: 'right' }}>Value (ETB)</th>
@@ -411,9 +409,9 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
               </thead>
               <tbody>
                 {analytics.trackSummary.map((t) => (
-                  <tr key={t.stage} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                  <tr key={t.stage} style={{ borderBottom: `1px solid ${BRAND.border}` }}>
                     <td style={{ padding: '5px 8px', fontWeight: 600 }}>{t.stage}</td>
-                    <td style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 800 }}>{t.count}</td>
+                    <td style={{ padding: '5px 8px', textAlign: 'center', fontWeight: 700 }}>{t.count}</td>
                     <td style={{ padding: '5px 8px', textAlign: 'right', fontWeight: 700 }}>{formatEtb(t.value)}</td>
                   </tr>
                 ))}
@@ -424,17 +422,17 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
 
         {/* 3. Detailed Project Register with Deadline Status */}
         <div>
-          <div style={{ fontSize: 11.5, fontWeight: 900, color: '#0f2942', textTransform: 'uppercase', marginBottom: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: BRAND.deepBlue, textTransform: 'uppercase', marginBottom: 6, fontFamily: BRAND.fontHeading }}>
             3. Detailed Project Status, Track &amp; Deadline Register ({analytics.enriched.length})
           </div>
           {analytics.enriched.length === 0 ? (
-            <div style={{ padding: 20, textAlign: 'center', border: '1px dashed #cbd5e1', borderRadius: 8, fontSize: 12, color: '#64748b' }}>
+            <div style={{ padding: 20, textAlign: 'center', border: `1px dashed ${BRAND.border}`, borderRadius: 8, fontSize: 12, color: BRAND.textMuted }}>
               No signed projects registered in this scope yet.
             </div>
           ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5, border: '1px solid #cbd5e1' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10.5, border: `1px solid ${BRAND.border}` }}>
               <thead>
-                <tr style={{ background: '#f1f5f9', color: '#0f172a', borderBottom: '1px solid #cbd5e1' }}>
+                <tr style={{ background: BRAND.lightBlueTint, color: BRAND.deepBlue, borderBottom: `1px solid ${BRAND.lightBlueBorder}` }}>
                   <th style={{ padding: '6px 7px', textAlign: 'left' }}>Code / SBU</th>
                   <th style={{ padding: '6px 7px', textAlign: 'left' }}>Client &amp; Mandate</th>
                   <th style={{ padding: '6px 7px', textAlign: 'left' }}>Delivery Lead</th>
@@ -446,21 +444,28 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
               </thead>
               <tbody>
                 {analytics.enriched.map((p) => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    <td style={{ padding: '6px 7px', fontWeight: 800 }}>
-                      <div style={{ color: '#0284c7' }}>{p.project_code}</div>
-                      <div style={{ fontSize: 9.5, color: '#475569' }}>{p._sbuCode}</div>
+                  <tr key={p.id} style={{ borderBottom: `1px solid ${BRAND.border}` }}>
+                    <td style={{ padding: '6px 7px', fontWeight: 700 }}>
+                      <div style={{ color: BRAND.lightBlue }}>{p.project_code}</div>
+                      <div style={{ fontSize: 9.5, color: BRAND.textMuted }}>{p._sbuCode}</div>
                     </td>
                     <td style={{ padding: '6px 7px' }}>
-                      <div style={{ fontWeight: 800, color: '#0f172a' }}>{p.client_organization}</div>
-                      <div style={{ color: '#475569' }}>{p.project_title}</div>
+                      <div style={{ fontWeight: 700, color: BRAND.deepBlue }}>{p.client_organization}</div>
+                      <div style={{ color: BRAND.textMuted }}>{p.project_title}</div>
                     </td>
                     <td style={{ padding: '6px 7px' }}>{p.delivery_lead || 'Operations'}</td>
                     <td style={{ padding: '6px 7px', fontWeight: 700 }}>
                       {p.delivery_stage}
-                      <div style={{ fontSize: 9.5, color: '#64748b', fontWeight: 600 }}>Health: {p.health_status}</div>
+                      <div style={{ fontSize: 9.5, color: BRAND.textMuted, fontWeight: 600 }}>Health: {p.health_status}</div>
                     </td>
-                    <td style={{ padding: '6px 7px', textAlign: 'center', fontWeight: 800, color: p.smeal_approval_status === 'Approved' ? '#166534' : '#b45309' }}>
+                    <td
+                      style={{
+                        padding: '6px 7px',
+                        textAlign: 'center',
+                        fontWeight: 700,
+                        color: p.smeal_approval_status === 'Approved' ? BRAND.deepBlue : BRAND.orangeDark,
+                      }}
+                    >
                       {p.smeal_approval_status}
                     </td>
                     <td style={{ padding: '6px 7px', textAlign: 'center' }}>
@@ -469,10 +474,10 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
                         style={{
                           display: 'inline-block',
                           marginTop: 2,
-                          padding: '1px 6px',
+                          padding: '2px 6px',
                           borderRadius: 4,
                           fontSize: 9.5,
-                          fontWeight: 800,
+                          fontWeight: 700,
                           background: p._dl.bg,
                           color: p._dl.color,
                         }}
@@ -480,7 +485,7 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
                         {p._dl.label}
                       </span>
                     </td>
-                    <td style={{ padding: '6px 7px', textAlign: 'right', fontWeight: 800 }}>
+                    <td style={{ padding: '6px 7px', textAlign: 'right', fontWeight: 700 }}>
                       {formatEtb(p._val)}
                     </td>
                   </tr>
@@ -495,14 +500,14 @@ export default function SmealReportModal({ isOpen, onClose, projects = [], userP
           style={{
             marginTop: 14,
             paddingTop: 8,
-            borderTop: '1px solid #cbd5e1',
+            borderTop: `1px solid ${BRAND.border}`,
             display: 'flex',
             justifyContent: 'space-between',
             fontSize: 10,
-            color: '#64748b',
+            color: BRAND.textMuted,
           }}
         >
-          <span>Confidential — The i-Capital Africa Group SMEAL Governance Desk</span>
+          <span>Confidential — The i-Capital Africa Institute (icapitalafrica.org) • SMEAL Governance Desk</span>
           <span>Live Data Source: icapitalcrm.pro.et</span>
         </div>
       </div>
